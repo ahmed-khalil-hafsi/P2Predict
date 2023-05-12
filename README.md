@@ -16,7 +16,7 @@ The project is in active development. Contributions are welcome!
 To use P2Predict, simply clone the repository and run the main script with the desired options. 
 
 ```Python
-python main.py --file <CSV file path> --target <target column name> --algorithm <ridge, xgboost, or random_forest>
+python p2predict_train.py --file <CSV file path> --target <target column name> --algorithm <ridge, xgboost, or random_forest>
 ```
 
 ## Dependencies
