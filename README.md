@@ -13,7 +13,7 @@ The project is in active development. Contributions are welcome!
 - Model serialization for later use
 
 ## How to use
-To use P2Predict, simply clone the repository and run the main script with the desired options. 
+To use P2Predict, simply clone the repository and run the training script with the desired options. 
 
 ```Python
 python p2predict_train.py --file <CSV file path> --target <target column name> --algorithm <ridge, xgboost, or random_forest>
