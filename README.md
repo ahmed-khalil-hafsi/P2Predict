@@ -1,6 +1,8 @@
 # P2Predict
 
-P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. The project is in heavy active development - Contributions are welcome!
+P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
+
+The project is in heavy active development - Contributions are welcome!
 
 ## Features
 
