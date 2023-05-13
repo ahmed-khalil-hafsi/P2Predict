@@ -1,23 +1,30 @@
 # P2Predict
 
-P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
+P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
 
 The project is in heavy active development - Contributions are welcome!
 
+This project is not released for production yet.
+
 ## Features
 
-- Import data from a CSV file
-- Select relevant columns for analysis
-- Perform feature/impact analysis for the target variable (default: price)
-- Train a regressor on the selected features to predict the target variable
-- Display a scatter plot of predicted vs actual prices
-- Support for Ridge, XGBoost, and Random Forest regression algorithms
-- Display feature importances
-- Model serialization for later use
+#### Prediction
+- Predict prices (or any other target feature) based on a trained model
+
+#### Model Training
+- Import training data from a CSV file
+- Perform feature/impact analysis
+- Train a machine learning model on the selected features to predict the price (or any other target)
+- Show predicted vs actual prices
+- Support for Ridge, XGBoost, and Random Forest ML algorithms
+- Model Export & Import
+- Calculation of evaluation metrics (mean absolute error and R^2 scores are supported)
 
 ## How to Use
 
 To use P2Predict, follow these steps:
+
+### 0. Install dependencies
 
 ### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
