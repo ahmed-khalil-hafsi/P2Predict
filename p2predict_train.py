@@ -14,9 +14,8 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
 
-# Plotting
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Plotting Module
+import plotting
 
 # Model serialization
 import joblib
@@ -27,6 +26,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 from rich import print as rprint
+from rich.panel import Panel
 import click
 
 
@@ -36,18 +36,22 @@ def load_data(file):
 def select_columns(data, columns):
     return data[columns]
 
-def perform_analysis(data, target_column, algorithm):
+def prepare_data(data,target_column):
     # Separate the features and the target variable
     X = data.drop(target_column, axis=1)
     y = data[target_column]
 
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-
     # Identify categorical and numerical columns
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
     categorical_cols = X.select_dtypes(include=['object', 'bool']).columns
+
+
+    return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
+
+
+def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
     # Preprocessing for numerical data
     numerical_transformer = StandardScaler()
@@ -56,6 +60,7 @@ def perform_analysis(data, target_column, algorithm):
     categorical_transformer = Pipeline(steps=[
         ('onehot', OneHotEncoder(handle_unknown='ignore'))
     ])
+
 
     # Bundle preprocessing for numerical and categorical data
     preprocessor = ColumnTransformer(
@@ -82,62 +87,25 @@ def perform_analysis(data, target_column, algorithm):
     # Preprocessing of training data, fit model 
     my_pipeline.fit(X_train, y_train)
 
-    #Make predictions
-    predictions = my_pipeline.predict(X_test)
-
-    # Compute evaluation metric
-    mae = mean_absolute_error(y_test, predictions)
-    r2 = r2_score(y_test, predictions)
-
-    console.print(f'R^2 Score: {r2}', style='bold blue')
-    console.print(f'Mean Absolute Error: {mae}', style='bold blue')
-    
-    result = permutation_importance(my_pipeline, X, y, n_repeats=10, random_state=0)
-    importance_normalized = result.importances_mean / sum(result.importances_mean)
-    return importance_normalized, my_pipeline
-
+    #result = permutation_importance(my_pipeline, X, y, n_repeats=10, random_state=0)
+    #importance_normalized = result.importances_mean / sum(result.importances_mean)
     return my_pipeline
 
-def plot_results(y_test, y_pred):
-    # Scatter plot of predicted vs actual values
-    plt.figure(figsize=(14,6))
-    plt.subplot(1,2,1)
-    plt.scatter(y_test, y_pred)
-    plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red')
-    plt.title('Scatter Plot: Actual vs Predicted')
-    plt.xlabel('Actual Price')
-    plt.ylabel('Predicted Price')
+def compute_feature_importance(X,y,model):
+    result = permutation_importance(model, X, y, n_repeats=10, random_state=0)
+    importance_normalized = result.importances_mean / sum(result.importances_mean)
+    return importance_normalized
 
-    # Histogram of residuals
-    plt.subplot(1,2,2)
-    residuals = y_test - y_pred
-    sns.histplot(residuals)
-    plt.title('Histogram of Residuals')
-    plt.xlabel('Residuals')
+def evaluate_model(X_test,y_test,model):
+    # Compute predictions on the test dataset   
+    predictions = model.predict(X_test)
 
-    # Show the plots
-    plt.tight_layout()
-    plt.show()
+    # Compute evaluation metrics
+    mae = mean_absolute_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
+    return mae,r2
 
-    # Residuals plot
-    plt.figure()
-    sns.residplot(x=y_pred, y=residuals, lowess=True, color='g')
-    plt.title('Residuals vs Predicted')
-    plt.xlabel('Predicted Price')
-    plt.ylabel('Residuals')
 
-    # Show the plot
-    plt.show()
-
-    # Prediction Error Plot
-    plt.figure()
-    plt.scatter(y_pred, residuals)
-    plt.xlabel('Predicted Price')
-    plt.ylabel('Prediction Error')
-    plt.title('Prediction Error vs Predicted')
-
-    # Show the plot
-    plt.show()
 
 console = Console()
 
@@ -151,26 +119,61 @@ def plot_importances(feature_importances, feature_names):
 
     console.print(table)
 
+def plot_input_data_types(data):
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Feature")
+    table.add_column("Type")
+
+    for col, dtype in data.dtypes.items():
+        if dtype == 'object':
+            dtype = 'text'
+        elif dtype == 'int64':
+            dtype = 'numerical: integer'
+        elif dtype == 'float64':
+            dtype = 'numerical: float'
+        table.add_row(col, dtype)
+    console.print(table)
+
 @click.command()
-@click.option('--file', prompt='Enter CSV file path')
+@click.option('--input', type=click.Path(exists=True), prompt='Enter CSV file path')
 @click.option('--target', prompt='Enter target column')
 @click.option('--algorithm', prompt='Enter regression algorithm (ridge, xgboost, random_forest)')
-def main(file, target, algorithm):
-    console.print(art.text2art("P2Predict",font="wizard"), style="bold red")  # print ASCII Art
+def main(input, target, algorithm):
+    
+    console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
     #file = Prompt.ask('Enter CSV file path: ')
+    file = input
     data = load_data(file)
-    print('Columns:', data.columns)
-    selected_columns = Prompt.ask('Enter relevant columns (comma-separated): ').split(',')
+
+    console.print('Columns: ')
+    plot_input_data_types(data)
+
+    selected_columns = Prompt.ask('Which features you want to use for training?').split(',')
     target_column = target #Prompt.ask('Enter target column: ')
     data = select_columns(data, selected_columns)
-    #algorithm = Prompt.ask('Enter regression algorithm (ridge, xgboost, random_forest): ')
-    feature_importances, model = perform_analysis(data, target_column, algorithm)
-    plot_importances(feature_importances, data.drop(target_column, axis=1).columns)
 
-    X_train, X_test, y_train, y_test = train_test_split(data.drop(target_column, axis=1), data[target_column], test_size=0.2, random_state=0)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    plot_results(y_test, y_pred)
+    
+
+    X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,target_column)
+
+    #algorithm = Prompt.ask('Enter regression algorithm (ridge, xgboost, random_forest): ')
+    console.print("Training the model, this may take a few minutes...", style="blue")
+
+    model = train_model(X_train,y_train,numerical_cols,categorical_cols,algorithm)
+
+    #feature_importances = compute_feature_importance(data,target_column,model)
+    #plot_importances(feature_importances, data.drop(target_column, axis=1).columns)
+
+    mae,r2 = evaluate_model(X_test,y_test,model)
+
+    console.print(f'R^2 Score: {r2}', style='bold blue')
+    console.print(f'Mean Absolute Error: {mae}', style='bold blue')
+
+
+    y_prediction = model.predict(X_test)
+
+    plotting.plot_results_console(y_test,y_prediction)
+
     save_b = Prompt.ask('Do you want to save the model? (Y/n) ')
     if save_b == 'Y':
         model_name = Prompt.ask('Enter model name: ')
