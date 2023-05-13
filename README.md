@@ -70,7 +70,7 @@ To use P2Predict, follow these steps:
      python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
      ```
 
-     This command uses the model saved in `models/ridge_weight_region_price.model` to predict the price for an object with a weight of 25g and located in region 5. Make sure the model accepts the same features in the correct order. The model in this example was trained using `p2predict_train`, using `weight_g` and `region` as training features.
+     This command uses the model saved in `models/ridge_weight_region_price.model` to predict the price for an object with a weight of 25g and located in region 5. Make sure the model accepts the same features and also in the same order. The model in this example was trained using `p2predict_train`, using `weight_g` and `region` as training features.
 
 ## Dependencies
 
