@@ -25,7 +25,8 @@ This project is not released for production yet.
 To use P2Predict, follow these steps:
 
 ### 0. Install dependencies
-
+   - Install the required dependencies listed in the `Dependencies` section.
+   
 ### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
    - Remove any blanks or gaps in the data (empty columns, empty cells, etc.).
