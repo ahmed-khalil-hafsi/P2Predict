@@ -43,10 +43,9 @@ def prepare_data(data,target_column):
 
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-    # Identify categorical and numerical columns
+    # Identify categorical and numerical columns - for now this is automated. TODO: Let user select which columns are categorical and which are numerical
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
     categorical_cols = X.select_dtypes(include=['object', 'bool']).columns
-
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
 
@@ -86,6 +85,26 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
     # Preprocessing of training data, fit model 
     my_pipeline.fit(X_train, y_train)
+
+       # Define the model
+    if algorithm == 'ridge':
+        importance = model.coef_
+    elif algorithm == 'xgboost':
+        importance = model.feature_importances_
+    elif algorithm == 'random_forest':
+        importance = model.feature_importances_
+    else:
+        raise ValueError(f'Unknown algorithm: {algorithm}') 
+    
+    
+    feature_names = X_train.columns.tolist()
+    feature_importances = zip(feature_names, importance)
+    sorted_feature_importances = sorted(feature_importances, key = lambda x: abs(x[1]), reverse=True)
+
+    for feature, importance in sorted_feature_importances:
+        console.print(f"Feature: {feature}, Importance: {importance}")
+
+    
 
     #result = permutation_importance(my_pipeline, X, y, n_repeats=10, random_state=0)
     #importance_normalized = result.importances_mean / sum(result.importances_mean)
@@ -179,6 +198,26 @@ def main(input, target, algorithm):
         model_name = Prompt.ask('Enter model name: ')
         # Save the model as a pickle file
         joblib.dump(model, model_name)
+
+
+def check_normalization(data):
+    console = Console()
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Feature")
+    table.add_column("Min")
+    table.add_column("Max")
+    table.add_column("Mean")
+    table.add_column("Standard Deviation")
+
+    for col in data.columns:
+        min_val = data[col].min()
+        max_val = data[col].max()
+        mean_val = data[col].mean()
+        std_val = data[col].std()
+
+        table.add_row(col, str(min_val), str(max_val), str(mean_val), str(std_val))
+
+    console.print(table)
 
 
 if __name__ == '__main__':
