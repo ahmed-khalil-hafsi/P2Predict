@@ -95,3 +95,8 @@ For data examples, check `dummy/example.csv`.
 ## Contributing
 
 We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
+I am especially looking for example data sets for various commodities. If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+
+## Sponsoring
+
+I work on open source projects during my free time. If you think this projects adds value to the procurement community, please consider sponsoring a donation!
