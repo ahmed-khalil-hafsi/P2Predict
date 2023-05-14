@@ -33,7 +33,7 @@ import click
 def load_data(file):
     return pd.read_csv(file)
 
-def select_columns(data, columns):
+def select_features(data, columns):
     return data[columns]
 
 def prepare_data(data,target_column):
@@ -138,7 +138,7 @@ def plot_importances(feature_importances, feature_names):
 
     console.print(table)
 
-def plot_input_data_types(data):
+def output_features(data):
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Feature")
     table.add_column("Type")
@@ -159,40 +159,43 @@ def plot_input_data_types(data):
 @click.option('--algorithm', prompt='Enter regression algorithm (ridge, xgboost, random_forest)')
 def main(input, target, algorithm):
     
+    
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
-    #file = Prompt.ask('Enter CSV file path: ')
+    
+
+    # Get input CSV file
     file = input
     data = load_data(file)
 
+    # Show file columns and column types
     console.print('Columns: ')
-    plot_input_data_types(data)
+    output_features(data)
 
-    selected_columns = Prompt.ask('Which features you want to use for training?').split(',')
-    target_column = target #Prompt.ask('Enter target column: ')
-    data = select_columns(data, selected_columns)
+    #Select columns to use
+    selected_columns = Prompt.ask('Which columns do you want to include? (This should include also the feature to predicted:) ').split(',')
+    target_column = target
+    data = select_features(data, selected_columns)
 
-    
-
+    # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,target_column)
 
-    #algorithm = Prompt.ask('Enter regression algorithm (ridge, xgboost, random_forest): ')
+    # Start model training
     console.print("Training the model, this may take a few minutes...", style="blue")
-
     model = train_model(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
     #feature_importances = compute_feature_importance(data,target_column,model)
     #plot_importances(feature_importances, data.drop(target_column, axis=1).columns)
 
+    # Calculate model accuracy
     mae,r2 = evaluate_model(X_test,y_test,model)
-
     console.print(f'R^2 Score: {r2}', style='bold blue')
     console.print(f'Mean Absolute Error: {mae}', style='bold blue')
 
-
+    # Plot result graphs
     y_prediction = model.predict(X_test)
-
     plotting.plot_results_console(y_test,y_prediction)
 
+    # Model export
     save_b = Prompt.ask('Do you want to save the model? (Y/n) ')
     if save_b == 'Y':
         model_name = Prompt.ask('Enter model name: ')
