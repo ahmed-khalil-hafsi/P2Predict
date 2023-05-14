@@ -27,6 +27,7 @@ from rich.table import Table
 from rich.prompt import Prompt
 from rich import print as rprint
 from rich.panel import Panel
+from rich.pretty import Pretty
 import click
 
 
@@ -36,16 +37,27 @@ def load_data(file):
 def select_features(data, columns):
     return data[columns]
 
+def get_column_statistics(data,feature_columns):
+    stats = {}
+    for i in feature_columns:
+        skewness = data[i].skew()
+        kurtosis = data[i].kurt()
+        stats[i] = {'skewness':skewness,'kurtosis': kurtosis}
+    return stats
+
 def prepare_data(data,target_column):
     # Separate the features and the target variable
     X = data.drop(target_column, axis=1)
     y = data[target_column]
 
-    # Split the data into training and test sets
+    # Split the data into training (80%) and test sets (20%)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
     # Identify categorical and numerical columns - for now this is automated. TODO: Let user select which columns are categorical and which are numerical
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
     categorical_cols = X.select_dtypes(include=['object', 'bool']).columns
+
+    column_stats = get_column_statistics(X,numerical_cols)
+    console.print(Pretty(column_stats))
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
 
@@ -172,7 +184,7 @@ def main(input, target, algorithm):
     output_features(data)
 
     #Select columns to use
-    selected_columns = Prompt.ask('Which columns do you want to include? (This should include also the feature to predicted:) ').split(',')
+    selected_columns = Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
     target_column = target
     data = select_features(data, selected_columns)
 
