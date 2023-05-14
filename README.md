@@ -1,6 +1,6 @@
 # P2Predict
-P2Predict is An open-source Python program for advanced procurement price prediction. It employs sophisticated machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
-The project is in active development. Contributions are welcome!
+P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
+The project is in heavy active development - Contributions are welcome!
 
 ## Features
 - Import data from a CSV file
@@ -36,6 +36,7 @@ python main.py --file data.csv --target price --algorithm ridge
 ```
 
 This command will load data from `data.csv`, use `price` as the target column, and apply Ridge regression.
+For data examples, check `dummy/example.csv`
 
 ## Contributing
 We welcome contributions to P2Predict! Please feel free to open an issue or submit a pull request if you have a feature you'd like to add, or if you've found a bug.
