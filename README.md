@@ -1,8 +1,9 @@
 # P2Predict
-P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
-The project is in heavy active development - Contributions are welcome!
+
+P2Predict is an open-source Python program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. The project is in heavy active development - Contributions are welcome!
 
 ## Features
+
 - Import data from a CSV file
 - Select relevant columns for analysis
 - Perform feature/impact analysis for the target variable (default: price)
@@ -12,54 +13,57 @@ The project is in heavy active development - Contributions are welcome!
 - Display feature importances
 - Model serialization for later use
 
-## How to use
-To use P2Predict, you need the following steps:
+## How to Use
 
-1) Prepre the data for training
-  - Make sure your data is in a CSV format
-  - Make sure you don't have any blanks or gaps in the data (empty columns, empty cells, ...)
-  - Make sure you don't have any erros in the data (#NAs and such)
-  - Make sure you don't have any text in columns where a number is expected
-  
-2) Train a machine learning model
-To train a new model, you have the use the tool `p2predict_train.py`. The tool accepts the following arguments:
- 
-Usage: p2predict_train.py [OPTIONS]
+To use P2Predict, follow these steps:
 
-Options:
-  --input PATH This is the path to your input CSV file
-  --target TEXT This is the name of the feature you need to predict (i.e. Price)
-  --algorithm TEXT Choose the machine learning algorithm to be used: <ridge, xgboost, or random_forest>
-  --help            Show this message and exit.
-  
-Example:
+1. Prepare the data for training:
+   - Ensure your data is in a CSV format.
+   - Remove any blanks or gaps in the data (empty columns, empty cells, etc.).
+   - Address any errors in the data (e.g., #NAs).
+   - Verify that numeric columns do not contain text.
 
-```Python
-python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
-```
-This would train a model based on data found in `dummy/example.csv`, using the `ridge` algorithm and taking `Price` as a target feature (i.e. the model will predict prices)
+2. Train a machine learning model:
+   - Use the `p2predict_train.py` tool to train a new model.
+   - The tool accepts the following arguments:
 
-3) Use the model to predict prices
-To predict a new price using a model already trained, you have to use the tool `p2predict.py`. The tool accepts the following arguments:
+     ```bash
+     python3 p2predict_train.py --input PATH --target TEXT --algorithm TEXT
+     ```
 
-Usage: p2predict.py [OPTIONS]
+     - `--input PATH`: Path to your input CSV file.
+     - `--target TEXT`: Name of the feature to predict (e.g., "Price").
+     - `--algorithm TEXT`: Choose the machine learning algorithm to be used: "ridge", "xgboost", or "random_forest".
 
-Options:
-  --model PATH this is the path to the trained model
-  --features TEXT this is a comma separated key:value list that has the input features 
-  --help           Show this message and exit.
+     Example:
 
+     ```bash
+     python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
+     ```
 
-Example:
+     This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, and `Price` as the target feature.
 
-```Python
-python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
-```
+3. Use the model to predict prices:
+   - Use the `p2predict.py` tool to predict a new price using a trained model.
+   - The tool accepts the following arguments:
 
-This would use the model saved in `models/ridge_weight_region_price.model` in order to predict the Price for an object with a weight_g of 25 and is in region 5.
-Make sure that the model accepts exactly the same features in the right order. The model in this example has been trained using p2predict_train using weight_g and region as training features.
+     ```bash
+     python3 p2predict.py --model PATH --features TEXT
+     ```
+
+     - `--model PATH`: Path to the trained model.
+     - `--features TEXT`: Comma-separated key:value list of input features.
+
+     Example:
+
+     ```bash
+     python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
+     ```
+
+     This command uses the model saved in `models/ridge_weight_region_price.model` to predict the price for an object with a weight of 25g and located in region 5. Make sure the model accepts the same features in the correct order. The model in this example was trained using `p2predict_train`, using `weight_g` and `region` as training features.
 
 ## Dependencies
+
 - pandas
 - sklearn
 - xgboost
@@ -70,11 +74,10 @@ Make sure that the model accepts exactly the same features in the right order. T
 - rich
 - click
 
-
 ## Data
-For data examples, check `dummy/example.csv`
+
+For data examples, check `dummy/example.csv`.
 
 ## Contributing
-We welcome contributions to P2Predict! Please feel free to open an issue or submit a pull request if you have a feature you'd like to add, or if you've found a bug.
 
-
+We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
