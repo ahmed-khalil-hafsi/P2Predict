@@ -95,7 +95,8 @@ For data examples, check `dummy/example.csv`.
 ## Contributing
 
 We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
-I am especially looking for example data sets for various commodities (examples: electronic ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+
+I am especially looking for data sets for various commodities (examples: electronic ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
 
 ## Sponsoring
 
