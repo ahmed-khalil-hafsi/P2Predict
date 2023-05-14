@@ -13,10 +13,46 @@ The project is in heavy active development - Contributions are welcome!
 - Model serialization for later use
 
 ## How to use
-To use P2Predict, simply clone the repository and run the training script with the desired options. 
+To use P2Predict, you need the following steps:
+
+1) Prepre the data for training
+  - Make sure your data is in a CSV format
+  - Make sure you don't have any blanks or gaps in the data (empty columns, empty cells, ...)
+  - Make sure you don't have any erros in the data (#NAs and such)
+  - Make sure you don't have any text in columns where a number is expected
+  
+2) Train a machine learning model
+  To train a new model, you have the use the tool `p2predict_train.py`. The tool accepts the following arguments:
+  ```Python
+  Usage: p2predict_train.py [OPTIONS]
+
+  Options:
+    --input PATH This is the path to your input CSV file
+    --target TEXT This is the name of the feature you need to predict (i.e. Price)
+    --algorithm TEXT Choose the machine learning algorithm to be used: <ridge, xgboost, or random_forest>
+    --help            Show this message and exit.
+  ```
+  
+  Example:
+
+  ```Python
+  python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
+  ```
+3) Use the model to predict prices
+To predict a new price using a model already trained, you have to use the tool `p2predict.py`. The tool accepts the following arguments:
+```Python
+Usage: p2predict.py [OPTIONS]
+
+Options:
+  --model PATH this is the path to the trained model
+  --features TEXT this is a comma separated key:value list that has the input features 
+  --help           Show this message and exit.
+```
+
+Example:
 
 ```Python
-python p2predict_train.py --file <CSV file path> --target <target column name> --algorithm <ridge, xgboost, or random_forest>
+python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
 ```
 
 ## Dependencies
@@ -30,12 +66,8 @@ python p2predict_train.py --file <CSV file path> --target <target column name> -
 - rich
 - click
 
-## Example
-```Python
-python main.py --file data.csv --target price --algorithm ridge
-```
 
-This command will load data from `data.csv`, use `price` as the target column, and apply Ridge regression.
+## Data
 For data examples, check `dummy/example.csv`
 
 ## Contributing
