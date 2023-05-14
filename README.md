@@ -17,13 +17,13 @@ P2Predict is an open-source Python program for advanced procurement price predic
 
 To use P2Predict, follow these steps:
 
-1. Prepare the data for training:
+### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
    - Remove any blanks or gaps in the data (empty columns, empty cells, etc.).
    - Address any errors in the data (e.g., #NAs).
    - Verify that numeric columns do not contain text.
 
-2. Train a machine learning model:
+### 2. Train your model
    - Use the `p2predict_train.py` tool to train a new model.
    - The tool accepts the following arguments:
 
@@ -43,7 +43,7 @@ To use P2Predict, follow these steps:
 
      This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, and `Price` as the target feature.
 
-3. Use the model to predict prices:
+### 3. Use the model to predict prices
    - Use the `p2predict.py` tool to predict a new price using a trained model.
    - The tool accepts the following arguments:
 
