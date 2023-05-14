@@ -6,6 +6,10 @@ The project is in heavy active development - Contributions are welcome!
 
 This project is not released for production yet.
 
+As I work on core features first, this program is targetting procurement & commodity managers that are fairly technical. At this stage, p2predict is not polished for the non-technical business user.
+
+This software is released under the MIT license. See `LICENSE` for the license details.
+
 ## Features
 
 #### Prediction
