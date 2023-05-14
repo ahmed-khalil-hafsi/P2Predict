@@ -24,7 +24,7 @@ This software is released under the MIT license. See `LICENSE` for the license d
 - Calculation of evaluation metrics (mean absolute error and R^2 scores are supported)
 
 ### Plotting
-- Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction error, ...)
+- Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction errors, ...)
 
 ![alt text](./documentation/model_perf_plot.png)
 
