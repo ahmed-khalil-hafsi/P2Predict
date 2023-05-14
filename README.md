@@ -22,38 +22,42 @@ To use P2Predict, you need the following steps:
   - Make sure you don't have any text in columns where a number is expected
   
 2) Train a machine learning model
-  To train a new model, you have the use the tool `p2predict_train.py`. The tool accepts the following arguments:
-  ```Python
-  Usage: p2predict_train.py [OPTIONS]
+To train a new model, you have the use the tool `p2predict_train.py`. The tool accepts the following arguments:
+ 
+Usage: p2predict_train.py [OPTIONS]
 
-  Options:
-    --input PATH This is the path to your input CSV file
-    --target TEXT This is the name of the feature you need to predict (i.e. Price)
-    --algorithm TEXT Choose the machine learning algorithm to be used: <ridge, xgboost, or random_forest>
-    --help            Show this message and exit.
-  ```
+Options:
+  --input PATH This is the path to your input CSV file
+  --target TEXT This is the name of the feature you need to predict (i.e. Price)
+  --algorithm TEXT Choose the machine learning algorithm to be used: <ridge, xgboost, or random_forest>
+  --help            Show this message and exit.
   
-  Example:
+Example:
 
-  ```Python
-  python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
-  ```
+```Python
+python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
+```
+This would train a model based on data found in `dummy/example.csv`, using the `ridge` algorithm and taking `Price` as a target feature (i.e. the model will predict prices)
+
 3) Use the model to predict prices
 To predict a new price using a model already trained, you have to use the tool `p2predict.py`. The tool accepts the following arguments:
-```Python
+
 Usage: p2predict.py [OPTIONS]
 
 Options:
   --model PATH this is the path to the trained model
   --features TEXT this is a comma separated key:value list that has the input features 
   --help           Show this message and exit.
-```
+
 
 Example:
 
 ```Python
 python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
 ```
+
+This would use the model saved in `models/ridge_weight_region_price.model` in order to predict the Price for an object with a weight_g of 25 and is in region 5.
+Make sure that the model accepts exactly the same features in the right order. The model in this example has been trained using p2predict_train using weight_g and region as training features.
 
 ## Dependencies
 - pandas
