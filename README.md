@@ -19,10 +19,13 @@ This software is released under the MIT license. See `LICENSE` for the license d
 - Import training data from a CSV file
 - Perform feature/impact analysis
 - Train a machine learning model on the selected features to predict the price (or any other target)
-- Show predicted vs actual prices
 - Support for Ridge, XGBoost, and Random Forest ML algorithms
 - Model Export & Import
 - Calculation of evaluation metrics (mean absolute error and R^2 scores are supported)
+
+### Plotting
+- create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction error, ...)
+![alt text](./documentation/model_perf_plot.png)
 
 ## How to Use
 
