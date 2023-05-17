@@ -2,6 +2,8 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import mpld3
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 
 def plot_results_html(y_test, y_pred):
@@ -48,42 +50,51 @@ def plot_results_html(y_test, y_pred):
     plt.close('all')  # close all open plots
 
 def plot_results_console(y_test, y_pred):
+    with PdfPages('model_capability.pdf') as pdf:
     # Scatter plot of predicted vs actual values
-    plt.figure(figsize=(14,6))
-    plt.subplot(1,2,1)
-    plt.scatter(y_test, y_pred)
-    plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red')
-    plt.title('Scatter Plot: Actual vs Predicted')
-    plt.xlabel('Actual Price')
-    plt.ylabel('Predicted Price')
+        plt.figure(figsize=(14,6))
+        plt.subplot(1,2,1)
+        plt.scatter(y_test, y_pred)
+        plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red')
+        plt.title('Scatter Plot: Actual vs Predicted')
+        plt.xlabel('Actual Price')
+        plt.ylabel('Predicted Price')
 
-    # Histogram of residuals
-    plt.subplot(1,2,2)
-    residuals = y_test - y_pred
-    sns.histplot(residuals)
-    plt.title('Histogram of Residuals')
-    plt.xlabel('Residuals')
+        # Histogram of residuals
+        plt.subplot(1,2,2)
+        residuals = y_test - y_pred
+        sns.histplot(residuals)
+        plt.title('Histogram of Residuals')
+        plt.xlabel('Residuals')
 
-    # Show the plots
-    plt.tight_layout()
-    plt.show()
+        # Show the plots
+        plt.tight_layout()
+        #plt.show()
+        pdf.savefig()  # saves the current figure into a pdf page
+        plt.close()
 
-    # Residuals plot
-    plt.figure()
-    sns.residplot(x=y_pred, y=residuals, lowess=True, color='g')
-    plt.title('Residuals vs Predicted')
-    plt.xlabel('Predicted Price')
-    plt.ylabel('Residuals')
+        # Residuals plot
+        plt.figure(figsize=(14,6))
+        plt.subplot(1,2,1)
+        sns.residplot(x=y_pred, y=residuals, lowess=True, color='g')
+        plt.title('Residuals vs Predicted')
+        plt.xlabel('Predicted Price')
+        plt.ylabel('Residuals')
 
-    # Show the plot
-    plt.show()
+        # Show the plot
+        # plt.show()
+        #pdf.savefig()  # saves the current figure into a pdf page
+        #plt.close()
 
-    # Prediction Error Plot
-    plt.figure()
-    plt.scatter(y_pred, residuals)
-    plt.xlabel('Predicted Price')
-    plt.ylabel('Prediction Error')
-    plt.title('Prediction Error vs Predicted')
+        # Prediction Error Plot
+        #plt.figure()
+        plt.subplot(1,2,2)
+        plt.scatter(y_pred, residuals)
+        plt.xlabel('Predicted Price')
+        plt.ylabel('Prediction Error')
+        plt.title('Prediction Error vs Predicted')
 
-    # Show the plot
-    plt.show()
+        # Show the plot
+        #plt.show()
+        pdf.savefig()  # saves the current figure into a pdf page
+        plt.close()
