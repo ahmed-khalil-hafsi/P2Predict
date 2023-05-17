@@ -6,7 +6,7 @@ The project is in heavy active development - Contributions are welcome!
 
 This project is not released for production yet.
 
-As I work on core features first, this program is targetting procurement & commodity managers that are fairly technical. At this stage, p2predict is not polished for the non-technical business user.
+As I work on core features first, this program is targetting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
 
 This software is released under the MIT license. See `LICENSE` for the license details.
 
@@ -95,3 +95,9 @@ For data examples, check `dummy/example.csv`.
 ## Contributing
 
 We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
+
+I am especially looking for data sets for various commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+
+## Sponsoring
+
+I work on open source projects during my free time. If you think this projects adds value to the procurement community, please consider sponsoring a donation!
