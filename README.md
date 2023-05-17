@@ -102,6 +102,6 @@ We welcome contributions to P2Predict! If you have a feature you'd like to add o
 
 I am especially looking for data sets for various commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
 
-## Sponsoring
+## Become a sponsor!
 
 I work on open source projects during my free time. If you think this projects adds value to the procurement community, please consider sponsoring a donation!
