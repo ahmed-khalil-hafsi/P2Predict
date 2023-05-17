@@ -16,6 +16,7 @@ from sklearn.metrics import r2_score
 
 # Plotting Module
 import plotting
+import webbrowser
 
 # Model serialization
 import joblib
@@ -204,13 +205,17 @@ def main(input, target, algorithm):
     console.print(f'Mean Absolute Error: {mae}', style='bold blue')
 
     # Plot result graphs
-    y_prediction = model.predict(X_test)
-    plotting.plot_results_console(y_test,y_prediction)
+    export_pdf = Prompt.ask("Do you want to generate the model quality report? (Y,n) ")
+    if export_pdf == 'Y':
+        file_name = Prompt.ask('Enter file name: (.pdf) ')
+        y_prediction = model.predict(X_test)
+        plotting.plot_results_pdf(y_test,y_prediction,file_name)
+        webbrowser.open(file_name)
 
     # Model export
     save_b = Prompt.ask('Do you want to save the model? (Y/n) ')
     if save_b == 'Y':
-        model_name = Prompt.ask('Enter model name: ')
+        model_name = Prompt.ask('Enter model name: (.model) ')
         # Save the model as a pickle file
         joblib.dump(model, model_name)
 
