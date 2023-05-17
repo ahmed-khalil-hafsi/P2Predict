@@ -25,7 +25,7 @@ This software is released under the MIT license. See `LICENSE` for the license d
 
 ### Plotting
 - Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction error, ...)
-Example:
+
 ![alt text](./documentation/model_perf_plot.png)
 
 ## How to Use
