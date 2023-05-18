@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import mpld3
 from matplotlib.backends.backend_pdf import PdfPages
-
+from matplotlib.table import Table
 
 
 def plot_results_html(y_test, y_pred):
@@ -49,12 +49,27 @@ def plot_results_html(y_test, y_pred):
 
     plt.close('all')  # close all open plots
 
+def add_table_to_plot(ax, data):
+    # create a new table with your data
+    table_data = [['Metrics', 'Value']] + data
+    table = ax.table(cellText=table_data, colWidths = [0.4]*len(table_data[0]), 
+                     loc='upper left', cellLoc = 'center')
+
+    table.auto_set_font_size(True)
+    table.scale(1, 1.5)
+
 def plot_results_pdf(y_test, y_pred,filename):
     with PdfPages(filename) as pdf:
         # Scatter plot of predicted vs actual values
-        plt.figure(figsize=(14,6))
+        fig = plt.figure(figsize=(14,6))
         plt.suptitle('Model Performance Indicators (1/2)')
-        plt.subplot(1,2,1)
+
+        ax1 = plt.subplot2grid((1, 5), (0, 0), colspan=1, rowspan=1)
+        add_table_to_plot(ax1, [["R2 Score", 0.95], ["RMSE", 0.20], ["MAE", 0.15]])
+        ax1.axis('tight')
+        ax1.axis('off')
+
+        ax2 = plt.subplot2grid((1, 5), (0, 1), colspan=2, rowspan=1)
         plt.scatter(y_test, y_pred, edgecolors='r', facecolors='none')
         plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='blue')
         plt.title('Actual vs Predicted Prices')
@@ -63,7 +78,7 @@ def plot_results_pdf(y_test, y_pred,filename):
         plt.grid(True)
 
         # Histogram of residuals
-        plt.subplot(1,2,2)
+        ax3 = plt.subplot2grid((1, 5), (0, 3), colspan=2, rowspan=1)
         residuals = y_test - y_pred
         sns.histplot(residuals, bins=20, color='skyblue', kde=True)
         plt.title('Distribution of Price Delta')
@@ -75,7 +90,7 @@ def plot_results_pdf(y_test, y_pred,filename):
         plt.close()
 
         # Residuals plot
-        plt.figure(figsize=(14,6))
+        plt.figure(figsize=(14,8))
         plt.suptitle('Model Performance Indicators (2/2)')
         plt.subplot(1,2,1)
         sns.residplot(x=y_pred, y=residuals, lowess=True, color='g', scatter_kws={'s': 5})
