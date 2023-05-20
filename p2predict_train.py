@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -13,6 +14,7 @@ from xgboost import XGBRegressor
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
+from p2predict_feature_selection import get_most_predictable_features
 
 # Plotting Module
 import plotting
@@ -61,6 +63,9 @@ def prepare_data(data,target_column):
     console.print(Pretty(column_stats))
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
+
+
+
 
 
 def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
@@ -180,9 +185,15 @@ def main(input, target, algorithm):
     file = input
     data = load_data(file)
 
+    # Determine features with highest predictable ability
+    copy_data = data
+    best_columns = get_most_predictable_features(copy_data,target)
+    console.print("Best features detected for prediction: ")
+    console.print(best_columns)
+
     # Show file columns and column types
-    console.print('Columns: ')
-    output_features(data)
+    # console.print('Columns: ')
+    # output_features(data,best_columns)
 
     #Select columns to use
     selected_columns = Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
@@ -207,10 +218,9 @@ def main(input, target, algorithm):
     # Plot result graphs
     export_pdf = Prompt.ask("Do you want to generate the model quality report? (Y,n) ")
     if export_pdf == 'Y':
-        file_name = Prompt.ask('Enter file name: (.pdf) ')
+        file_name = Prompt.ask('Enter PDF name: (.pdf) ')
         y_prediction = model.predict(X_test)
         plotting.plot_results_pdf(y_test,y_prediction,file_name)
-        webbrowser.open(file_name)
 
     # Model export
     save_b = Prompt.ask('Do you want to save the model? (Y/n) ')
