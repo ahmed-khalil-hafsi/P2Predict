@@ -33,7 +33,7 @@ This software is released under the MIT license. See `LICENSE` for the license d
 To use P2Predict, follow these steps:
 
 ### 0. Install dependencies
-   - Install the required dependencies listed in the `Dependencies` section.
+   - Install the required dependencies by involking `pip install -r requirements.txt`
    
 ### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
