@@ -32,6 +32,7 @@ from rich import print as rprint
 from rich.panel import Panel
 from rich.pretty import Pretty
 import click
+import questionary
 
 
 def load_data(file):
@@ -148,8 +149,8 @@ console = Console()
 
 def plot_importances(feature_importances, feature_names):
     table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Feature")
-    table.add_column("Importance (%)")
+    table.add_column("Feature", overflow="fold", width=50)  # Adjust the width as necessary
+    table.add_column("Importance (%)", justify="right")
 
     for i in range(len(feature_importances)):
         table.add_row(feature_names[i], str(round(feature_importances[i] * 100, 2)) + "%")
@@ -172,14 +173,25 @@ def output_features(data):
     console.print(table)
 
 @click.command()
-@click.option('--input', type=click.Path(exists=True), prompt='Enter CSV file path')
-@click.option('--target', prompt='Enter target column')
-@click.option('--algorithm', prompt='Enter regression algorithm (ridge, xgboost, random_forest)')
-def main(input, target, algorithm):
+@click.option('--input', type=click.Path(exists=True), default=None, help='Dataset used for the training. This must be a CSV file.')
+@click.option('--target',help='This is the column name that refers to the price in your dataset.')
+@click.option('--algorithm')
+@click.option('--silent', is_flag=True, default=False, help='Run in silent mode without interactive prompts.')
+def main(input, target, algorithm, silent):
     
     
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
     
+    if not silent:
+        if not input:
+            input = questionary.path('Enter CSV file path').ask()
+        if not target:
+            target = questionary.text('Enter target column').ask()
+        if not algorithm:
+            algorithm = questionary.select(
+                'Choose a regression algorithm:',
+                choices=['ridge', 'xgboost', 'random_forest']
+            ).ask()
 
     # Get input CSV file
     file = input
@@ -196,7 +208,11 @@ def main(input, target, algorithm):
     # output_features(data,best_columns)
 
     #Select columns to use
-    selected_columns = Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
+    selected_columns =  questionary.checkbox(
+                'Which columns do you want to include? This should include also the feature to be predicted: ',
+                choices= data.columns.tolist()
+            ).ask()
+    #Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
     target_column = target
     data = select_features(data, selected_columns)
 
@@ -212,22 +228,25 @@ def main(input, target, algorithm):
 
     # Calculate model accuracy
     mae,r2 = evaluate_model(X_test,y_test,model)
-    console.print(f'R^2 Score: {r2}', style='bold blue')
-    console.print(f'Mean Absolute Error: {mae}', style='bold blue')
+    console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
+    console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
-    # Plot result graphs
-    export_pdf = Prompt.ask("Do you want to generate the model quality report? (Y,n) ")
-    if export_pdf == 'Y':
-        file_name = Prompt.ask('Enter PDF name: (.pdf) ')
-        y_prediction = model.predict(X_test)
-        plotting.plot_results_pdf(y_test,y_prediction,file_name)
+    # Plot result graphs (silent mode does not produce these)
+    if not silent:
+        export_pdf = questionary.confirm('Do you want to generate the model quality report?').ask()
+        if export_pdf:
+            file_name = Prompt.ask('Enter PDF name: (.pdf) ')
+            y_prediction = model.predict(X_test)
+            plotting.plot_results_pdf(y_test,y_prediction,file_name)
 
     # Model export
-    save_b = Prompt.ask('Do you want to save the model? (Y/n) ')
-    if save_b == 'Y':
-        model_name = Prompt.ask('Enter model name: (.model) ')
-        # Save the model as a pickle file
-        joblib.dump(model, model_name)
+    if not silent:
+        save_b = questionary.confirm('Do you want to save the model?').ask()
+        if save_b:
+            model_name = questionary.text('Enter model name: (.model) ').ask()
+            # Save the model as a pickle file
+            joblib.dump(model, model_name)
+    
 
 
 def check_normalization(data):
