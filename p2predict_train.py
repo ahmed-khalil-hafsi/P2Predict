@@ -241,6 +241,10 @@ def main(input, target, algorithm, silent,training_features):
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
+   
+    plotting.plot_histograms(data)
+
+
     console.print("Feature characterization... ")
     print_feature_stats(data[numerical_cols])
 
