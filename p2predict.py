@@ -12,7 +12,8 @@ from rich.panel import Panel
 from rich.console import Group
 from rich.pretty import Pretty
 import click
-from modules.ui_console import create_tree
+
+import modules.ui_console
 
 # Model serialization
 import joblib
@@ -33,6 +34,7 @@ def predict(model,features):
 @click.option('--features_csv')
 def main(model,features_inline,features_csv):
     console = Console()
+    console.print(art.text2art("P2Predict"), style="blue")
 
     if not model:
         model = questionary.path('Enter model file path (.model file)').ask()
@@ -41,7 +43,9 @@ def main(model,features_inline,features_csv):
     trained_pipeline = loaded_model_metadata['model']
 
     console.print(f"Model > { Pretty(loaded_model_metadata['model_name']) } loaded.", style="bold blue")
+    print()
     console.print(f"Model features: {loaded_model_metadata['features']}", style="bold blue")
+    print()
     console.print(f"Target feature: {loaded_model_metadata['target_feature']}", style="bold blue")
 
     # Get the encoders for the categorical features
@@ -52,6 +56,8 @@ def main(model,features_inline,features_csv):
     # Get the trained features
     trained_categories = onehot_encoder.categories_
     transformers = preprocessor.transformers_
+
+    print(transformers)
     
     for name, transformer, feature_columns in transformers:
         if isinstance(transformer, Pipeline) and isinstance(transformer.named_steps['onehot'], OneHotEncoder):
@@ -62,7 +68,8 @@ def main(model,features_inline,features_csv):
     for i, feature in enumerate(feature_columns):
         all_categories[feature] = trained_categories[i].tolist()
 
-    create_tree(all_categories,"Loaded Features: ")
+    print()
+    modules.ui_console.create_tree(all_categories,"Categorical Features: ")
 
     features_dict = {}
     if features_inline:
@@ -74,13 +81,13 @@ def main(model,features_inline,features_csv):
                 ).ask()
             features_dict[feature] = features_inline
         
-    features_df = pd.DataFrame([features_dict])   
+    features_df = pd.DataFrame([features_dict])
 
     y = predict(trained_pipeline,features_df)
 
     features_df['prediction'] = y
 
-    console.print(Panel(Pretty(features_df),title="Model Prediction"))
+    console.print(Panel(Pretty(features_df),title="Prediction"))
     
     return y
 
