@@ -49,6 +49,24 @@ def plot_results_html(y_test, y_pred):
 
     plt.close('all')  # close all open plots
 
+def plot_histograms(df):
+    n = len(df.columns)
+    fig, axs = plt.subplots(1, n, figsize=(n*5, 4), constrained_layout=True)
+
+    sns.set_style('whitegrid')  # set the aesthetic style of the plot to 'whitegrid'
+
+    for i, column in enumerate(df.columns):
+                # Skip non-numeric columns
+        
+        sns.histplot(df[column], bins=30, color='skyblue', ax=axs[i])  # plot histogram on the i-th subplot
+        # sns.kdeplot(df[column], color="darkblue", lw=2, ax=axs[i])  # plot kde on the i-th subplot
+        axs[i].set_title('Distribution of ' + column, fontsize=14)  # set the title of the subplot to the column name
+        axs[i].set_xlabel(column, fontsize=12)  # set x-label
+        axs[i].set_ylabel('Frequency', fontsize=12)  # set y-label
+
+    plt.subplots_adjust(wspace=0.4)
+    plt.show()
+
 
 def plot_results_pdf(y_test, y_pred,filename):
     with PdfPages(filename) as pdf:
