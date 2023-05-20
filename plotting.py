@@ -57,7 +57,7 @@ def add_table_to_plot(ax, data):
 
     table.auto_set_font_size(True)
     table.scale(1, 1.5)
-
+# TODO remove table from the PDF
 def plot_results_pdf(y_test, y_pred,filename):
     with PdfPages(filename) as pdf:
         # Scatter plot of predicted vs actual values
