@@ -2,17 +2,51 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer, make_column_transformer
 from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 
-def get_most_predictable_features_basic(data,target_column):
+def get_most_predictable_features_lasso(data, target_column):
+    
+    transformer = make_column_transformer(
+        (OneHotEncoder(handle_unknown='ignore'), categorical_columns),
+        remainder='passthrough'
+    )
+
+    X = data.drop(target_column, axis=1)
+    y = data[target_column]
+
+    transformer.fit(X)
+    
+    # Identify numerical and categorical columns
+    numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
+    categorical_columns = X.select_dtypes(include=['object']).columns
+
+    X_transformed = transformer.transform(X)
+
     feature_selection = Lasso()
-    X_train = data.drop(target_column, axis=1)
-    y_train = data[target_column]
-    feature_selection.fit(X_train,y_train)
-    selected_features = X_train.columns[(feature_selection.coef_!=0)].tolist()
+    feature_selection.fit(X_transformed, y)
+
+    selected_features_mask = (feature_selection.coef_!=0).any(axis=0)
+
+    onehot_features = transformer.named_transformers_['onehotencoder'].get_feature_names_out(categorical_columns)
+    original_features = list(X.columns)
+
+    # Build a mapping from transformed feature indices to original feature names
+    feature_mapping = []
+    for feature in original_features:
+        if feature in categorical_columns:
+            n_categories = sum([f.startswith(f'{feature}_') for f in onehot_features])
+            feature_mapping.extend([feature]*n_categories)
+        else:
+            feature_mapping.append(feature)
+            
+    selected_features = [feature_mapping[i] for i in range(len(feature_mapping)) if selected_features_mask[i]]
+
+    # removing duplicates
+    selected_features = list(set(selected_features))
+
     return selected_features
 
 def get_most_predictable_features(data, target_column):
