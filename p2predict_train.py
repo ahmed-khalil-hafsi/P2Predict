@@ -65,10 +65,6 @@ def prepare_data(data,target_column):
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
 
-
-
-
-
 def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
     # Preprocessing for numerical data
