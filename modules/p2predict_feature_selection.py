@@ -78,7 +78,7 @@ def get_most_predictable_features(data, target_column):
             ('num', numerical_transformer, numerical_cols),
             ('cat', categorical_transformer, categorical_cols)])
 
-    # Define the model
+    # Use a shallow random forest to estimate feature importance
     model = RandomForestRegressor(random_state=0)
 
     # Bundle preprocessing and modeling code in a pipeline

@@ -1,6 +1,6 @@
 
 
-# Machine learning libs 
+# Math, Machine learning libs 
 import random
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -15,9 +15,10 @@ from xgboost import XGBRegressor
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
+
+# P2Predict
 from modules.p2predict_feature_selection import get_most_predictable_features
 from modules.hyper_param_opt import hyper_parameter_tuning
-
 
 # Plotting Module
 from modules import plotting
@@ -77,7 +78,6 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
         ('onehot', OneHotEncoder(handle_unknown='ignore'))
     ])
 
-
     # Bundle preprocessing for numerical and categorical data
     preprocessor = ColumnTransformer(
         transformers=[
@@ -103,7 +103,7 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
     # Preprocessing of training data, fit model 
     my_pipeline.fit(X_train, y_train)
 
-    # Define the model
+    # Get model weights
     if algorithm == 'ridge':
         importance = model.coef_
     elif algorithm == 'xgboost':
@@ -125,7 +125,7 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
 
 
-def compute_feature_importance(X,y,model):
+def calculate_feature_importance(X,y,model):
     result = permutation_importance(model, X, y, n_repeats=10, random_state=0)
     importance_normalized = result.importances_mean / sum(result.importances_mean)
     return importance_normalized
@@ -208,6 +208,8 @@ def main(input, target, algorithm, silent,training_features):
     file = input
     data = load_data(file)
 
+    # TODO add input sanity checks
+
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
 
@@ -234,11 +236,16 @@ def main(input, target, algorithm, silent,training_features):
     
     target_column = target
 
+    
+
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
+    console.print("Feature characterization... ")
+    print_feature_stats(data[numerical_cols])
+
     # Start model training
-    console.print("Training the model, this may take a few minutes...", style="blue")
+    console.print("Training the model, this may take a few minutes...", style='bold blue')
     model = train_model(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
     # Calculate model accuracy
@@ -270,22 +277,28 @@ def main(input, target, algorithm, silent,training_features):
     
 
 
-def check_normalization(data):
+def print_feature_stats(data):
     console = Console()
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Feature")
     table.add_column("Min")
     table.add_column("Max")
     table.add_column("Mean")
+    table.add_column("Median")
     table.add_column("Standard Deviation")
+    table.add_column("Skewness")
+    table.add_column("Kurtosis")
 
     for col in data.columns:
         min_val = data[col].min()
         max_val = data[col].max()
-        mean_val = data[col].mean()
-        std_val = data[col].std()
+        mean_val = round(data[col].mean(),ndigits=4)
+        median_val = round(data[col].median(),ndigits=4)
+        std_val = round(data[col].std(),ndigits=4)
+        skewness = round(data[col].skew(),ndigits=4)
+        curt = round(data[col].kurt(),ndigits=4)
 
-        table.add_row(col, str(min_val), str(max_val), str(mean_val), str(std_val))
+        table.add_row(col, str(min_val), str(max_val), str(mean_val), str(median_val), str(std_val), str(skewness), str(curt))
 
     console.print(table)
 
