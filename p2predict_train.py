@@ -1,6 +1,7 @@
 
 
 # Machine learning libs 
+import random
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -14,11 +15,11 @@ from xgboost import XGBRegressor
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
-from p2predict_feature_selection import get_most_predictable_features
+from modules.p2predict_feature_selection import get_most_predictable_features
 
 
 # Plotting Module
-import plotting
+from modules import plotting
 import webbrowser
 
 # Model serialization
@@ -34,8 +35,9 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 import click
 import questionary
-from ui_console import print_dataframe
+from modules.ui_console import print_dataframe
 
+console = Console()
 
 def load_data(file):
     return pd.read_csv(file)
@@ -61,9 +63,6 @@ def prepare_data(data,selected_columns,target_column):
     # Identify categorical and numerical columns - for now this is automated. TODO: Let user select which columns are categorical and which are numerical
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
     categorical_cols = X.select_dtypes(include=['object', 'bool']).columns
-
-    column_stats = get_column_statistics(X,numerical_cols)
-    console.print(Pretty(column_stats))
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
 
@@ -103,7 +102,7 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
     # Preprocessing of training data, fit model 
     my_pipeline.fit(X_train, y_train)
 
-       # Define the model
+    # Define the model
     if algorithm == 'ridge':
         importance = model.coef_
     elif algorithm == 'xgboost':
@@ -113,19 +112,19 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
     else:
         raise ValueError(f'Unknown algorithm: {algorithm}') 
     
-    
     feature_names = X_train.columns.tolist()
     feature_importances = zip(feature_names, importance)
     sorted_feature_importances = sorted(feature_importances, key = lambda x: abs(x[1]), reverse=True)
 
+    console.print("-> Training finished.",style='blue')
     for feature, importance in sorted_feature_importances:
-        console.print(f"Feature: {feature}, Importance: {importance}")
+        console.print(f"Feature: {feature}, Model Weight: {round(importance,ndigits=4)}")
 
-    
-
-    #result = permutation_importance(my_pipeline, X, y, n_repeats=10, random_state=0)
-    #importance_normalized = result.importances_mean / sum(result.importances_mean)
     return my_pipeline
+
+# TODO
+def hyper_parameter_tuning(model):
+    return None
 
 def compute_feature_importance(X,y,model):
     result = permutation_importance(model, X, y, n_repeats=10, random_state=0)
@@ -140,10 +139,6 @@ def evaluate_model(X_test,y_test,model):
     mae = mean_absolute_error(y_test, predictions)
     r2 = r2_score(y_test, predictions)
     return mae,r2
-
-
-
-console = Console()
 
 def plot_importances(feature_importances, feature_names):
     table = Table(show_header=True, header_style="bold magenta")
@@ -170,43 +165,74 @@ def output_features(data):
         table.add_row(col, dtype)
     console.print(table)
 
+# TODO add option to name saved model after generation
+# Add a hyper parameter tuning step after model is trained
+
 @click.command()
 @click.option('--input', type=click.Path(exists=True), default=None, help='Dataset used for the training. This must be a CSV file.')
-@click.option('--target',help='This is the column name that refers to the price in your dataset.')
-@click.option('--algorithm')
+@click.option('--target',help='Feature name to be predicted.')
+@click.option('--algorithm', help="This is the training algorithm to be used. Must be: ridge, ")
 @click.option('--silent', is_flag=True, default=False, help='Run in silent mode without interactive prompts.')
-def main(input, target, algorithm, silent):
+@click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
+def main(input, target, algorithm, silent,training_features):
     
     
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
+
+
     
     if not silent:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
-        if not target:
-            target = questionary.text('Enter target column').ask()
         if not algorithm:
             algorithm = questionary.select(
                 'Choose a regression algorithm:',
                 choices=['ridge', 'xgboost', 'random_forest']
             ).ask()
+    else:
+        if not input:
+            console.print("Aborted: In silent mode, you must provide an argument for the input file",style='red')
+            raise SystemExit
+            
+        if not algorithm:
+            console.print("Aborted: in silent mode, you must pre-select the training algorithm",style='red')
+            raise SystemExit
+        
+        if not target:
+            console.print("Aborted: in silent mode, you must provide an argument for the target feature",style='red')
+            raise SystemExit
+        if not training_features:
+            console.print("Aborted: in silent mode, you must provide an argument for the training features",style='red')
+            raise SystemExit
 
     # Get input CSV file
     file = input
     data = load_data(file)
 
-    # Analyze columns using a random forest estimator to determine relative importance of features 
-    copy_data = data
-    best_columns = get_most_predictable_features(copy_data,target)
-    console.print("Best features detected for prediction: ")
-    print_dataframe(best_columns)
+    if not target:
+        target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
 
-    #Select columns to use
-    selected_columns =  questionary.checkbox(
-                'Which features do you want to include? ',
-                choices= data.columns.tolist()
-            ).ask()
-    #Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
+    if not training_features:
+
+        # Analyze columns using a random forest estimator to determine relative importance of features 
+        copy_data = data
+        best_columns = get_most_predictable_features(copy_data,target)
+        console.print("Best features detected for prediction: ")
+        print_dataframe(best_columns)
+
+        #Select columns to use
+    
+        options_list = data.columns.tolist()
+        options_list.remove(target) # Don't show Price as an option
+
+        selected_columns =  questionary.checkbox(
+                    'Which features do you want to include? ',
+                    choices= options_list
+
+                ).ask()
+    else:
+        selected_columns = training_features.split(':')
+    
     target_column = target
 
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
@@ -216,11 +242,9 @@ def main(input, target, algorithm, silent):
     console.print("Training the model, this may take a few minutes...", style="blue")
     model = train_model(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
-    #feature_importances = compute_feature_importance(data,target_column,model)
-    #plot_importances(feature_importances, data.drop(target_column, axis=1).columns)
-
     # Calculate model accuracy
     mae,r2 = evaluate_model(X_test,y_test,model)
+    console.print("Key Performance Metrics: ")
     console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
     console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
@@ -239,6 +263,11 @@ def main(input, target, algorithm, silent):
             model_name = questionary.text('Enter model name: (.model) ').ask()
             # Save the model as a pickle file
             joblib.dump(model, model_name)
+    else:
+        random_int = random.randint(1, 100)
+        model_name = f"models/{algorithm}_{target}_{training_features}_{random_int}.model"
+        joblib.dump(model,model_name)
+    
     
 
 
