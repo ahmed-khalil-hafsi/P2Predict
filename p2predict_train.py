@@ -16,6 +16,7 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
 from p2predict_feature_selection import get_most_predictable_features
 
+
 # Plotting Module
 import plotting
 import webbrowser
@@ -33,6 +34,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 import click
 import questionary
+from ui_console import print_dataframe
 
 
 def load_data(file):
@@ -49,9 +51,9 @@ def get_column_statistics(data,feature_columns):
         stats[i] = {'skewness':skewness,'kurtosis': kurtosis}
     return stats
 
-def prepare_data(data,target_column):
+def prepare_data(data,selected_columns,target_column):
     # Separate the features and the target variable
-    X = data.drop(target_column, axis=1)
+    X = data[selected_columns]
     y = data[target_column]
 
     # Split the data into training (80%) and test sets (20%)
@@ -193,27 +195,22 @@ def main(input, target, algorithm, silent):
     file = input
     data = load_data(file)
 
-    # Determine features with highest predictable ability
+    # Analyze columns using a random forest estimator to determine relative importance of features 
     copy_data = data
     best_columns = get_most_predictable_features(copy_data,target)
     console.print("Best features detected for prediction: ")
-    console.print(best_columns)
-
-    # Show file columns and column types
-    # console.print('Columns: ')
-    # output_features(data,best_columns)
+    print_dataframe(best_columns)
 
     #Select columns to use
     selected_columns =  questionary.checkbox(
-                'Which columns do you want to include? This should include also the feature to be predicted: ',
+                'Which features do you want to include? ',
                 choices= data.columns.tolist()
             ).ask()
     #Prompt.ask('Which columns do you want to include? (This should include also the feature to be predicted:) ').split(',')
     target_column = target
-    data = select_features(data, selected_columns)
 
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
-    X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,target_column)
+    X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
     # Start model training
     console.print("Training the model, this may take a few minutes...", style="blue")
