@@ -16,6 +16,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import r2_score
 from modules.p2predict_feature_selection import get_most_predictable_features
+from modules.hyper_param_opt import hyper_parameter_tuning
 
 
 # Plotting Module
@@ -122,9 +123,7 @@ def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
     return my_pipeline
 
-# TODO
-def hyper_parameter_tuning(model):
-    return None
+
 
 def compute_feature_importance(X,y,model):
     result = permutation_importance(model, X, y, n_repeats=10, random_state=0)
