@@ -1,8 +1,10 @@
 
 
 # Math, Machine learning libs 
+import datetime
 import random
 import pandas as pd
+import sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
@@ -178,8 +180,6 @@ def main(input, target, algorithm, silent,training_features):
     
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
 
-
-    
     if not silent:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
@@ -262,17 +262,28 @@ def main(input, target, algorithm, silent,training_features):
             y_prediction = model.predict(X_test)
             plotting.plot_results_pdf(y_test,y_prediction,file_name)
 
+    model_metadata = {
+    'model': model,  
+    'features': selected_columns,
+    'target_feature': target_column,
+    'model_name': algorithm,
+    'R2': str(r2),
+    'training_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    'scikit_learn_version': sklearn.__version__,
+    'p2predict_version': 'v0.1beta'
+    }
+
     # Model export
     if not silent:
         save_b = questionary.confirm('Do you want to save the model?').ask()
         if save_b:
             model_name = questionary.text('Enter model name: (.model) ').ask()
             # Save the model as a pickle file
-            joblib.dump(model, model_name)
+            joblib.dump(model_metadata, model_name)
     else:
-        random_int = random.randint(1, 100)
-        model_name = f"models/{algorithm}_{target}_{training_features}_{random_int}.model"
-        joblib.dump(model,model_name)
+        random_int = random.randint(1, 39)
+        model_name = f"models/{algorithm}_{target}_{random_int}.model"
+        joblib.dump(model_metadata,model_name)
     
     
 
