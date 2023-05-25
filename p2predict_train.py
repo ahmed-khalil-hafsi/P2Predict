@@ -172,37 +172,45 @@ def output_features(data):
 @click.command()
 @click.option('--input', type=click.Path(exists=True), default=None, help='Dataset used for the training. This must be a CSV file.')
 @click.option('--target',help='Feature name to be predicted.')
+@click.option('--expert', type=bool, default= False)
 @click.option('--algorithm', help="This is the training algorithm to be used. Must be: ridge, ")
-@click.option('--silent', is_flag=True, default=False, help='Run in silent mode without interactive prompts.')
+@click.option('--verbose', is_flag=True, default=False)
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
-def main(input, target, algorithm, silent,training_features):
+def main(input, target, expert, algorithm, verbose,training_features):
     
     
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
 
-    if not silent:
+    
+    if verbose:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
-        if not algorithm:
-            algorithm = questionary.select(
-                'Choose a regression algorithm:',
-                choices=['ridge', 'xgboost', 'random_forest']
-            ).ask()
     else:
         if not input:
             console.print("Aborted: In silent mode, you must provide an argument for the input file",style='red')
             raise SystemExit
-            
-        if not algorithm:
-            console.print("Aborted: in silent mode, you must pre-select the training algorithm",style='red')
-            raise SystemExit
-        
         if not target:
             console.print("Aborted: in silent mode, you must provide an argument for the target feature",style='red')
             raise SystemExit
-        if not training_features:
-            console.print("Aborted: in silent mode, you must provide an argument for the training features",style='red')
-            raise SystemExit
+        
+    # Expert mode needs the algorithm and the features to use    
+    if expert:
+        if verbose:
+            if not algorithm:
+                algorithm = questionary.select(
+                    'Choose a regression algorithm:',
+                    choices=['ridge', 'xgboost', 'random_forest']
+                ).ask()
+        else:   
+            if not algorithm:
+                console.print("Aborted: in silent expert mode, you must pre-select the training algorithm",style='red')
+                raise SystemExit
+            if not training_features:
+                console.print("Aborted: in silent expert mode, you must provide an argument for the training features",style='red')
+                raise SystemExit
+    
+    
+        
 
     # Get input CSV file
     file = input
@@ -213,26 +221,29 @@ def main(input, target, algorithm, silent,training_features):
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
 
-    if not training_features:
+    if expert:
+        if not training_features:
 
-        # Analyze columns using a random forest estimator to determine relative importance of features 
-        copy_data = data
-        best_columns = get_most_predictable_features(copy_data,target)
-        console.print("Best features detected for prediction: ")
-        print_dataframe(best_columns)
+            # Analyze columns using a random forest estimator to determine relative importance of features 
+            copy_data = data
+            best_columns = get_most_predictable_features(copy_data,target)
+            console.print("Best features detected for prediction: ")
+            print_dataframe(best_columns)
 
-        #Select columns to use
-    
-        options_list = data.columns.tolist()
-        options_list.remove(target) # Don't show Price as an option
+            #Select columns to use
+        
+            options_list = data.columns.tolist()
+            options_list.remove(target) # Don't show Price as an option
 
-        selected_columns =  questionary.checkbox(
-                    'Which features do you want to include? ',
-                    choices= options_list
+            selected_columns =  questionary.checkbox(
+                        'Which features do you want to include? ',
+                        choices= options_list
 
-                ).ask()
-    else:
-        selected_columns = training_features.split(':')
+                    ).ask()
+        else:
+            selected_columns = training_features.split(':')
+    else: # easy mode
+        pass
     
     target_column = target
 
@@ -259,7 +270,7 @@ def main(input, target, algorithm, silent,training_features):
     console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
     # Plot result graphs (silent mode does not produce these)
-    if not silent:
+    if not verbose:
         export_pdf = questionary.confirm('Do you want to generate the model quality report?').ask()
         if export_pdf:
             file_name = Prompt.ask('Enter PDF name: (.pdf) ')
@@ -278,7 +289,7 @@ def main(input, target, algorithm, silent,training_features):
     }
 
     # Model export
-    if not silent:
+    if not verbose:
         save_b = questionary.confirm('Do you want to save the model?').ask()
         if save_b:
             model_name = questionary.text('Enter model name: (.model) ').ask()
