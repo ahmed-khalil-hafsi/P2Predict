@@ -11,15 +11,15 @@ def hyper_parameter_tuning(my_pipeline,models,X_train,y_train):
         grid_param = [
             [{"model": [Ridge()],
               "model__alpha": [0.5, 1, 2],
-              # Add other parameters here
+              
               }],
             [{"model": [XGBRegressor(objective ='reg:squarederror')],
               "model__n_estimators": [100, 200],
-              # Add other parameters here
+              
               }],
             [{"model": [RandomForestRegressor(random_state=0)],
               "model__n_estimators": [100, 200],
-              # Add other parameters here
+              
               }]
     ]
         
