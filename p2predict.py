@@ -34,7 +34,14 @@ def predict(model,features):
 @click.option('--features_csv')
 def main(model,features_inline,features_csv):
     console = Console()
-    console.print(art.text2art("P2Predict"), style="blue")
+    
+    print("")
+    console.print(" ____   ____   ____                   _  _        _   ",style='blue')
+    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='blue')
+    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='blue')
+    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
+    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
+    print("")
 
     if not model:
         model = questionary.path('Enter model file path (.model file)').ask()
