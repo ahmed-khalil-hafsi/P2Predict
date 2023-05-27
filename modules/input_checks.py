@@ -4,6 +4,7 @@ from rich.console import Console
 
 console = Console()
 
+# TODO more testing for this code
 def check_csv_sanity(file):
     try:
         # Check if the file is empty
