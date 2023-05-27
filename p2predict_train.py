@@ -70,7 +70,7 @@ def prepare_data(data,selected_columns,target_column):
 
     return X_train, X_test, y_train, y_test, numerical_cols, categorical_cols
 
-def train_model(X_train,y_train,numerical_cols, categorical_cols, algorithm):
+def start_training(X_train,y_train,numerical_cols, categorical_cols, algorithm):
 
     # Preprocessing for numerical data
     numerical_transformer = StandardScaler()
@@ -170,13 +170,13 @@ def output_features(data):
 # Add a hyper parameter tuning step after model is trained
 
 @click.command()
-@click.option('--input', type=click.Path(exists=True), default=None, help='Dataset used for the training. This must be a CSV file.')
-@click.option('--target',help='Feature name to be predicted.')
-@click.option('--expert', type=bool, default= False)
-@click.option('--algorithm', help="This is the training algorithm to be used. Must be: ridge, ")
-@click.option('--verbose', is_flag=True, default=False)
+@click.option('-i','--input', type=click.Path(exists=True), default=None, help='Dataset used for training. This must be a CSV file.')
+@click.option('-t','--target',help='Feature name to be predicted. Example: If you are trying to predict a price, this should be the name of your price column')
+@click.option('--expert', type=bool, is_flag=True, help="Toggle Expert Mode.", default=False)
+@click.option('--algorithm', help="This is the training algorithm to be used.")
+@click.option('-v', '--verbose', is_flag=True, default=True)
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
-def main(input, target, expert, algorithm, verbose,training_features):
+def train(input, target, expert, algorithm, verbose,training_features):
     
     
     console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
@@ -241,7 +241,7 @@ def main(input, target, expert, algorithm, verbose,training_features):
 
                     ).ask()
         else:
-            selected_columns = training_features.split(':')
+            selected_columns = training_features.split(',')
     else: # easy mode
         pass
     
@@ -253,7 +253,7 @@ def main(input, target, expert, algorithm, verbose,training_features):
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
    
-    plotting.plot_histograms(data)
+    # plotting.plot_histograms(data)
 
 
     console.print("Feature characterization... ")
@@ -261,7 +261,7 @@ def main(input, target, expert, algorithm, verbose,training_features):
 
     # Start model training
     console.print("Training the model, this may take a few minutes...", style='bold blue')
-    model = train_model(X_train,y_train,numerical_cols,categorical_cols,algorithm)
+    model = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
     # Calculate model accuracy
     mae,r2 = evaluate_model(X_test,y_test,model)
@@ -330,4 +330,4 @@ def print_feature_stats(data):
 
 
 if __name__ == '__main__':
-    main()
+    train()
