@@ -1,4 +1,10 @@
 # P2Predict
+     ____   ____   ____                   _  _        _   
+    |  _ \ |___ \ |  _ \  _ __   ___   __| |(_)  ___ | |_ 
+    | |_) |  __) || |_) || '__| / _ \ / _` || | / __|| __|
+    |  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ 
+    |_|    |_____||_|    |_|    \___| \__,_||_| \___| \__|
+
 
 P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
 
@@ -20,8 +26,8 @@ This software is released under the MIT license. See `LICENSE` for the license d
 - Perform feature/impact analysis
 - Train a machine learning model on the selected features to predict the price (or any other target)
 - Support for Ridge, XGBoost, and Random Forest ML algorithms
-- Model Export & Import
-- Calculation of evaluation metrics (mean absolute error and R^2 scores are supported)
+- Models can be easily saved and loaded
+- Evaluation metrics (mean absolute error and R^2 scores are supported)
 
 ### Plotting
 - Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction errors, ...)
@@ -82,13 +88,13 @@ To use P2Predict, follow these steps:
 
 ## Dependencies
 
+Check `requirements.text` for exact versions. Install with `pip install -r requirements.txt`
 - pandas
 - sklearn
 - xgboost
 - matplotlib
 - seaborn
 - joblib
-- art
 - rich
 - click
 
@@ -98,9 +104,9 @@ For data examples, check `dummy/example.csv`.
 
 ## Contributing
 
-We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
+PRs are open. If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a PR.
 
-I am especially looking for data sets for various commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+I am especially looking for data sets for various direct and indirect commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
 
 ## Become a sponsor!
 
