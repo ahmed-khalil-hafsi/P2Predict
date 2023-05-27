@@ -31,7 +31,6 @@ import webbrowser
 import joblib
 
 #UI
-import art
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
@@ -182,8 +181,13 @@ def output_features(data):
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
 def train(input, target, expert, algorithm, verbose,training_features):
     
-    
-    console.print(art.text2art("P2Predict"), style="blue")  # print ASCII Art
+    print("")
+    console.print(" ____   ____   ____                   _  _        _   ",style='blue')
+    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='blue')
+    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='blue')
+    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
+    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
+    print("")
 
     
     if verbose:
