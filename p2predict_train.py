@@ -21,6 +21,7 @@ from sklearn.metrics import r2_score
 # P2Predict
 from modules.p2predict_feature_selection import get_most_predictable_features
 from modules.hyper_param_opt import hyper_parameter_tuning
+from modules.input_checks import check_csv_sanity
 
 # Plotting Module
 from modules import plotting
@@ -44,6 +45,9 @@ from modules.ui_console import print_dataframe
 console = Console()
 
 def load_data(file):
+
+    check_csv_sanity(file)
+
     return pd.read_csv(file)
 
 def select_features(data, columns):
@@ -185,6 +189,9 @@ def train(input, target, expert, algorithm, verbose,training_features):
     if verbose:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
+            if not input:
+                console.print("Aborted: You must provide an argument for the input file", style='red')
+                raise SystemExit
     else:
         if not input:
             console.print("Aborted: In silent mode, you must provide an argument for the input file",style='red')
@@ -216,7 +223,8 @@ def train(input, target, expert, algorithm, verbose,training_features):
     file = input
     data = load_data(file)
 
-    # TODO add input sanity checks
+    # Check input file
+    # 
 
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
