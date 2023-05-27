@@ -1,5 +1,4 @@
 
-
 # Math, Machine learning libs 
 import datetime
 import random
@@ -278,7 +277,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
     if expert: # Calculate model accuracy - this is only available in expert mode  
         mae,r2 = evaluate_model(X_test,y_test,model)
-        console.print("EXPERT MODE > Key Performance Metrics: ")
+        console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
         console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
         console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
@@ -291,7 +290,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             plotting.plot_results_pdf(y_test,y_prediction,file_name)
 
     if expert:
-        hyper_parameter_tuning(X_train=X_train,y_train=y_train,numerical_cols=numerical_cols,categorical_cols=categorical_cols)
+        hyper_params = questionary.confirm('EXPERT MODE > The model can try to auto-tune the hyper paramers to search for a better model. Do you want to continue? This can take significant time.').ask()
+        if hyper_params:
+            hyper_parameter_tuning(X_train=X_train,y_train=y_train,numerical_cols=numerical_cols,categorical_cols=categorical_cols)
 
     model_metadata = {
     'model': model,  
