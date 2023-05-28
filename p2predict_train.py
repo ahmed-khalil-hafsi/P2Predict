@@ -3,6 +3,7 @@
 
 import random
 
+
 # P2Predict Modules
 from modules.p2predict_feature_selection import get_most_predictable_features
 from modules.hyper_param_opt import hyper_parameter_tuning
@@ -14,6 +15,7 @@ from modules.cmdline_io import print_feature_importances, print_feature_stats
 from modules.model_evals import evaluate_model
 from modules.prepare_data import prepare_data
 from modules.training import start_training
+from modules.training import auto_train
 
 #UI
 from rich.console import Console
@@ -34,7 +36,7 @@ console = Console()
 @click.option('--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
 @click.option('--algorithm', help="This is the training algorithm to be used.")
 @click.option('-v', '--verbose', is_flag=True, default=None)
-@click.option('-ic', '--interactive', is_flag=True, default=None)
+@click.option('-ic', '--interactive', is_flag=True, default=True)
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
 def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
@@ -45,6 +47,11 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
     console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
     print("")
+
+    if expert:
+        console.print(f"Welcome to P2Predict! Expert mode activated.", style='bold blue')
+    else:
+        console.print(f"Welcome to P2Predict! Auto mode activated.", style='bold blue')
  
     if interactive:
         if not input:
@@ -89,9 +96,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             console.print("Aborted: A Target Feature is required for the training.", style='red')
             raise SystemExit
         
-    if expert:
-        if not training_features:
-
+    
+    if not training_features:
+        if expert:
             # Analyze columns using a random forest estimator to determine relative importance of features 
             copy_data = data
             best_columns = get_most_predictable_features(copy_data,target)
@@ -109,13 +116,15 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
                     ).ask()
         else:
-            selected_columns = training_features.split(',')
-            # TODO must check selected features if they exist in the CSV file
-    else: # Auto mode not implemented yet
-        console.print("INFO: Auto Mode not implemented yet. Please make sure to use --expert to enable expert mode.", style='red')
-        raise SystemExit
+            selected_columns = get_most_predictable_features(data,target,output_only_headers=True)[0:2] # We will take top 2 features for the auto mode
+            console.print(f"Detected best features for training: {selected_columns.to_list()}",style="bold blue")
+            
+    else:
+        selected_columns = training_features.split(',') # TODO must check selected features if they exist in the CSV file
     
     target_column = target
+
+
 
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
@@ -131,14 +140,30 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
     # Start model training
     console.print("Training the model, this may take a few minutes...", style='bold blue')
-    model, feature_importances = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
-    print_feature_importances(feature_importances)
+    if expert:
+        model, feature_importances = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
+        print_feature_importances(feature_importances)
+    else:
+        # auto mode
+        model = auto_train(X_train,y_train,numerical_cols,categorical_cols)
 
-    if expert: # Calculate model accuracy - this is only available in expert mode  
+    
         mae,r2 = evaluate_model(X_test,y_test,model)
-        console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
-        console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
-        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+        if expert: # Calculate model accuracy - this is only available in expert mode  
+            console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
+            console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
+            console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+        else:
+            console.print("Key Performance Metric: ",style='bold green')
+            if r2>0.8:
+                console.print(f"Excellent model trained. The model's score is {round(r2,ndigits=2)}", style='bold green')
+            elif r2>0.6:
+                console.print(f"Average model trained. The model's score is {round(r2,ndigits=2)}", style='bold yellow')
+            else:
+                console.print(f"Poor model result. The model's score is {round(r2,ndigits=2)}. Please do not use use this model as is. Use expert mode to create a better model.", style="bold red")
+                
+
+
 
     # Plot result graphs and create output pdf. PDF is only created in interactive mode
     if interactive:
