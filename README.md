@@ -20,8 +20,8 @@ This software is released under the MIT license. See `LICENSE` for the license d
 - Perform feature/impact analysis
 - Train a machine learning model on the selected features to predict the price (or any other target)
 - Support for Ridge, XGBoost, and Random Forest ML algorithms
-- Model Export & Import
-- Calculation of evaluation metrics (mean absolute error and R^2 scores are supported)
+- Models can be easily saved and loaded
+- Evaluation metrics (mean absolute error and R^2 scores are supported)
 
 ### Plotting
 - Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction errors, ...)
@@ -82,13 +82,13 @@ To use P2Predict, follow these steps:
 
 ## Dependencies
 
+Check `requirements.text` for exact versions. Install with `pip install -r requirements.txt`
 - pandas
 - sklearn
 - xgboost
 - matplotlib
 - seaborn
 - joblib
-- art
 - rich
 - click
 
@@ -98,9 +98,9 @@ For data examples, check `dummy/example.csv`.
 
 ## Contributing
 
-We welcome contributions to P2Predict! If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a pull request.
+PRs are open. If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a PR.
 
-I am especially looking for data sets for various commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+I am especially looking for data sets for various direct and indirect commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
 
 ## Become a sponsor!
 
