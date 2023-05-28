@@ -1,8 +1,11 @@
 
 # Math, Machine learning libs 
+from halo import Halo
+spinner = Halo(text='Loading P2Predict', spinner='pong')
+spinner.start()
 
 import random
-
+import pandas as pd
 
 # P2Predict Modules
 from modules.p2predict_feature_selection import get_most_predictable_features
@@ -26,6 +29,8 @@ import questionary
 
 
 console = Console()
+
+spinner.stop()
 
 # TODO add option to name saved model after generation
 # TODO Add various levels of verbosity
@@ -89,7 +94,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     # Load CSV File
     file = input
     data = load_csv_file(file)
-    
+    print("")
+    console.print(f"Training file '{file}' imported into P2Predict > {data.shape[0]} rows  x {data.shape[1]} columns loaded.")
+    print("")
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
         if not target:
@@ -140,29 +147,31 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
     # Start model training
     console.print("Training the model, this may take a few minutes...", style='bold blue')
+    print("")
     if expert:
         model, feature_importances = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
         print_feature_importances(feature_importances)
     else:
         # auto mode
         model = auto_train(X_train,y_train,numerical_cols,categorical_cols)
-
     
-        mae,r2 = evaluate_model(X_test,y_test,model)
-        if expert: # Calculate model accuracy - this is only available in expert mode  
-            console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
-            console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
-            console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+    mae,r2 = evaluate_model(X_test,y_test,model)
+    if expert: # Calculate model accuracy - this is only available in expert mode  
+        console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
+        console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
+        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+    else:
+        console.print("Key Performance Metric: ",style='bold green')
+        if r2>0.8:
+            console.print(f"Excellent model trained. The model's score is {round(r2,ndigits=2)}", style='bold green')
+        elif r2>0.6:
+            console.print(f"Average model trained. The model's score is {round(r2,ndigits=2)}", style='bold yellow')
         else:
-            console.print("Key Performance Metric: ",style='bold green')
-            if r2>0.8:
-                console.print(f"Excellent model trained. The model's score is {round(r2,ndigits=2)}", style='bold green')
-            elif r2>0.6:
-                console.print(f"Average model trained. The model's score is {round(r2,ndigits=2)}", style='bold yellow')
-            else:
-                console.print(f"Poor model result. The model's score is {round(r2,ndigits=2)}. Please do not use use this model as is. Use expert mode to create a better model.", style="bold red")
+            console.print(f"Poor model result. The model's score is {round(r2,ndigits=2)}. Please do not use use this model as is. Use expert mode to create a better model.", style="bold red")
                 
-
+    print("")
+    console.print("Training finished.",style='bold blue')
+    print("")
 
 
     # Plot result graphs and create output pdf. PDF is only created in interactive mode
@@ -170,8 +179,10 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         export_pdf = questionary.confirm('Do you want to generate the model quality report?').ask()
         if export_pdf:
             file_name = Prompt.ask('Enter PDF name: (.pdf) ')
-            y_prediction = model.predict(X_test)
-            plotting.plot_results_pdf(y_test,y_prediction,file_name)
+            # For plotting we want to plot the performance for all the data points
+            X_plotting = pd.concat([X_train,X_test])
+            y_prediction = model.predict(X_plotting)
+            plotting.plot_results_pdf(data[target],y_prediction,file_name)
 
     if expert:
         hyper_params = questionary.confirm('EXPERT MODE > The model can try to auto-tune the hyper paramers to search for a better model. Do you want to continue? This can take significant time.').ask()
