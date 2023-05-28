@@ -3,6 +3,7 @@
 # Math, Machine learning libs 
 import datetime
 import random
+import time
 import pandas as pd
 import sklearn
 from sklearn.model_selection import train_test_split
@@ -175,7 +176,7 @@ def output_features(data):
 @click.command()
 @click.option('-i','--input', type=click.Path(exists=True), default=None, help='Dataset used for training. This must be a CSV file.')
 @click.option('-t','--target',help='Feature name to be predicted. Example: If you are trying to predict a price, this should be the name of your price column')
-@click.option('--expert', type=bool, is_flag=True, help="Toggle Expert Mode.", default=False)
+@click.option('--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
 @click.option('--algorithm', help="This is the training algorithm to be used.")
 @click.option('-v', '--verbose', is_flag=True, default=True)
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
@@ -189,7 +190,8 @@ def train(input, target, expert, algorithm, verbose,training_features):
     console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
     print("")
 
-    
+    print(expert==False)
+ 
     if verbose:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
@@ -209,7 +211,7 @@ def train(input, target, expert, algorithm, verbose,training_features):
         if verbose:
             if not algorithm:
                 algorithm = questionary.select(
-                    'Choose a regression algorithm:',
+                    'EXPERT MODE > Choose an ML algorithm:',
                     choices=['ridge', 'xgboost', 'random_forest']
                 ).ask()
         else:   
@@ -223,16 +225,16 @@ def train(input, target, expert, algorithm, verbose,training_features):
     
         
 
-    # Get input CSV file
+    # Load CSV File
     file = input
     data = load_data(file)
 
-    # Check input file
-    # 
-
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
-
+        if not target:
+            console.print("Aborted: A Target Feature is required for the training.", style='red')
+            raise SystemExit
+        
     if expert:
         if not training_features:
 
@@ -248,24 +250,27 @@ def train(input, target, expert, algorithm, verbose,training_features):
             options_list.remove(target) # Don't show Price as an option
 
             selected_columns =  questionary.checkbox(
-                        'Which features do you want to include? ',
+                        'EXPERT MODE > Which features do you want to include? ',
                         choices= options_list
 
                     ).ask()
         else:
             selected_columns = training_features.split(',')
-    else: # easy mode
-        pass
+            # TODO must check selected features if they exist in the CSV file
+    else: # Auto mode not implemented yet
+        console.print("INFO: Auto Mode not implemented yet. Please make sure to use --expert to enable expert mode.", style='red')
+        raise SystemExit
     
     target_column = target
-
-    
 
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
-   
-    # plotting.plot_histograms(data)
+    
+    if expert:
+        plot_hist = questionary.confirm("Do you want to plot the histograms of the selected features?").ask()
+        if plot_hist:
+            plotting.plot_histograms(data[selected_columns])
 
 
     console.print("Feature characterization... ")
@@ -275,11 +280,12 @@ def train(input, target, expert, algorithm, verbose,training_features):
     console.print("Training the model, this may take a few minutes...", style='bold blue')
     model = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
-    # Calculate model accuracy
-    mae,r2 = evaluate_model(X_test,y_test,model)
-    console.print("Key Performance Metrics: ")
-    console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
-    console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+    if expert:
+        # Calculate model accuracy
+        mae,r2 = evaluate_model(X_test,y_test,model)
+        console.print("EXPERT MODE > Key Performance Metrics: ")
+        console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
+        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
     # Plot result graphs (silent mode does not produce these)
     if not verbose:
