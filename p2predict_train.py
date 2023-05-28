@@ -213,6 +213,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
                     'EXPERT MODE > Choose an ML algorithm:',
                     choices=['ridge', 'xgboost', 'random_forest']
                 ).ask()
+                if not algorithm:
+                    console.print("Aborted: You must select an algorithm.",style='red')
+                    raise SystemExit
         else:   
             if not algorithm:
                 console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
