@@ -6,6 +6,8 @@
     |_|    |_____||_|    |_|    \___| \__,_||_| \___| \__|
 
 
+[![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
+
 P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
 
 The project is in heavy active development - Contributions are welcome!
