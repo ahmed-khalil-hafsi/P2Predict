@@ -171,16 +171,18 @@ def output_features(data):
     console.print(table)
 
 # TODO add option to name saved model after generation
-# Add a hyper parameter tuning step after model is trained
+# TODO Add a hyper parameter tuning step after model is trained
+# TODO Add various levels of verbosity
 
 @click.command()
 @click.option('-i','--input', type=click.Path(exists=True), default=None, help='Dataset used for training. This must be a CSV file.')
 @click.option('-t','--target',help='Feature name to be predicted. Example: If you are trying to predict a price, this should be the name of your price column')
 @click.option('--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
 @click.option('--algorithm', help="This is the training algorithm to be used.")
-@click.option('-v', '--verbose', is_flag=True, default=True)
+@click.option('-v', '--verbose', is_flag=True, default=None)
+@click.option('-ic', '--interactive', is_flag=True, default=None)
 @click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
-def train(input, target, expert, algorithm, verbose,training_features):
+def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
     print("")
     console.print(" ____   ____   ____                   _  _        _   ",style='blue')
@@ -189,10 +191,8 @@ def train(input, target, expert, algorithm, verbose,training_features):
     console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
     console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
     print("")
-
-    print(expert==False)
  
-    if verbose:
+    if interactive:
         if not input:
             input = questionary.path('Enter CSV file path').ask()
             if not input:
@@ -200,15 +200,15 @@ def train(input, target, expert, algorithm, verbose,training_features):
                 raise SystemExit
     else:
         if not input:
-            console.print("Aborted: In silent mode, you must provide an argument for the input file",style='red')
+            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the input file. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
             raise SystemExit
         if not target:
-            console.print("Aborted: in silent mode, you must provide an argument for the target feature",style='red')
+            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the target feature. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
             raise SystemExit
         
     # Expert mode needs the algorithm and the features to use    
     if expert:
-        if verbose:
+        if interactive:
             if not algorithm:
                 algorithm = questionary.select(
                     'EXPERT MODE > Choose an ML algorithm:',
@@ -216,19 +216,16 @@ def train(input, target, expert, algorithm, verbose,training_features):
                 ).ask()
         else:   
             if not algorithm:
-                console.print("Aborted: in silent expert mode, you must pre-select the training algorithm",style='red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
                 raise SystemExit
             if not training_features:
-                console.print("Aborted: in silent expert mode, you must provide an argument for the training features",style='red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
                 raise SystemExit
-    
-    
-        
-
+                
     # Load CSV File
     file = input
     data = load_data(file)
-
+    
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
         if not target:
@@ -241,7 +238,7 @@ def train(input, target, expert, algorithm, verbose,training_features):
             # Analyze columns using a random forest estimator to determine relative importance of features 
             copy_data = data
             best_columns = get_most_predictable_features(copy_data,target)
-            console.print("Best features detected for prediction: ")
+            console.print("EXPERT MODE > Best features detected for prediction: ",style='blue')
             print_dataframe(best_columns)
 
             #Select columns to use
@@ -266,34 +263,35 @@ def train(input, target, expert, algorithm, verbose,training_features):
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
-    
     if expert:
         plot_hist = questionary.confirm("Do you want to plot the histograms of the selected features?").ask()
         if plot_hist:
             plotting.plot_histograms(data[selected_columns])
 
-
-    console.print("Feature characterization... ")
-    print_feature_stats(data[numerical_cols])
+    if expert:
+        console.print("EXPERT MODE > Numerical Feature characterization... ",style='blue')
+        print_feature_stats(data[numerical_cols])
 
     # Start model training
     console.print("Training the model, this may take a few minutes...", style='bold blue')
     model = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
 
-    if expert:
-        # Calculate model accuracy
+    if expert: # Calculate model accuracy - this is only available in expert mode  
         mae,r2 = evaluate_model(X_test,y_test,model)
         console.print("EXPERT MODE > Key Performance Metrics: ")
         console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
         console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
 
-    # Plot result graphs (silent mode does not produce these)
-    if not verbose:
+    # Plot result graphs and create output pdf. PDF is only created in interactive mode
+    if interactive:
         export_pdf = questionary.confirm('Do you want to generate the model quality report?').ask()
         if export_pdf:
             file_name = Prompt.ask('Enter PDF name: (.pdf) ')
             y_prediction = model.predict(X_test)
             plotting.plot_results_pdf(y_test,y_prediction,file_name)
+
+    if expert:
+        hyper_parameter_tuning(X_train=X_train,y_train=y_train,numerical_cols=numerical_cols,categorical_cols=categorical_cols)
 
     model_metadata = {
     'model': model,  
@@ -307,7 +305,7 @@ def train(input, target, expert, algorithm, verbose,training_features):
     }
 
     # Model export
-    if not verbose:
+    if interactive:
         save_b = questionary.confirm('Do you want to save the model?').ask()
         if save_b:
             model_name = questionary.text('Enter model name: (.model) ').ask()

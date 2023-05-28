@@ -1,43 +1,79 @@
-# TODO
+
+# ML
 from sklearn import preprocessing
+from sklearn.compose import ColumnTransformer
+from sklearn.discriminant_analysis import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 
-# TODO
-def hyper_parameter_tuning(my_pipeline,models,X_train,y_train):
-        grid_param = [
-            [{"model": [Ridge()],
-              "model__alpha": [0.5, 1, 2],
-              
-              }],
-            [{"model": [XGBRegressor(objective ='reg:squarederror')],
-              "model__n_estimators": [100, 200],
-              
-              }],
-            [{"model": [RandomForestRegressor(random_state=0)],
-              "model__n_estimators": [100, 200],
-              
-              }]
-    ]
+# UI
+from rich.console import Console
+
+console = Console()
+
+# TODO finish the hyper param tuning algo
+def hyper_parameter_tuning(X_train,y_train,numerical_cols,categorical_cols):
         
-        for i in range(len(models)):
-        # Bundle preprocessing and modeling code in a pipeline
-            my_pipeline = Pipeline(steps=[('preprocessor', preprocessing),
-                                          ('model', models[i][1])
-                                       ])
+  models = [
+  ('ridge', Ridge(alpha=1.0)),
+  ('xgboost', XGBRegressor(objective='reg:squarederror')),
+  ('random_forest', RandomForestRegressor(n_estimators=100, random_state=0))
+    ]
 
-            gd_sr = GridSearchCV(estimator=my_pipeline,
-                                 param_grid=grid_param[i],
-                                 scoring='accuracy',
-                                 cv=5,
-                                 n_jobs=-1)
+  grid_param = [
+    {
+      'model': [Ridge()],
+      'model__alpha': [0.5, 1, 2]
+    },
+    {
+      'model': [XGBRegressor(objective='reg:squarederror')],
+      'model__n_estimators': [100, 200]
+    },
+    {
+      'model': [RandomForestRegressor(random_state=0)],
+      'model__n_estimators': [100, 200,500]
+    }
+    ]
+  
+      # Preprocessing for numerical data
+  numerical_transformer = StandardScaler()
 
-            gd_sr.fit(X_train, y_train)
+    # Preprocessing for categorical data
+  categorical_transformer = Pipeline(steps=[
+      ('onehot', preprocessing.OneHotEncoder(handle_unknown='ignore'))
+  ])
 
-            best_parameters = gd_sr.best_params_
-            best_result = gd_sr.best_score_
+    # Bundle preprocessing for numerical and categorical data
+  preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numerical_transformer, numerical_cols),
+            ('cat', categorical_transformer, categorical_cols)
+        ])
 
-            #console.print(f"Model: {models[i][0]}, Best Parameters: {best_parameters}, Best Score: {best_result}")
+        
+  for i in range(len(models)):
+      model_name, model = models[i]
+
+      # Bundle preprocessing and modeling code in a pipeline
+      my_pipeline = Pipeline(steps=[
+          ('preprocessor', preprocessor),
+          ('model', model)
+      ])
+
+      gd_sr = GridSearchCV(estimator=my_pipeline,
+                           param_grid=grid_param[i],
+                           scoring='r2',
+                           cv=5,
+                           n_jobs=-1,
+                           verbose=3)
+
+      gd_sr.fit(X_train, y_train)
+
+      best_parameters = gd_sr.best_params_
+      best_score = gd_sr.best_score_
+
+      console.print(f"Model: {model_name}, Best Parameters: {best_parameters}, Best Score: {best_score}")
+
