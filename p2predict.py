@@ -12,6 +12,7 @@ from rich.panel import Panel
 from rich.console import Group
 from rich.pretty import Pretty
 import click
+from P2Predict.modules.trained_model_io import LoadModel
 
 import modules.ui_console
 
@@ -20,9 +21,7 @@ import joblib
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-def load_model(model_file):
-    model_metadata = joblib.load(model_file)
-    return model_metadata
+
 
 def predict(model,features):
     y = model.predict(features)
@@ -46,7 +45,7 @@ def main(model,features_inline,features_csv):
     if not model:
         model = questionary.path('Enter model file path (.model file)').ask()
 
-    loaded_model_metadata = load_model(model)
+    loaded_model_metadata = LoadModel(model)
     trained_pipeline = loaded_model_metadata['model']
 
     console.print(f"Model > { Pretty(loaded_model_metadata['model_name']) } loaded.", style="bold blue")
