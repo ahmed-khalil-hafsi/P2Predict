@@ -66,14 +66,14 @@ def hyper_parameter_tuning(X_train,y_train,numerical_cols,categorical_cols):
       gd_sr = GridSearchCV(estimator=my_pipeline,
                            param_grid=grid_param[i],
                            scoring='r2',
-                           cv=5,
+                           cv=3,
                            n_jobs=-1,
-                           verbose=3)
+                          )
 
       gd_sr.fit(X_train, y_train)
 
       best_parameters = gd_sr.best_params_
       best_score = gd_sr.best_score_
 
-      console.print(f"Model: {model_name}, Best Parameters: {best_parameters}, Best Score: {best_score}")
+      console.print(f"Model: {model_name} --> Best R^2: {round(best_score,2)}")
 
