@@ -12,31 +12,15 @@ from xgboost import XGBRegressor
 # UI
 from rich.console import Console
 
+from modules.training import get_available_models
+
 console = Console()
 
 # TODO finish the hyper param tuning algo
 def hyper_parameter_tuning(X_train,y_train,numerical_cols,categorical_cols):
         
-  models = [
-  ('ridge', Ridge(alpha=1.0)),
-  ('xgboost', XGBRegressor(objective='reg:squarederror')),
-  ('random_forest', RandomForestRegressor(n_estimators=100, random_state=0))
-    ]
-
-  grid_param = [
-    {
-      'model': [Ridge()],
-      'model__alpha': [0.5, 1, 2]
-    },
-    {
-      'model': [XGBRegressor(objective='reg:squarederror')],
-      'model__n_estimators': [100, 200]
-    },
-    {
-      'model': [RandomForestRegressor(random_state=0)],
-      'model__n_estimators': [100, 200,500]
-    }
-    ]
+  models = get_available_models()
+  grid_param = get_hyper_parameters()
   
       # Preprocessing for numerical data
   numerical_transformer = StandardScaler()
@@ -76,4 +60,24 @@ def hyper_parameter_tuning(X_train,y_train,numerical_cols,categorical_cols):
       best_score = gd_sr.best_score_
 
       console.print(f"Model: {model_name} --> Best R^2: {round(best_score,2)}")
+
+def get_hyper_parameters():
+    grid_param = [
+    {
+      'model': [Ridge()],
+      'model__alpha': [0.5, 1, 2]
+    },
+    {
+      'model': [XGBRegressor(objective='reg:squarederror')],
+      'model__n_estimators': [100, 200]
+    },
+    {
+      'model': [RandomForestRegressor(random_state=0)],
+      'model__n_estimators': [100, 200,500]
+    }
+    ]
+      
+    return grid_param
+
+
 

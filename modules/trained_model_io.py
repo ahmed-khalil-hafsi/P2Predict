@@ -19,11 +19,12 @@ def Serialize_Trained_Model(algorithm, selected_columns, target_column, model, r
     'features': selected_columns,
     'target_feature': target_column,
     'model_name': algorithm,
-    'R2': str(r2),
+    'r2': str(r2),
     'training_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     'scikit_learn_version': sklearn.__version__,
     'p2predict_version': 'v0.1beta'
     }
+    return model_metadata
 
 def load_csv_file(file):
 
