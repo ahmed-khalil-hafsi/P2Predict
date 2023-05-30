@@ -57,7 +57,7 @@ def get_most_predictable_features_lasso(data, target_column):
     return selected_features
 
 
-def get_most_predictable_features(data, target_column):
+def get_most_predictable_features(data, target_column,output_only_headers=False):
     # Separate features and target
     X = data.drop(target_column, axis=1)
     y = data[target_column]
@@ -120,8 +120,11 @@ def get_most_predictable_features(data, target_column):
     feature_importances.drop_duplicates(subset=['OriginalFeature', 'Importance'], keep='first', inplace=True)
     feature_importances.drop('Feature', axis=1, inplace=True)
     feature_importances.rename(columns={'OriginalFeature': 'Feature'}, inplace=True)
-    feature_importances['Importance'] = round(feature_importances['Importance'] / feature_importances['Importance'].sum() * 100, 2)
-    feature_importances = feature_importances[['Feature','Importance']]
-    feature_importances.rename(columns={'Importance':'Importance (%)'}, inplace=True)
 
-    return feature_importances
+    if output_only_headers:
+        return feature_importances['Feature']
+    else:
+        feature_importances['Importance'] = round(feature_importances['Importance'] / feature_importances['Importance'].sum() * 100, 2)
+        feature_importances = feature_importances[['Feature','Importance']]
+        feature_importances.rename(columns={'Importance':'Importance (%)'}, inplace=True)
+        return feature_importances

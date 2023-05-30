@@ -8,6 +8,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import make_column_selector
 from xgboost import XGBRegressor
 
+from modules.p2predict_feature_selection import get_most_predictable_features
+
 def get_available_models():
     all_models = [
   ('ridge', Ridge(alpha=1.0)),
@@ -33,14 +35,14 @@ def auto_train(X_train,y_train,numerical_cols,categorical_cols):
 
     algorithm = 'random_forest'
 
-    model = get_available_models_map(algorithm)
+    model = get_available_models_map()[algorithm]
 
     p2predict_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                   ('model', model)
                                  ])
     
     p2predict_pipeline.fit(X_train, y_train)
-    
+
     return p2predict_pipeline
 
 def start_training(X_train,y_train,numerical_cols, categorical_cols, algorithm):
