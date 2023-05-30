@@ -13,7 +13,6 @@ def plot_importances(feature_importances, feature_names):
     console.print(table)
 
 def print_feature_importances(sorted_feature_importances):
-    console.print("-> Training finished.",style='blue')
     for feature, importance in sorted_feature_importances:
         console.print(f"Feature: {feature}, Model Weight: {round(importance,ndigits=4)}")
 

@@ -77,7 +77,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         if interactive:
             if not algorithm:
                 algorithm = questionary.select(
-                    'EXPERT MODE > Choose an ML algorithm:',
+                    'EXPERT MODE | Choose an ML algorithm:',
                     choices=['ridge', 'xgboost', 'random_forest']
                 ).ask()
                 if not algorithm:
@@ -109,7 +109,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             # Analyze columns using a random forest estimator to determine relative importance of features 
             copy_data = data
             best_columns = get_most_predictable_features(copy_data,target)
-            console.print("EXPERT MODE > Best features detected for prediction: ",style='blue')
+            
+            console.print("EXPERT MODE | Best features detected for prediction: ",style='bold blue')
+            print("")
             print_dataframe(best_columns)
 
             #Select columns to use
@@ -125,6 +127,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         else:
             selected_columns = get_most_predictable_features(data,target,output_only_headers=True)[0:2] # We will take top 2 features for the auto mode
             console.print(f"Detected best features for training: {selected_columns.to_list()}",style="bold blue")
+            print("")
             
     else:
         selected_columns = training_features.split(',') # TODO must check selected features if they exist in the CSV file
@@ -138,39 +141,53 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
     if expert:
         plot_hist = questionary.confirm("Do you want to plot the histograms of the selected features?").ask()
+        print("")
         if plot_hist:
             plotting.plot_histograms(data[selected_columns])
 
     if expert:
-        console.print("EXPERT MODE > Numerical Feature characterization... ",style='blue')
+        console.print("Numerical Feature analysis: ",style='bold white')
+        print("")
         print_feature_stats(data[numerical_cols])
+        print("")
 
     # Start model training
-    console.print("Training the model, this may take a few minutes...", style='bold blue')
-    print("")
+   
+    spinner = Halo(text='Training the model, this may take a few minutes...', spinner='pong')
+    spinner.start()
     if expert:
+       
         model, feature_importances = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
+        spinner.stop()
+        
+        
         print_feature_importances(feature_importances)
+        print("")
     else:
         # auto mode
         model = auto_train(X_train,y_train,numerical_cols,categorical_cols)
-    
+        spinner.stop()
+
+    spinner.succeed('Training finished.')
+    print("")
+
+
     mae,r2 = evaluate_model(X_test,y_test,model)
     if expert: # Calculate model accuracy - this is only available in expert mode  
-        console.print("EXPERT MODE > Key Performance Metrics: ",style='bold green')
-        console.print(f'R^2 Score: {round(r2,ndigits=2)}', style='bold blue')
-        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='bold blue')
+        console.print("Model Key Performance Metrics: ",style='bold white')
+        console.print(f'Model r2 Score: {round(r2,ndigits=2)}', style='white')
+        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='white')
+        print("")
     else:
-        console.print("Key Performance Metric: ",style='bold green')
+        console.print("Key Performance Metric: ",style='bold white')
         if r2>0.8:
             console.print(f"Excellent model trained. The model's score is {round(r2,ndigits=2)}", style='bold green')
         elif r2>0.6:
             console.print(f"Average model trained. The model's score is {round(r2,ndigits=2)}", style='bold yellow')
         else:
             console.print(f"Poor model result. The model's score is {round(r2,ndigits=2)}. Please do not use use this model as is. Use expert mode to create a better model.", style="bold red")
+        print("")
                 
-    print("")
-    console.print("Training finished.",style='bold blue')
     print("")
 
 
@@ -183,11 +200,16 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             X_plotting = pd.concat([X_train,X_test])
             y_prediction = model.predict(X_plotting)
             plotting.plot_results_pdf(data[target],y_prediction,file_name)
+            print("")
 
     if expert:
-        hyper_params = questionary.confirm('EXPERT MODE > The model can try to auto-tune the hyper paramers to search for a better model. Do you want to continue? This can take significant time.').ask()
+        hyper_params = questionary.confirm('The model can try to auto-tune the hyper paramers to search for a better model. Do you want to continue? This can take significant time.').ask()
         if hyper_params:
+            spinner = Halo('Searching ...',spinner='pong')
+            spinner.start()
             hyper_parameter_tuning(X_train=X_train,y_train=y_train,numerical_cols=numerical_cols,categorical_cols=categorical_cols)
+            spinner.stop()
+            print("")
 
     model_metadata = Serialize_Trained_Model(algorithm, selected_columns, target_column, model, r2)
 
@@ -202,10 +224,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         random_int = random.randint(1, 39)
         model_name = f"models/{algorithm}_{target}_{random_int}.model"
         SaveModel(model_metadata, model_name)
-
+    print("")
 
     
-    return model_metadata       
 
 if __name__ == '__main__':
     train()
