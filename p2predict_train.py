@@ -1,6 +1,8 @@
 
 # Math, Machine learning libs 
 from halo import Halo
+
+
 spinner = Halo(text='Loading P2Predict', spinner='pong')
 spinner.start()
 
@@ -9,12 +11,13 @@ import pandas as pd
 
 # P2Predict Modules
 from modules.p2predict_feature_selection import get_most_predictable_features
+from modules.p2predict_feature_selection import get_most_predictable_features_RFE
 from modules.hyper_param_opt import hyper_parameter_tuning
 from modules.input_checks import check_csv_sanity
 from modules.trained_model_io import SaveModel, Serialize_Trained_Model, load_csv_file
 from modules import plotting
 from modules.ui_console import print_dataframe
-from modules.cmdline_io import print_feature_importances, print_feature_stats
+from modules.cmdline_io import print_feature_weights, print_feature_stats
 from modules.model_evals import evaluate_model
 from modules.prepare_data import prepare_data
 from modules.training import start_training
@@ -46,11 +49,11 @@ spinner.stop()
 def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
     print("")
-    console.print(" ____   ____   ____                   _  _        _   ",style='blue')
-    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='blue')
-    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='blue')
-    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
-    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
+    console.print(" ____   ____   ____                   _  _        _   ",style='bold blue')
+    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='bold blue')
+    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='bold blue')
+    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='bold blue')
+    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='bold blue')
     print("")
 
     if expert:
@@ -62,14 +65,14 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         if not input:
             input = questionary.path('Enter CSV file path').ask()
             if not input:
-                console.print("Aborted: You must provide an argument for the input file", style='red')
+                console.print("Aborted: You must provide an argument for the input file", style='bold red')
                 raise SystemExit
     else:
         if not input:
-            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the input file. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
+            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the input file. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
             raise SystemExit
         if not target:
-            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the target feature. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
+            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the target feature. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
             raise SystemExit
         
     # Expert mode needs the algorithm and the features to use    
@@ -81,14 +84,14 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
                     choices=['ridge', 'xgboost', 'random_forest']
                 ).ask()
                 if not algorithm:
-                    console.print("Aborted: You must select an algorithm.",style='red')
+                    console.print("Aborted: You must select an algorithm.",style='bold red')
                     raise SystemExit
         else:   
             if not algorithm:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
                 raise SystemExit
             if not training_features:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -ic flag.",style='red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
                 raise SystemExit
                 
     # Load CSV File
@@ -100,7 +103,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     if not target:
         target = questionary.select('Enter target column',choices=data.columns.tolist()).ask()
         if not target:
-            console.print("Aborted: A Target Feature is required for the training.", style='red')
+            console.print("Aborted: A Target Feature is required for the training.", style='bold red')
             raise SystemExit
         
     
@@ -108,11 +111,16 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         if expert:
             # Analyze columns using a random forest estimator to determine relative importance of features 
             copy_data = data
-            best_columns = get_most_predictable_features(copy_data,target)
+            best_features_ranked = get_most_predictable_features(copy_data,target)
+            # best_features_RFE = get_most_predictable_features_RFE(copy_data,target)
             
-            console.print("EXPERT MODE | Best features detected for prediction: ",style='bold blue')
+            console.print("Random Forest | Best features detected for prediction: ",style='bold white')
             print("")
-            print_dataframe(best_columns)
+            print_dataframe(best_features_ranked)
+
+            # console.print("RFE | Best features detected for prediction: ",style='bold white')
+            # print("")
+            # console.print(best_features_RFE)
 
             #Select columns to use
         
@@ -120,10 +128,13 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             options_list.remove(target) # Don't show Price as an option
 
             selected_columns =  questionary.checkbox(
-                        'EXPERT MODE > Which features do you want to include? ',
+                        'Select the features for training: ',
                         choices= options_list
 
                     ).ask()
+            if not selected_columns:
+                console.print("Aborted: You must select training features.", style='bold red')
+                raise SystemExit
         else:
             selected_columns = get_most_predictable_features(data,target,output_only_headers=True)[0:2] # We will take top 2 features for the auto mode
             console.print(f"Detected best features for training: {selected_columns.to_list()}",style="bold blue")
@@ -157,11 +168,11 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     spinner.start()
     if expert:
        
-        model, feature_importances = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
+        model, feature_weights = start_training(X_train,y_train,numerical_cols,categorical_cols,algorithm)
         spinner.stop()
         
         
-        print_feature_importances(feature_importances)
+        print_feature_weights(feature_weights)
         print("")
     else:
         # auto mode

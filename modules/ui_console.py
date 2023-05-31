@@ -7,7 +7,7 @@ def print_dataframe(df):
     console = Console()
 
     # create a table
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold blue", highlight=True)
 
     # add columns
     for column in df.columns:
