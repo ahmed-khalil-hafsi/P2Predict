@@ -6,6 +6,8 @@ from sklearn.compose import ColumnTransformer, make_column_transformer
 from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.feature_selection import RFE
+from sklearn.ensemble import RandomForestRegressor
 
 def get_most_predictable_features_lasso(data, target_column):
 
@@ -128,3 +130,49 @@ def get_most_predictable_features(data, target_column,output_only_headers=False)
         feature_importances = feature_importances[['Feature','Importance']]
         feature_importances.rename(columns={'Importance':'Importance (%)'}, inplace=True)
         return feature_importances
+
+
+# TODO fix the RFE
+def get_most_predictable_features_RFE(data, target_column, n_features_to_select=10):
+    # Separate features and target
+    X = data.drop(target_column, axis=1)
+    y = data[target_column]
+
+    # Identify numerical and categorical columns
+    numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
+    categorical_cols = X.select_dtypes(include=['object']).columns
+
+    # Preprocessing for numerical data: standard scaling
+    numerical_transformer = StandardScaler()
+
+    # Preprocessing for categorical data: one-hot encoding
+    categorical_transformer = OneHotEncoder(handle_unknown='ignore')
+
+    # Bundle preprocessing for numerical and categorical data
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numerical_transformer, numerical_cols),
+            ('cat', categorical_transformer, categorical_cols)])
+
+    # Use a shallow random forest to estimate feature importance
+    model = RandomForestRegressor(random_state=0)
+
+    # Define the RFE
+    rfe = RFE(estimator=model, n_features_to_select=n_features_to_select)
+
+    # Bundle preprocessing and feature selection in a pipeline
+    my_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                                  ('feature_selection', rfe)])
+
+    # Preprocessing of training data, fit model 
+    my_pipeline.fit(X, y)
+
+    selected = my_pipeline.named_steps['feature_selection'].support_
+
+    selected_num_features = numerical_cols[selected[:len(numerical_cols)]]
+    selected_cat_features = categorical_cols[selected[len(numerical_cols):]]
+    selected_features = np.concatenate([selected_num_features, selected_cat_features])
+    original_feature_names = [feature.split('_')[0] if '_' in feature else feature for feature in selected_features]
+
+    return original_feature_names
+    

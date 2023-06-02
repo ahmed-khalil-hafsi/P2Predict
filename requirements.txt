@@ -9,3 +9,4 @@ scikit_learn==1.2.2
 seaborn==0.12.2
 xgboost==1.7.5
 halo==0.0.31
+questionary==1.10.0

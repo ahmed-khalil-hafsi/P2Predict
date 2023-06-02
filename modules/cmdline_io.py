@@ -3,7 +3,7 @@ from rich.table import Table
 console = Console()
 
 def plot_importances(feature_importances, feature_names):
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold blue", highlight=True)
     table.add_column("Feature", overflow="fold", width=50)  # Adjust the width as necessary
     table.add_column("Importance (%)", justify="right")
 
@@ -12,12 +12,12 @@ def plot_importances(feature_importances, feature_names):
 
     console.print(table)
 
-def print_feature_importances(sorted_feature_importances):
+def print_feature_weights(sorted_feature_importances):
     for feature, importance in sorted_feature_importances:
         console.print(f"Feature: {feature}, Model Weight: {round(importance,ndigits=4)}")
 
 def output_features(data):
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold blue", highlight=True)
     table.add_column("Feature")
     table.add_column("Type")
 
@@ -33,7 +33,7 @@ def output_features(data):
 
 def print_feature_stats(data):
     console = Console()
-    table = Table(show_header=True, header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold blue", highlight=True)
     table.add_column("Feature")
     table.add_column("Min")
     table.add_column("Max")
