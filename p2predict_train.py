@@ -84,10 +84,10 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
                     raise SystemExit
         else:   
             if not algorithm:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
+                console.print("Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
                 raise SystemExit
             if not training_features:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
+                console.print("Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
                 raise SystemExit
                 
     # Load CSV File
