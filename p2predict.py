@@ -15,6 +15,7 @@ import click
 from modules.trained_model_io import LoadModel
 
 import modules.ui_console
+from modules.cmdline_io import print_logo
 
 # Model serialization
 import joblib
@@ -28,64 +29,79 @@ def predict(model,features):
     return y
 
 @click.command()
-@click.option('--model', type=click.Path(exists=True))
-@click.option('--features_inline')
-@click.option('--features_csv')
-def main(model,features_inline,features_csv):
+@click.option('-m','--model', type=click.Path(exists=True))
+@click.option('-p','--predict_using', help='Inline prediction feature/value pair to be fed to the trained model.')
+@click.option('-i','--predict_file', help='A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.')
+def main(model,predict_using,predict_file):
     console = Console()
     
     print("")
-    console.print(" ____   ____   ____                   _  _        _   ",style='blue')
-    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='blue')
-    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='blue')
-    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='blue')
-    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='blue')
+    print_logo()
     print("")
 
     if not model:
         model = questionary.path('Enter model file path (.model file)').ask()
+        if not model:
+            console.print("Aborted: Please enter the path to the trained model.", style='bold red')
+            raise SystemExit
 
     loaded_model_metadata = LoadModel(model)
     trained_pipeline = loaded_model_metadata['model']
 
-    console.print(f"Model > { Pretty(loaded_model_metadata['model_name']) } loaded.", style="bold blue")
-    print()
-    console.print(f"Model features: {loaded_model_metadata['features']}", style="bold blue")
-    print()
-    console.print(f"Target feature: {loaded_model_metadata['target_feature']}", style="bold blue")
+    if not trained_pipeline:
+        console.print("Aborted: Please selected model is corrupt.", style='bold red')
+        raise SystemExit
+
+
+    console.print(f"'{model}' successfully loaded.", style="bold white")
+    print("")
+    console.print(f"Loaded features: {loaded_model_metadata['features']}", style="bold white")
+    print("")
+    console.print(f"↳ Target feature: ['{loaded_model_metadata['target_feature']}']", style="bold blue")
+    print("")
+
+    
 
     # Get the encoders for the categorical features
     preprocessor = trained_pipeline.named_steps['preprocessor']
-    categorical_transformer = preprocessor.named_transformers_['cat']
-    onehot_encoder = categorical_transformer.named_steps['onehot']
+    if 'cat' in preprocessor.named_transformers_:
+        categorical_transformer = preprocessor.named_transformers_['cat']
+        
+        if 'onehot' in categorical_transformer.named_steps:
+            onehot_encoder = categorical_transformer.named_steps['onehot']
+            if hasattr(onehot_encoder, 'categories_'):
+                
+                trained_categories = onehot_encoder.categories_
 
-    # Get the trained features
-    trained_categories = onehot_encoder.categories_
-    transformers = preprocessor.transformers_
+                transformers = preprocessor.transformers_
+        
+                for name, transformer, feature_columns in transformers:
+                    if isinstance(transformer, Pipeline) and isinstance(transformer.named_steps['onehot'], OneHotEncoder):
+                        feature_columns = feature_columns.tolist()
 
-    print(transformers)
+                all_categories = {}
+        
+                for i, feature in enumerate(feature_columns):
+                    all_categories[feature] = trained_categories[i].tolist()
+
+                print("")
+                modules.ui_console.create_tree(all_categories,"Categorical Features: ")
+
     
-    for name, transformer, feature_columns in transformers:
-        if isinstance(transformer, Pipeline) and isinstance(transformer.named_steps['onehot'], OneHotEncoder):
-            feature_columns = feature_columns.tolist()
-
-    all_categories = {}
     
-    for i, feature in enumerate(feature_columns):
-        all_categories[feature] = trained_categories[i].tolist()
-
-    print()
-    modules.ui_console.create_tree(all_categories,"Categorical Features: ")
 
     features_dict = {}
-    if features_inline:
-        features_dict = dict(item.split(":") for item in features_inline.split(","))
+    if predict_using:
+        features_dict = dict(item.split(":") for item in predict_using.split(","))
     else:     
         for feature in loaded_model_metadata['features']:
-            features_inline = questionary.text(
+            predict_using = questionary.text(
                     f'{feature}: ',
                 ).ask()
-            features_dict[feature] = features_inline
+            if not predict_using:
+                console.print("Aborted: Please enter a value for this feature.", style='bold red')
+                raise SystemExit
+            features_dict[feature] = predict_using
         
     features_df = pd.DataFrame([features_dict])
 
