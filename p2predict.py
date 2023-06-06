@@ -31,8 +31,8 @@ def predict(model,features):
 @click.command()
 @click.option('-m','--model', type=click.Path(exists=True))
 @click.option('-p','--predict_using', help='Inline prediction feature/value pair to be fed to the trained model.')
-@click.option('-i','--predict_file', help='A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.')
-def main(model,predict_using,predict_file):
+@click.option('-i','--predict_file', type=click.Path(exists=True), help='A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.')
+def main(model, predict_using, predict_file):
     console = Console()
     
     print("")
@@ -52,15 +52,12 @@ def main(model,predict_using,predict_file):
         console.print("Aborted: Please selected model is corrupt.", style='bold red')
         raise SystemExit
 
-
     console.print(f"'{model}' successfully loaded.", style="bold white")
     print("")
     console.print(f"Loaded features: {loaded_model_metadata['features']}", style="bold white")
     print("")
     console.print(f"↳ Target feature: ['{loaded_model_metadata['target_feature']}']", style="bold blue")
     print("")
-
-    
 
     # Get the encoders for the categorical features
     preprocessor = trained_pipeline.named_steps['preprocessor']
@@ -87,12 +84,25 @@ def main(model,predict_using,predict_file):
                 print("")
                 modules.ui_console.create_tree(all_categories,"Categorical Features: ")
 
-    
-    
-
     features_dict = {}
     if predict_using:
         features_dict = dict(item.split(":") for item in predict_using.split(","))
+        features_df = pd.DataFrame([features_dict])
+        y = predict(trained_pipeline,features_df)
+        features_df['prediction'] = y
+        console.print(Panel(Pretty(features_df),title="Prediction"))
+        
+    elif predict_file:
+        # Read the CSV file
+        features_df = pd.read_csv(predict_file)
+        # Predict using the model
+        y = predict(trained_pipeline, features_df)
+        # Append the predictions to the DataFrame
+        features_df[loaded_model_metadata['target_feature']] = y
+        # Write the DataFrame back to the CSV file
+        features_df.to_csv(predict_file, index=False)
+        console.print(Panel(Pretty(features_df),title="Prediction"))
+        
     else:     
         for feature in loaded_model_metadata['features']:
             predict_using = questionary.text(
@@ -103,15 +113,16 @@ def main(model,predict_using,predict_file):
                 raise SystemExit
             features_dict[feature] = predict_using
         
-    features_df = pd.DataFrame([features_dict])
+        features_df = pd.DataFrame([features_dict])
 
-    y = predict(trained_pipeline,features_df)
+        y = predict(trained_pipeline,features_df)
 
-    features_df['prediction'] = y
+        features_df['prediction'] = y
 
-    console.print(Panel(Pretty(features_df),title="Prediction"))
+        console.print(Panel(Pretty(features_df),title="Prediction"))
     
     return y
+
 
 if __name__ == '__main__':
     main()
