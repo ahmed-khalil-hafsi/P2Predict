@@ -2,6 +2,13 @@ from rich.console import Console
 from rich.table import Table
 console = Console()
 
+def print_logo():
+    console.print(" ____   ____   ____                   _  _        _   ",style='bold blue')
+    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='bold blue')
+    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='bold blue')
+    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='bold blue')
+    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='bold blue')
+
 def plot_importances(feature_importances, feature_names):
     table = Table(show_header=True, header_style="bold blue", highlight=True)
     table.add_column("Feature", overflow="fold", width=50)  # Adjust the width as necessary

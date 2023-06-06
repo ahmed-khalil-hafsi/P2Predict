@@ -17,7 +17,7 @@ from modules.input_checks import check_csv_sanity
 from modules.trained_model_io import SaveModel, Serialize_Trained_Model, load_csv_file
 from modules import plotting
 from modules.ui_console import print_dataframe
-from modules.cmdline_io import print_feature_weights, print_feature_stats
+from modules.cmdline_io import print_feature_weights, print_feature_stats, print_logo
 from modules.model_evals import evaluate_model
 from modules.prepare_data import prepare_data
 from modules.training import start_training
@@ -41,25 +41,21 @@ spinner.stop()
 @click.command()
 @click.option('-i','--input', type=click.Path(exists=True), default=None, help='Dataset used for training. This must be a CSV file.')
 @click.option('-t','--target',help='Feature name to be predicted. Example: If you are trying to predict a price, this should be the name of your price column')
-@click.option('--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
-@click.option('--algorithm', help="This is the training algorithm to be used.")
+@click.option('-x','--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
+@click.option('-a','--algorithm', help="This is the training algorithm to be used.")
 @click.option('-v', '--verbose', is_flag=True, default=None)
-@click.option('-ic', '--interactive', is_flag=True, default=True)
-@click.option('--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ':'. Example: --training_features weight:Size ")
+@click.option('-c', '--interactive', is_flag=True, default=None)
+@click.option('-tf','--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ','. Example: --training_features Weight,Size ")
 def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
     print("")
-    console.print(" ____   ____   ____                   _  _        _   ",style='bold blue')
-    console.print("|  _ \\ |___ \\ |  _ \\  _ __   ___   __| |(_)  ___ | |_ ",style='bold blue')
-    console.print("| |_) |  __) || |_) || '__| / _ \\ / _` || | / __|| __|",style='bold blue')
-    console.print("|  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ ",style='bold blue')
-    console.print("|_|    |_____||_|    |_|    \\___| \\__,_||_| \\___| \\__|",style='bold blue')
+    print_logo()
     print("")
 
     if expert:
-        console.print(f"Welcome to P2Predict! Expert mode activated.", style='bold blue')
+        console.print(f"Welcome to P2Predict! 'Expert mode' is active.", style='bold blue')
     else:
-        console.print(f"Welcome to P2Predict! Auto mode activated.", style='bold blue')
+        console.print(f"Welcome to P2Predict! 'Auto mode' is active.", style='bold blue')
  
     if interactive:
         if not input:
@@ -69,10 +65,10 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
                 raise SystemExit
     else:
         if not input:
-            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the input file. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
+            console.print("Aborted: You must provide an argument for the input file. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
             raise SystemExit
         if not target:
-            console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the target feature. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
+            console.print("Aborted: You must provide an argument for the target feature. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
             raise SystemExit
         
     # Expert mode needs the algorithm and the features to use    
@@ -80,18 +76,18 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         if interactive:
             if not algorithm:
                 algorithm = questionary.select(
-                    'EXPERT MODE | Choose an ML algorithm:',
+                    'Please choose an ML algorithm:',
                     choices=['ridge', 'xgboost', 'random_forest']
                 ).ask()
                 if not algorithm:
-                    console.print("Aborted: You must select an algorithm.",style='bold red')
+                    console.print("Aborted: You must select a training algorithm.",style='bold red')
                     raise SystemExit
         else:   
             if not algorithm:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must pre-select the training algorithm. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
                 raise SystemExit
             if not training_features:
-                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -ic flag.",style='bold red')
+                console.print("NON-INTERACTIVE MODE | Aborted: You must provide an argument for the training features. Alternatively, switch to interactive mode by using the -c flag.",style='bold red')
                 raise SystemExit
                 
     # Load CSV File
@@ -109,18 +105,14 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     
     if not training_features:
         if expert:
-            # Analyze columns using a random forest estimator to determine relative importance of features 
+            
             copy_data = data
             best_features_ranked = get_most_predictable_features(copy_data,target)
             # best_features_RFE = get_most_predictable_features_RFE(copy_data,target)
             
-            console.print("Random Forest | Best features detected for prediction: ",style='bold white')
+            console.print("Best features detected for prediction: ",style='bold white')
             print("")
             print_dataframe(best_features_ranked)
-
-            # console.print("RFE | Best features detected for prediction: ",style='bold white')
-            # print("")
-            # console.print(best_features_RFE)
 
             #Select columns to use
         
@@ -150,7 +142,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
 
-    if expert:
+    if expert and interactive:
         plot_hist = questionary.confirm("Do you want to plot the histograms of the selected features?").ask()
         print("")
         if plot_hist:
@@ -203,7 +195,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
 
 
     # Plot result graphs and create output pdf. PDF is only created in interactive mode
-    if interactive:
+    if expert and interactive:
         export_pdf = questionary.confirm('Do you want to generate the model quality report?').ask()
         if export_pdf:
             file_name = Prompt.ask('Enter PDF name: (.pdf) ')
@@ -213,7 +205,7 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             plotting.plot_results_pdf(data[target],y_prediction,file_name)
             print("")
 
-    if expert:
+    if expert and interactive:
         hyper_params = questionary.confirm('The model can try to auto-tune the hyper paramers to search for a better model. Do you want to continue? This can take significant time.').ask()
         if hyper_params:
             spinner = Halo('Searching ...',spinner='pong')
@@ -236,6 +228,8 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
         model_name = f"models/{algorithm}_{target}_{random_int}.model"
         SaveModel(model_metadata, model_name)
     print("")
+
+
 
     
 

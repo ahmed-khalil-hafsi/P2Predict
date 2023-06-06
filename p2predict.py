@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.console import Group
 from rich.pretty import Pretty
 import click
-from P2Predict.modules.trained_model_io import LoadModel
+from modules.trained_model_io import LoadModel
 
 import modules.ui_console
 
