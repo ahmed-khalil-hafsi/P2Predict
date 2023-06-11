@@ -45,7 +45,7 @@ spinner.stop()
 @click.option('-a','--algorithm', help="This is the training algorithm to be used.")
 @click.option('-v', '--verbose', is_flag=True, default=None)
 @click.option('-c', '--interactive', is_flag=True, default=None)
-@click.option('-tf','--training_features', help="List of training features to be used to train the model. The list must be the headers seperate by a ','. Example: --training_features Weight,Size ")
+@click.option('-tf','--training_features', help="List of training features to be used to train the model. The list must be the headers separate by a ','. Example: --training_features Weight,Size ")
 def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
     print("")
