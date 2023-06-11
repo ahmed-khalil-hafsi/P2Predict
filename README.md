@@ -14,7 +14,7 @@ P2Predict is an open-source Python comand-line program for advanced procurement 
 
 The project is in heavy active development - Contributions are welcome!
 
-As I work on core features first, this program is targetting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
+As I work on core features first, this program is targeting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
 
 This software is released under the MIT license. See `LICENSE` for the license details.
 
