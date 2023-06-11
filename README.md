@@ -67,27 +67,29 @@ To use P2Predict, follow these steps:
      - `--training_features TEXT`: List of training features to be used to train the model. The list must be the headers separated by a ','. Example: `--training_features Weight,Size`.
 
 
-     Examples:
-
-     Launch P2Predict in Interactive Auto-Mode. This is the most straight-forward usage of P2Predict_train. Note that here only --interactive is specified. The program will ask the user to enter all required information to create a trained model.  
+#### Examples:
 
      ```bash
      python3 p2predict_train.py --interactive
      ```
-     
-     In this example, we are launching P2Predict_train in Interactive Expert mode. In Expert mode, the user has access to all advanced features including feature selection, algorithm selection, evals, ...  
 
+     Launch P2Predict in Interactive Auto-Mode. This is the most straight-forward usage of P2Predict_train. Note that here only --interactive is specified. The program will ask the user to enter all required information to create a trained model.  
+
+     
      ```bash
      python3 p2predict_train.py --expert --interactive
      ```
 
-     In this example, we are launching P2Predict_train in Non-Interactive Expert mode. In this mode you have to specify all inputs as part of the command line call. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
+     In this example, we are launching P2Predict_train in Interactive Expert mode. In Expert mode, the user has access to all advanced features including feature selection, algorithm selection, evals, ...  
 
+     
      ```bash
      python3 p2predict_train.py --expert --input examples/example.csv --algorithm ridge --target Price --training_features Weight,Size
-     ``` 
-     
+     ```
 
+     In this example, we are launching P2Predict_train in Non-Interactive Expert mode. In this mode you have to specify all inputs as part of the command line call. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
+
+      
 ### 3. Use the model to predict prices
    - Use the `p2predict.py` tool to predict a new price using a trained model.
    - The tool accepts the following arguments:
