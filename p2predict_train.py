@@ -12,7 +12,7 @@ import pandas as pd
 # P2Predict Modules
 from modules.p2predict_feature_selection import get_most_predictable_features
 from modules.p2predict_feature_selection import get_most_predictable_features_RFE
-from modules.hyper_param_opt import hyper_parameter_tuning
+from modules.hpo_training import hyper_parameter_tuning
 from modules.input_checks import check_csv_sanity
 from modules.trained_model_io import SaveModel, Serialize_Trained_Model, load_csv_file
 from modules import plotting
