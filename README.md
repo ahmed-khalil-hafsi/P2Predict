@@ -26,6 +26,8 @@ This software is released under the MIT license. See `LICENSE` for the license d
 #### Model Training
 - Import training data from a CSV file
 - Perform feature/impact analysis
+- Auto detection of the most predictive features using RFE and a Random Forest
+- Implementation of Hyper Parameter Optimization for Ridge, XGBoost and Random Forest
 - Train a machine learning model on the selected features to predict the price (or any other target)
 - Support for Ridge, XGBoost, and Random Forest ML algorithms
 - Models can be easily saved and loaded
@@ -36,12 +38,12 @@ This software is released under the MIT license. See `LICENSE` for the license d
 
 ![alt text](./documentation/model_perf_plot.png)
 
-## How to Use
+## Quick Start
 
 To use P2Predict, follow these steps:
 
 ### 0. Install dependencies
-   - Install the required dependencies by involking `pip install -r requirements.txt`
+   - Install the required dependencies by invoking `pip install -r requirements.txt`
    
 ### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
@@ -54,20 +56,37 @@ To use P2Predict, follow these steps:
    - The tool accepts the following arguments:
 
      ```bash
-     python3 p2predict_train.py --input PATH --target TEXT --algorithm TEXT
+     python3 p2predict_train.py --input PATH --target TEXT --algorithm TEXT --expert --verbose --interactive --training_features TEXT
      ```
 
-     - `--input PATH`: Path to your input CSV file.
-     - `--target TEXT`: Name of the feature to predict (e.g., "Price").
-     - `--algorithm TEXT`: Choose the machine learning algorithm to be used: "ridge", "xgboost", or "random_forest".
+     - OPTIONAL: `--input PATH`: Path to your input CSV file. This dataset is used for training. This must be a CSV file.
+     - OPTIONAL: `--target TEXT`: Name of the feature to predict (e.g., "Price"). If you are trying to predict a price, this should be the name of your price column.
+     - OPTIONAL: `--expert`: Toggle Expert Mode. This is a flag and does not require a value. If you don't call the P2Predict with --expert, the program will be in Auto Mode where P2Predict_train will optimize all decisions on behalf of the user automatically, i.e. ML algorithm, best features, evals. In Expert mode, the user has to select which algorithm to use, which features to select, ...
+     - OPTIONAL: `--algorithm TEXT`: Choose the machine learning algorithm to be used.
+     - OPTIONAL: `--interactive`: This is a flag to activate interactive mode. This does not require a value. If this flag is not set, P2Predict will be in non-interactive mode. This means you have to specify the --input, --algorithm, --target and --training_features. Use non-interactive mode for scripting or embedding within APIs or other libraries.
+     - `--training_features TEXT`: List of training features to be used to train the model. The list must be the headers separated by a ','. Example: `--training_features Weight,Size`.
 
-     Example:
+
+     Examples:
+
+     Launch P2Predict in Interactive Auto-Mode. This is the most straight-forward usage of P2Predict_train. Note that here only --interactive is specified. The program will ask the user to enter all required information to create a trained model.  
 
      ```bash
-     python3 p2predict_train.py --input dummy/example.csv --target Price --algorithm ridge
+     python3 p2predict_train.py --interactive
+     ```
+     
+     In this example, we are launching P2Predict_train in Interactive Expert mode. In Expert mode, the user has access to all advanced features including feature selection, algorithm selection, evals, ...  
+
+     ```bash
+     python3 p2predict_train.py --expert --interactive
      ```
 
-     This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, and `Price` as the target feature.
+     In this example, we are launching P2Predict_train in Non-Interactive Expert mode. In this mode you have to specify all inputs as part of the command line call. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
+
+     ```bash
+     python3 p2predict_train.py --expert --input examples/example.csv --algorithm ridge --target Price --training_features Weight,Size
+     ``` 
+     
 
 ### 3. Use the model to predict prices
    - Use the `p2predict.py` tool to predict a new price using a trained model.
