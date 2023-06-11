@@ -67,7 +67,7 @@ To use P2Predict, follow these steps:
      - `--training_features TEXT`: List of training features to be used to train the model. The list must be the headers separated by a ','. Example: `--training_features Weight,Size`.
 
 
-#### Examples:
+   #### Examples:
 
      ```bash
      python3 p2predict_train.py --interactive
