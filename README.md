@@ -52,6 +52,7 @@ To use P2Predict, follow these steps:
    - Verify that numeric columns do not contain text.
 
 ### 2. Train your model
+   ![alt text](./documentation/p2predict_train.gif)
    - Use the `p2predict_train.py` tool to train a new model.
    - The tool accepts the following arguments:
 
@@ -66,28 +67,32 @@ To use P2Predict, follow these steps:
      - OPTIONAL: `--interactive`: This is a flag to activate interactive mode. This does not require a value. If this flag is not set, P2Predict will be in non-interactive mode. This means you have to specify the --input, --algorithm, --target and --training_features. Use non-interactive mode for scripting or embedding within APIs or other libraries.
      - `--training_features TEXT`: List of training features to be used to train the model. The list must be the headers separated by a ','. Example: `--training_features Weight,Size`.
 
+     For power users, there are many shortcuts to the command arguments stated above, launch `p2predict_train.py` with `--help` to see all commands and their shortcuts.
 
-   Examples:
+     ### Examples:
+
+     #### Example 1:
 
      ```bash
      python3 p2predict_train.py --interactive
      ```
 
-     Launch P2Predict in Interactive Auto-Mode. This is the most straight-forward usage of P2Predict_train. Note that here only --interactive is specified. The program will ask the user to enter all required information to create a trained model.  
+     Launch P2Predict in `Interactive` `Auto-Mode`. This is the most straight-forward usage of `P2Predict_train.py`. Note that here only `--interactive` is specified. The program will prompt the user to enter all required information in order to create a trained model.  
 
+     #### Example 2:
      
      ```bash
      python3 p2predict_train.py --expert --interactive
      ```
 
-     In this example, we are launching P2Predict_train in Interactive Expert mode. In Expert mode, the user has access to all advanced features including feature selection, algorithm selection, evals, ...  
+     In this example, we are launching `P2Predict_train.py` in `Interactive` `Expert mode`. In `Expert mode`, the user has access to all advanced features including feature selection, algorithm selection, evals, Hyper Parameter Optimization, ...  
 
-     
+     #### Example 3:
      ```bash
      python3 p2predict_train.py --expert --input examples/example.csv --algorithm ridge --target Price --training_features Weight,Size
      ```
 
-     In this example, we are launching P2Predict_train in Non-Interactive Expert mode. In this mode you have to specify all inputs as part of the command line call. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
+     In this example, we are launching `P2Predict_train.py` in `Non-Interactive` `Expert mode`. In this mode you have to specify all inputs as part of the command line arguments. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
 
       
 ### 3. Use the model to predict prices
