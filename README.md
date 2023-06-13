@@ -8,15 +8,17 @@
 
 [![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
 
-P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement. 
+P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
+
+![alt text](./documentation/p2predict_train.gif)
 
 The project is in heavy active development - Contributions are welcome!
-
-This project is not released for production yet.
 
 As I work on core features first, this program is targetting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
 
 This software is released under the MIT license. See `LICENSE` for the license details.
+
+
 
 ## Features
 
@@ -52,7 +54,7 @@ To use P2Predict, follow these steps:
    - Verify that numeric columns do not contain text.
 
 ### 2. Train your model
-   ![alt text](./documentation/p2predict_train.gif)
+   
    - Use the `p2predict_train.py` tool to train a new model.
    - The tool accepts the following arguments:
 
