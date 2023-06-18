@@ -9,6 +9,44 @@ from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.feature_selection import RFE
 from sklearn.ensemble import RandomForestRegressor
 
+def calculate_entropy(series):
+    counts = series.value_counts(normalize=True)
+    return -np.sum(counts*np.log2(counts))
+
+def find_high_variation_features(df):
+    # For numerical data
+    numeric_df = df.select_dtypes(include=['int64', 'float64'])
+
+    # Coefficient of variation = standard deviation / mean
+    coefficients_of_variation = (numeric_df.std() / numeric_df.mean()).dropna()
+
+    # Features with high variation might be considered those with CV > 1 
+    high_variation_numeric = coefficients_of_variation[coefficients_of_variation > 1].index.tolist()
+
+    # For categorical data
+    categorical_df = df.select_dtypes(include=['object', 'bool', 'category'])
+
+    # Calculate entropy for each column
+    unique_ratio = categorical_df.apply(lambda x: x.nunique() / len(x))
+    print(unique_ratio)
+
+    # Consider high variation columns with very high unique values
+    high_variation_categorical = unique_ratio[unique_ratio > 0.9].index.tolist()
+    
+    
+    # Combine both lists
+    high_variation_features = high_variation_numeric + high_variation_categorical
+    
+    return high_variation_features
+
+
+def find_no_variation_features(df):
+    
+    unique_counts = df.nunique()
+    no_variation_features = unique_counts[unique_counts == 1].index.tolist()
+
+    return no_variation_features
+
 def get_most_predictable_features_lasso(data, target_column):
 
     X = data.drop(target_column, axis=1)
