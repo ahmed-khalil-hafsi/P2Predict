@@ -22,6 +22,8 @@ from modules.model_evals import evaluate_model
 from modules.prepare_data import prepare_data
 from modules.training import start_training
 from modules.training import auto_train
+from modules.p2predict_feature_selection import find_no_variation_features
+from modules.p2predict_feature_selection import find_high_variation_features
 
 #UI
 from rich.console import Console
@@ -103,6 +105,21 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
             raise SystemExit
         
     
+    # Find low information features
+    high_vars = find_high_variation_features(data)
+    low_vars = find_no_variation_features(data)
+
+    print("")
+    console.print(f"We found the following low information features: ")
+    console.print(f"No information content: {low_vars}")
+    console.print(f"Low information content: {high_vars}")
+    print("")
+
+    remove_no_information_features = questionary.checkbox('Which features you want to remove? ', choices=low_vars + high_vars).ask()
+    if remove_no_information_features:
+        data = data.drop(remove_no_information_features, axis=1)
+        
+    
     if not training_features:
         if expert:
             
@@ -137,10 +154,9 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     
     target_column = target
 
-
-
     # Prepare data for training. Split X and Y variables into a set for training and a set for testing.
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(data,selected_columns,target_column)
+
 
     if expert and interactive:
         plot_hist = questionary.confirm("Do you want to plot the histograms of the selected features?").ask()
