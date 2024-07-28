@@ -29,6 +29,7 @@ This software is released under the MIT license. See `LICENSE` for the license d
 - Import training data from a CSV file
 - Perform feature/impact analysis
 - Auto detection of the most predictive features using RFE and a Random Forest
+- Auto detection of low information features that might bias the model if selected
 - Implementation of Hyper Parameter Optimization for Ridge, XGBoost and Random Forest
 - Train a machine learning model on the selected features to predict the price (or any other target)
 - Support for Ridge, XGBoost, and Random Forest ML algorithms
