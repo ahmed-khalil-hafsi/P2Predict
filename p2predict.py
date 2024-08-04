@@ -30,9 +30,12 @@ def predict(model,features):
     return y
 
 @click.command()
-@click.option('-m','--model', type=click.Path(exists=True))
-@click.option('-p','--predict_using', help='Inline prediction feature/value pair to be fed to the trained model.')
-@click.option('-i','--predict_file', type=click.Path(exists=True), help='A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.')
+@click.option('-m', '--model', type=click.Path(exists=True),
+              help='Path to the trained model file (.model)')
+@click.option('-p', '--predict_using',
+              help='Specify feature values for prediction, e.g., "weight:100,color:red"')
+@click.option('-i', '--predict_file', type=click.Path(exists=True),
+              help='Path to a CSV file containing feature values for batch prediction')
 def main(model, predict_using, predict_file):
     console = Console()
     

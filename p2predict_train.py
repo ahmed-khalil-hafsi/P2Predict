@@ -41,13 +41,20 @@ spinner.stop()
 # TODO Add various levels of verbosity
 
 @click.command()
-@click.option('-i','--input', type=click.Path(exists=True), default=None, help='Dataset used for training. This must be a CSV file.')
-@click.option('-t','--target',help='Feature name to be predicted. Example: If you are trying to predict a price, this should be the name of your price column')
-@click.option('-x','--expert', is_flag=True, help="Toggle Expert Mode.", default=None)
-@click.option('-a','--algorithm', help="This is the training algorithm to be used.")
-@click.option('-v', '--verbose', is_flag=True, default=None)
-@click.option('-c', '--interactive', is_flag=True, default=None)
-@click.option('-tf','--training_features', help="List of training features to be used to train the model. The list must be the headers separate by a ','. Example: --training_features Weight,Size ")
+@click.option('-i', '--input', type=click.Path(exists=True), default=None, 
+              help='Path to the CSV file containing the training dataset.')
+@click.option('-t', '--target', 
+              help='Name of the feature to be predicted (e.g., "Price" for price prediction).')
+@click.option('-x', '--expert', is_flag=True, default=None,
+              help='Enable Expert Mode for more control over the training process.')
+@click.option('-a', '--algorithm', 
+              help='Specify the machine learning algorithm to use for training (e.g., "ridge", "xgboost", "random_forest").')
+@click.option('-v', '--verbose', is_flag=True, default=None,
+              help='Enable verbose output for detailed information during training.')
+@click.option('-c', '--interactive', is_flag=True, default=None,
+              help='Enable interactive mode for guided input of training parameters.')
+@click.option('-tf', '--training_features', 
+              help='Comma-separated list of feature names to use for training (e.g., "Weight,Size,Color").')
 def train(input, target, expert, algorithm, verbose,interactive,training_features):
     
     print("")
