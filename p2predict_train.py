@@ -1,4 +1,3 @@
-
 # Math, Machine learning libs 
 from halo import Halo
 
@@ -197,23 +196,53 @@ def train(input, target, expert, algorithm, verbose,interactive,training_feature
     spinner.succeed('Training finished.')
     print("")
 
-
-    mae,r2 = evaluate_model(X_test,y_test,model)
-    if expert: # Calculate model accuracy - this is only available in expert mode  
-        console.print("Model Key Performance Metrics: ",style='bold white')
-        console.print(f'Model r2 Score: {round(r2,ndigits=2)}', style='white')
-        console.print(f'Mean Absolute Error: {round(mae,ndigits=2)}', style='white')
+    mae, r2, p_value = evaluate_model(X_test, y_test, model)
+    if expert:
+        console.print("Model Key Performance Metrics: ", style='bold white')
+        console.print(f'Model R² Score: {round(r2, ndigits=2)}', style='white')
+        console.print(f'Mean Absolute Error: {round(mae, ndigits=2)}', style='white')
+        console.print(f'P-value: {round(p_value, ndigits=4)}', style='white')
         print("")
     else:
-        console.print("Key Performance Metric: ",style='bold white')
-        if r2>0.8:
-            console.print(f"Excellent model trained. The model's score is {round(r2,ndigits=2)}", style='bold green')
-        elif r2>0.6:
-            console.print(f"Average model trained. The model's score is {round(r2,ndigits=2)}", style='bold yellow')
+        console.print("Model Performance Summary:", style='bold white')
+        
+        # Calculate a composite score
+        r2_score = min(r2, 1.0)  # Cap R² at 1.0
+        p_value_score = 1 - min(p_value, 1.0)  # Invert p-value, cap at 1.0
+        mae_score = 1 / (1 + mae)  # Normalize MAE, higher is better
+        
+        composite_score = (0.6 * r2_score + 0.2 * p_value_score + 0.2 * mae_score) * 100
+        
+        if composite_score > 80:
+            model_quality = "Excellent"
+            style = 'bold green'
+        elif composite_score > 60:
+            model_quality = "Good"
+            style = 'bold yellow'
         else:
-            console.print(f"Poor model result. The model's score is {round(r2,ndigits=2)}. Please do not use use this model as is. Use expert mode to create a better model.", style="bold red")
+            model_quality = "Needs Improvement"
+            style = 'bold red'
+        
+        console.print(f"Model Quality: {model_quality}", style=style)
+        console.print(f"Overall Score: {round(composite_score, 1)}%")
+        console.print(f"R² Score: {round(r2 * 100, 1)}%")
+        console.print(f"Average Prediction Error: {round(mae, 2)}")
+        
+        if p_value < 0.05:
+            console.print("The model's predictions are statistically significant.", style='italic')
+        else:
+            console.print("The model's predictions are not statistically significant.", style='italic bold')
+            console.print("This suggests that the model's performance may be due to chance.", style='italic')
+            console.print("Consider collecting more data or refining the model.", style='italic')
+        
+        if model_quality == "Good" and p_value >= 0.05:
+            console.print("\nNote: While the overall metrics look good, the lack of statistical significance suggests caution in interpreting the results.", style="bold yellow")
+        
+        if model_quality == "Needs Improvement" or p_value >= 0.05:
+            console.print("\nRecommendation: Consider using expert mode to improve the model and address statistical significance.", style="bold")
+        
         print("")
-                
+    
     print("")
 
 
