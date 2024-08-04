@@ -8,17 +8,15 @@
 
 [![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
 
-P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
+P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs Artificial Intelligence & machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
 
 ![User Experience Expert Mode](./documentation/p2predict_train.gif)
 
-The project is in heavy active development - Contributions are welcome!
+The project is in active development - Contributions are welcome!
 
 As I work on core features first, this program is targeting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
 
 This software is released under the MIT license. See `LICENSE` for the license details.
-
-
 
 ## Features
 
@@ -60,42 +58,66 @@ To use P2Predict, follow these steps:
    - The tool accepts the following arguments:
 
      ```bash
-     python3 p2predict_train.py --input PATH --target TEXT --algorithm TEXT --expert --verbose --interactive --training_features TEXT
+     python3 p2predict_train.py [OPTIONS]
      ```
 
-     - OPTIONAL: `--input PATH`: Path to your input CSV file. This dataset is used for training. This must be a CSV file.
-     - OPTIONAL: `--target TEXT`: Name of the feature to predict (e.g., "Price"). If you are trying to predict a price, this should be the name of your price column.
-     - OPTIONAL: `--expert`: Toggle Expert Mode. This is a flag and does not require a value. If you don't call the P2Predict with --expert, the program will be in Auto Mode where P2Predict_train will optimize all decisions on behalf of the user automatically, i.e. ML algorithm, best features, evals. In Expert mode, the user has to select which algorithm to use, which features to select, ...
-     - OPTIONAL: `--algorithm TEXT`: Choose the machine learning algorithm to be used.
-     - OPTIONAL: `--interactive`: This is a flag to activate interactive mode. This does not require a value. If this flag is not set, P2Predict will be in non-interactive mode. This means you have to specify the --input, --algorithm, --target and --training_features. Use non-interactive mode for scripting or embedding within APIs or other libraries.
-     - `--training_features TEXT`: List of training features to be used to train the model. The list must be the headers separated by a ','. Example: `--training_features Weight,Size`.
+     - `--input`, `-i`: Path to your input CSV file. This dataset is used for training.
+     - `--target`, `-t`: Name of the feature to predict (e.g., "Price").
+     - `--expert`, `-e`: Toggle Expert Mode. In Expert mode, you have more control over the training process.
+     - `--algorithm`, `-a`: Choose the machine learning algorithm to be used (ridge, xgboost, or randomforest).
+     - `--interactive`: Activate interactive mode. If not set, you must specify all required options.
+     - `--verbose`, `-v`: Increase output verbosity.
+     - `--training_features`, `-f`: List of training features to be used, separated by commas.
 
-     For power users, there are many shortcuts to the command arguments stated above, launch `p2predict_train.py` with `--help` to see all commands and their shortcuts.
+     For a complete list of options, run `python3 p2predict_train.py --help`.
 
      ### Examples:
 
-     #### Example 1:
+     #### Example 1: Interactive Auto-Mode
 
      ```bash
      python3 p2predict_train.py --interactive
      ```
 
-     Launch P2Predict in `Interactive` `Auto-Mode`. This is the most straight-forward usage of `P2Predict_train.py`. Note that here only `--interactive` is specified. The program will prompt the user to enter all required information in order to create a trained model.  
+     This launches P2Predict in Interactive Auto-Mode, where the program guides you through the process and optimizes decisions automatically.
 
-     #### Example 2:
+     #### Example 2: Interactive Expert Mode
      
      ```bash
      python3 p2predict_train.py --expert --interactive
      ```
 
-     In this example, we are launching `P2Predict_train.py` in `Interactive` `Expert mode`. In `Expert mode`, the user has access to all advanced features including feature selection, algorithm selection, evals, Hyper Parameter Optimization, ...  
+     This launches P2Predict in Interactive Expert Mode, giving you access to advanced features like feature selection, algorithm selection, and hyperparameter optimization.
 
-     #### Example 3:
+     #### Example 3: Non-Interactive Expert Mode with Ridge Regression
      ```bash
      python3 p2predict_train.py --expert --input examples/example.csv --algorithm ridge --target Price --training_features Weight,Size
      ```
 
-     In this example, we are launching `P2Predict_train.py` in `Non-Interactive` `Expert mode`. In this mode you have to specify all inputs as part of the command line arguments. This command trains a model using data from `dummy/example.csv`, the `ridge` algorithm, `Price` as the target feature and Weight and Size as training features.
+     This runs P2Predict in Non-Interactive Expert Mode, training a Ridge regression model using the specified input file, target, and training features.
+
+     #### Example 4: Non-Interactive Auto-Mode with XGBoost
+     ```bash
+     python3 p2predict_train.py --input data/sales.csv --target Revenue --algorithm xgboost
+     ```
+
+     This example trains an XGBoost model in Auto-Mode, using 'Revenue' as the target variable. The program will automatically select the best features from the 'sales.csv' file.
+
+     #### Example 5: Verbose Mode with Random Forest
+     ```bash
+     python3 p2predict_train.py --input data/customer_data.csv --target Churn --algorithm randomforest --verbose
+     ```
+
+     This runs a Random Forest model training with increased verbosity, predicting customer churn based on the data in 'customer_data.csv'.
+
+     #### Example 6: Specifying Multiple Training Features
+     ```bash
+     python3 p2predict_train.py --input data/housing.csv --target Price --algorithm ridge --training_features Area,Bedrooms,Location,YearBuilt
+     ```
+
+     This example trains a Ridge regression model to predict housing prices, explicitly specifying multiple training features.
+
+   - After training, the model will be saved and can be used for predictions with `p2predict.py`.
 
       
 ### 3. Use the model to predict prices
@@ -103,31 +125,46 @@ To use P2Predict, follow these steps:
    - The tool accepts the following arguments:
 
      ```bash
-     python3 p2predict.py --model PATH --features TEXT
+     python3 p2predict.py -m MODEL_PATH [-p PREDICT_USING] [-i PREDICT_FILE]
      ```
 
-     - `--model PATH`: Path to the trained model.
-     - `--features TEXT`: Comma-separated key:value list of input features.
+     - `-m, --model MODEL_PATH`: Path to the trained model file (.model file).
+     - `-p, --predict_using TEXT`: Inline prediction feature/value pair to be fed to the trained model.
+     - `-i, --predict_file FILE`: A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.
 
-     Example:
+     Examples:
 
+     1. Using inline prediction:
      ```bash
-     python3 p2predict.py --model models/ridge_weight_region_price.model --features weight_g:25,region:5
+     python3 p2predict.py -m models/my_trained_model.model -p "weight_g:25,region:5"
      ```
 
-     This command uses the model saved in `models/ridge_weight_region_price.model` to predict the price for an object with a weight of 25g and located in region 5. Make sure the model accepts the same features and also in the same order. The model in this example was trained using `p2predict_train`, using `weight_g` and `region` as training features.
+     This command uses the model saved in `models/my_trained_model.model` to predict the price for an object with a weight of 25g and located in region 5.
+
+     2. Using a prediction file:
+     ```bash
+     python3 p2predict.py -m models/my_trained_model.model -i prediction_data.csv
+     ```
+
+     This command uses the model saved in `models/my_trained_model.model` to generate predictions for all the entries in the `prediction_data.csv` file.
+
+   Note: Make sure the features you provide (either inline or in the CSV file) match the features the model was trained on. The model in these examples was trained using `p2predict_train.py`, and the prediction features should correspond to the training features used.
 
 ## Dependencies
 
-Check `requirements.text` for exact versions. Install with `pip install -r requirements.txt`
-- pandas
-- sklearn
-- xgboost
-- matplotlib
-- seaborn
-- joblib
-- rich
+Check `requirements.txt` for exact versions. Install with `pip install -r requirements.txt`
 - click
+- joblib
+- matplotlib
+- mpld3
+- numpy
+- pandas
+- rich
+- scikit-learn
+- seaborn
+- xgboost
+- halo
+- questionary
 
 ## Data
 
@@ -135,9 +172,9 @@ For data examples, check `dummy/example.csv`.
 
 ## Contributing
 
-PRs are open. If you have a feature you'd like to add or if you've found a bug, please feel free to open an issue or submit a PR.
+I warmly welcome contributions to this project! If you have an exciting feature idea or have discovered a bug, I'd be delighted to hear from you. Please don't hesitate to open an issue or submit a pull request.
 
-I am especially looking for data sets for various direct and indirect commodities (examples: ICs, Passive Components, Plastic Parts, Mechanical Parts, ...). If you know of any open datasets or if your organisation wants to donate a dataset, please contact me.
+I'm particularly keen on expanding my collection of datasets for various direct and indirect commodities. This includes, but is not limited to, Integrated Circuits (ICs), Passive Components, Plastic Parts, and Mechanical Parts. If you're aware of any open datasets in these areas, or if your organization would like to contribute a dataset, I'd be incredibly grateful. Please reach out to me - your input could be invaluable in enhancing the project's capabilities and benefiting the wider procurement community.
 
 ## Become a sponsor!
 
