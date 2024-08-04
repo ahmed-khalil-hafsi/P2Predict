@@ -58,35 +58,47 @@ def main(model, predict_using, predict_file):
 
     console.print(f"'{model}' successfully loaded.", style="bold white")
     print("")
-    console.print(f"Loaded features: {loaded_model_metadata['features']}", style="bold white")
-    print("")
-    console.print(f"↳ Target feature: ['{loaded_model_metadata['target_feature']}']", style="bold blue")
-    print("")
-
-    # Get the encoders for the categorical features
+    # Get feature types and categories from the preprocessor
     preprocessor = trained_pipeline.named_steps['preprocessor']
-    if 'cat' in preprocessor.named_transformers_:
-        categorical_transformer = preprocessor.named_transformers_['cat']
-        
-        if 'onehot' in categorical_transformer.named_steps:
-            onehot_encoder = categorical_transformer.named_steps['onehot']
-            if hasattr(onehot_encoder, 'categories_'):
-                
-                trained_categories = onehot_encoder.categories_
+    feature_types = {}
+    all_categories = {}
 
-                transformers = preprocessor.transformers_
-        
-                for name, transformer, feature_columns in transformers:
-                    if isinstance(transformer, Pipeline) and isinstance(transformer.named_steps['onehot'], OneHotEncoder):
-                        feature_columns = feature_columns.tolist()
+    for name, transformer, columns in preprocessor.transformers_:
+        if name == 'num':
+            feature_types.update({col: 'Numerical' for col in columns})
+        elif name == 'cat':
+            feature_types.update({col: 'Categorical' for col in columns})
+            if 'onehot' in transformer.named_steps:
+                onehot_encoder = transformer.named_steps['onehot']
+                if hasattr(onehot_encoder, 'categories_'):
+                    all_categories = {col: cat.tolist() for col, cat in zip(columns, onehot_encoder.categories_)}
 
-                all_categories = {}
-        
-                for i, feature in enumerate(feature_columns):
-                    all_categories[feature] = trained_categories[i].tolist()
+    # Create a table for features and their types
+    table = Table(title="Model Features", show_header=True, header_style="bold magenta")
+    table.add_column("Feature", style="dim", width=20)
+    table.add_column("Type", justify="right")
+    for feature, feature_type in feature_types.items():
+        table.add_row(feature, feature_type)
 
-                print("")
-                modules.ui_console.create_tree(all_categories,"Categorical Features: ")
+    # Display the table
+    console.print(table)
+
+    # Print target feature
+    console.print(f"\nTarget feature: [bold blue]'{loaded_model_metadata['target_feature']}'[/bold blue]")
+
+    # Print categorical features and their categories
+    if all_categories:
+        console.print("\nCategorical Features:")
+        for feature, categories in all_categories.items():
+            console.print(f"[bold]{feature}[/bold]")
+            for category in categories:
+                console.print(f"  • {category}")
+            console.print("")  # Add a blank line between features
+    else:
+        console.print("No categorical features to display.", style="italic")
+
+    # Add a separator for better readability
+    console.print("\n" + "="*50 + "\n")
 
     features_dict = {}
     if predict_using:
@@ -109,12 +121,20 @@ def main(model, predict_using, predict_file):
         
     else:     
         for feature in loaded_model_metadata['features']:
-            predict_using = questionary.text(
-                    f'{feature}: ',
+            if feature in all_categories:
+                predict_using = questionary.select(
+                    f'Select a value for {feature}:',
+                    choices=all_categories[feature]
                 ).ask()
+            else:
+                predict_using = questionary.text(
+                    f'Enter a numeric value for {feature}:',
+                ).ask()
+                
             if not predict_using:
-                console.print("Aborted: Please enter a value for this feature.", style='bold red')
+                console.print(f"Aborted: Please enter a value for {feature}.", style='bold red')
                 raise SystemExit
+            
             features_dict[feature] = predict_using
         
         features_df = pd.DataFrame([features_dict])
@@ -123,7 +143,22 @@ def main(model, predict_using, predict_file):
 
         features_df['prediction'] = y
 
-        console.print(Panel(Pretty(features_df),title="Prediction"))
+        # Create a styled table for better presentation
+        table = Table(title="Prediction Results", show_header=True, header_style="bold magenta")
+        
+        # Add columns dynamically based on the DataFrame
+        for column in features_df.columns:
+            table.add_column(column, style="cyan", justify="right")
+        
+        # Add the row of data
+        table.add_row(*[str(val) for val in features_df.iloc[0]])
+        
+        # Display the table in a panel without a bold border
+        console.print(Panel(table, expand=False, border_style="green", padding=(1, 1)))
+        
+        # Display the prediction separately for emphasis
+        prediction_value = features_df['prediction'].iloc[0]
+        console.print(f"\n[bold]Predicted {loaded_model_metadata['target_feature']}:[/bold] [yellow]{prediction_value:.2f}[/yellow]")
     
     return y
 
