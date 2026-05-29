@@ -14,17 +14,17 @@ def check_csv_sanity(file):
         df = pd.read_csv(file)
     except FileNotFoundError:
         console.print(f"Aborted: File '{file}' not found", style="red")
-        raise SystemExit
+        raise SystemExit(1)
     except pd.errors.ParserError as e:
         console.print(f"Aborted: Invalid CSV format in '{file}': {e}", style="red")
-        raise SystemExit
+        raise SystemExit(1)
     except pd.errors.EmptyDataError:
         console.print("Aborted: CSV file is empty", style="red")
-        raise SystemExit
+        raise SystemExit(1)
 
     if df.empty:
         console.print("Aborted: CSV file is empty", style="red")
-        raise SystemExit
+        raise SystemExit(1)
 
     empty_header_positions = [
         i + 1 for i, col in enumerate(df.columns)
@@ -35,7 +35,7 @@ def check_csv_sanity(file):
             f"Aborted: CSV file contains empty column(s) at position(s): {empty_header_positions}",
             style="red",
         )
-        raise SystemExit
+        raise SystemExit(1)
 
     na_counts = df.isna().sum()
     columns_with_na = na_counts[na_counts > 0]
@@ -52,6 +52,6 @@ def check_csv_sanity(file):
                 "Aborted: dropping rows with missing values leaves no data.",
                 style="red",
             )
-            raise SystemExit
+            raise SystemExit(1)
 
     return df

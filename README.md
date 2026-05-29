@@ -50,14 +50,16 @@ The model learns from your data — so the benchmark reflects your supply base a
 
 #### Model Training
 - Import training data from a CSV file
-- **Auto-mode now performs cross-validated model selection** across Ridge, Random Forest and XGBoost using `HalvingRandomSearchCV` — it picks the best model *and* hyperparameters for your data, not just a default Random Forest
-- **Automatic log-target transform** for positive, skewed targets (typical of price data) — often cuts MAE substantially
+- **Cross-validated model selection** across Ridge, Random Forest and XGBoost (`HalvingRandomSearchCV`) — auto-mode picks the best model *and* hyperparameters for your data
+- **Automatic log-target transform** for positive, skewed targets (typical of price data)
+- **Outlier handling** on the target column (Tukey IQR rule) with four policies: `warn`, `drop`, `winsorize`, `keep`
+- **Time-aware cross-validation** via `--time-column` — chronological train/test split and `TimeSeriesSplit` for HPO, to prevent look-ahead bias on time-ordered data
 - Auto-detection of the most predictive features using a Random Forest baseline
 - Auto-detection of low/no information features that might bias the model
 - Tree models use `OrdinalEncoder` (fast, handles high-cardinality categoricals); linear models use `OneHotEncoder + StandardScaler`
-- Expert mode lets you pick the algorithm and optionally run hyperparameter tuning — the tuned model is the one that gets saved
+- Expert mode lets you pick the algorithm and optionally run hyperparameter tuning — the tuned model is what gets saved
 - Configurable HPO search budget via `--budget {fast,thorough}`
-- Models can be easily saved and loaded
+- Models can be saved and loaded
 - Evaluation metrics: R², MAE, RMSE, and a residual-bias check
 
 ### Plotting
@@ -181,29 +183,6 @@ To use P2Predict, follow these steps:
      This command uses the model saved in `models/my_trained_model.model` to generate predictions for all the entries in the `prediction_data.csv` file.
 
    Note: Make sure the features you provide (either inline or in the CSV file) match the features the model was trained on. The model in these examples was trained using `p2predict_train.py`, and the prediction features should correspond to the training features used.
-
-## What's new in v0.3
-
-- **Tests, finally.** A proper `pytest` suite (~40 tests) covers the preprocessor, training/auto-train, log-target detection, save/load round-trip, outlier handling, time-aware CV, the CSV sanity check, feature importance, and evaluation metrics. CI runs them on every push.
-- **Outlier handling — `modules/outliers.py` is no longer a TODO.** A Tukey IQR rule flags extreme target values; a new `--outliers {warn,drop,winsorize,keep}` flag chooses what to do about them. Default is `warn`, so existing scripts behave the same but you actually find out about outliers in your data.
-- **Time-aware cross-validation.** Pass `--time-column DATE` and P2Predict switches to a chronological train/test split and `TimeSeriesSplit` for HPO. This is the honest thing to do for time-ordered procurement data, where random k-fold quietly leaks future prices into training. The flag is opt-in — random k-fold remains the default.
-- Bumped to `p2predict_version = v0.3` (no metadata-shape change vs. v0.2; v0.2 models still load).
-
-> **Honest note:** if your data was time-ordered, the R² you saw before may have been inflated by leakage. Re-running with `--time-column` will probably give a lower (and more truthful) R². Same for `--outliers drop` if you had silent outliers — the metrics may move because the model is no longer being judged on points it was never going to predict well anyway.
-
-## What was new in v0.2
-
-- **Auto-mode does real model selection.** Previously it always used a default Random Forest and threw away the tuning step. It now runs `HalvingRandomSearchCV` over Ridge, Random Forest and XGBoost and picks the best.
-- **Hyperparameter tuning in expert mode now replaces the saved model** instead of just printing scores.
-- **Automatic log-target transform** when the target is positive and skewed (typical for price data).
-- Tree models use `OrdinalEncoder` (no more one-hot blow-up on high-cardinality categoricals).
-- Fixed feature-importance grouping bug (previously misgrouped names like `weight_g`).
-- Fixed broken statistical check in evaluation (`evaluate_model` used to run the wrong t-test). Now reports R², MAE, RMSE and a residual-bias check.
-- Saved models include a timestamp in the filename; no more random suffix collisions or `None_*.model`.
-- Faster CSV sanity check; warns on NA values and drops them instead of aborting.
-- `--budget {fast,thorough}` flag controls HPO search size.
-
-> **Breaking change:** v0.2 changes the pipeline structure (new preprocessor and optional `TransformedTargetRegressor` wrap). Models trained on v0.1 will not load — retrain them. The metadata format now also includes a `log_target` field.
 
 ## Dependencies
 

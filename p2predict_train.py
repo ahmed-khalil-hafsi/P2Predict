@@ -73,20 +73,20 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             input = questionary.path("Enter CSV file path").ask()
             if not input:
                 console.print("Aborted: You must provide an input file.", style="bold red")
-                raise SystemExit
+                raise SystemExit(1)
     else:
         if not input:
             console.print(
                 "Aborted: You must provide --input. Use -c for interactive mode.",
                 style="bold red",
             )
-            raise SystemExit
+            raise SystemExit(1)
         if not target:
             console.print(
                 "Aborted: You must provide --target. Use -c for interactive mode.",
                 style="bold red",
             )
-            raise SystemExit
+            raise SystemExit(1)
 
     if expert:
         if interactive and not algorithm:
@@ -95,20 +95,20 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             ).ask()
             if not algorithm:
                 console.print("Aborted: You must select a training algorithm.", style="bold red")
-                raise SystemExit
+                raise SystemExit(1)
         elif not interactive:
             if not algorithm:
                 console.print(
                     "Aborted: You must pre-select --algorithm in expert mode (or use -c).",
                     style="bold red",
                 )
-                raise SystemExit
+                raise SystemExit(1)
             if not training_features:
                 console.print(
                     "Aborted: You must provide --training_features in expert mode (or use -c).",
                     style="bold red",
                 )
-                raise SystemExit
+                raise SystemExit(1)
 
     data = load_csv_file(input)
     print("")
@@ -122,13 +122,13 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         target = questionary.select("Enter target column", choices=data.columns.tolist()).ask()
         if not target:
             console.print("Aborted: A target feature is required.", style="bold red")
-            raise SystemExit
+            raise SystemExit(1)
 
     if time_column is not None and time_column not in data.columns:
         console.print(
             f"Aborted: --time-column '{time_column}' not found in CSV.", style="bold red"
         )
-        raise SystemExit
+        raise SystemExit(1)
     if time_column is not None:
         try:
             data[time_column] = pd.to_datetime(data[time_column])
@@ -137,7 +137,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 f"Aborted: could not parse --time-column '{time_column}': {exc}",
                 style="bold red",
             )
-            raise SystemExit
+            raise SystemExit(1)
         console.print(
             f"Time-aware mode: train/test split and CV will be chronological on "
             f"'{time_column}'.",
@@ -199,7 +199,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             ).ask()
             if not selected_columns:
                 console.print("Aborted: You must select training features.", style="bold red")
-                raise SystemExit
+                raise SystemExit(1)
         else:
             ranked = get_most_predictable_features(feature_data, target, output_only_headers=True)
             # In auto mode we let the model selector see more signal than just
@@ -216,7 +216,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             console.print(
                 f"Aborted: requested features not in CSV: {missing}", style="bold red"
             )
-            raise SystemExit
+            raise SystemExit(1)
         selected_columns = requested
 
     target_column = target

@@ -39,7 +39,9 @@ def Get_Column_Types(X):
     numerical_cols = X.select_dtypes(
         include=["int64", "float64", "int32", "float32"]
     ).columns
+    # Include "str" alongside "object" for pandas 4 forward-compatibility:
+    # https://pandas.pydata.org/docs/user_guide/migration-3-strings.html
     categorical_cols = X.select_dtypes(
-        include=["object", "bool", "category"]
+        include=["object", "str", "bool", "category"]
     ).columns
     return numerical_cols, categorical_cols
