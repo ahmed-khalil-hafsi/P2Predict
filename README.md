@@ -22,17 +22,19 @@ This software is released under the MIT license. See `LICENSE` for the license d
 
 #### Prediction
 - Predict prices (or any other target feature) based on a trained model
+- Robust to unseen categorical values at prediction time
 
 #### Model Training
 - Import training data from a CSV file
-- Perform feature/impact analysis
-- Auto detection of the most predictive features using RFE and a Random Forest
-- Auto detection of low information features that might bias the model if selected
-- Implementation of Hyper Parameter Optimization for Ridge, XGBoost and Random Forest
-- Train a machine learning model on the selected features to predict the price (or any other target)
-- Support for Ridge, XGBoost, and Random Forest ML algorithms
+- **Auto-mode now performs cross-validated model selection** across Ridge, Random Forest and XGBoost using `HalvingRandomSearchCV` — it picks the best model *and* hyperparameters for your data, not just a default Random Forest
+- **Automatic log-target transform** for positive, skewed targets (typical of price data) — often cuts MAE substantially
+- Auto-detection of the most predictive features using a Random Forest baseline
+- Auto-detection of low/no information features that might bias the model
+- Tree models use `OrdinalEncoder` (fast, handles high-cardinality categoricals); linear models use `OneHotEncoder + StandardScaler`
+- Expert mode lets you pick the algorithm and optionally run hyperparameter tuning — the tuned model is the one that gets saved
+- Configurable HPO search budget via `--budget {fast,thorough}`
 - Models can be easily saved and loaded
-- Evaluation metrics (mean absolute error and R^2 scores are supported)
+- Evaluation metrics: R², MAE, RMSE, and a residual-bias check
 
 ### Plotting
 - Create a PDF file with model performance indicators (predicted vs actual price, distribution of prediction errors, ...)
@@ -63,11 +65,13 @@ To use P2Predict, follow these steps:
 
      - `--input`, `-i`: Path to your input CSV file. This dataset is used for training.
      - `--target`, `-t`: Name of the feature to predict (e.g., "Price").
-     - `--expert`, `-e`: Toggle Expert Mode. In Expert mode, you have more control over the training process.
-     - `--algorithm`, `-a`: Choose the machine learning algorithm to be used (ridge, xgboost, or randomforest).
-     - `--interactive`: Activate interactive mode. If not set, you must specify all required options.
+     - `--expert`, `-x`: Toggle Expert Mode. In Expert mode, you have more control over the training process.
+     - `--algorithm`, `-a`: Choose the algorithm in expert mode: `ridge`, `xgboost`, or `random_forest`.
+     - `--interactive`, `-c`: Activate interactive mode. If not set, you must specify all required options.
      - `--verbose`, `-v`: Increase output verbosity.
-     - `--training_features`, `-f`: List of training features to be used, separated by commas.
+     - `--training_features`, `-tf`: List of training features to be used, separated by commas.
+     - `--budget`, `-b`: HPO search budget — `fast` (default) or `thorough`. Used by auto-mode model selection and by expert-mode `--tune`.
+     - `--tune / --no-tune`: Expert mode only. Run hyperparameter tuning and save the tuned model.
 
      For a complete list of options, run `python3 p2predict_train.py --help`.
 
@@ -79,43 +83,45 @@ To use P2Predict, follow these steps:
      python3 p2predict_train.py --interactive
      ```
 
-     This launches P2Predict in Interactive Auto-Mode, where the program guides you through the process and optimizes decisions automatically.
+     Launches P2Predict in Interactive Auto-Mode. The program guides you through the process and automatically performs CV-based model selection across Ridge, Random Forest, and XGBoost.
 
-     #### Example 2: Interactive Expert Mode
+     #### Example 2: Non-Interactive Auto-Mode
+
+     ```bash
+     python3 p2predict_train.py --input examples/example.csv --target Price
+     ```
+
+     Auto-mode picks the best algorithm and hyperparameters for you. Output names the winning algorithm and lists CV R² for each candidate.
+
+     #### Example 3: Auto-Mode with Thorough HPO
+
+     ```bash
+     python3 p2predict_train.py --input data/sales.csv --target Revenue --budget thorough
+     ```
+
+     Same as Example 2 but with a wider hyperparameter search (slower, usually higher accuracy).
+
+     #### Example 4: Interactive Expert Mode
      
      ```bash
      python3 p2predict_train.py --expert --interactive
      ```
 
-     This launches P2Predict in Interactive Expert Mode, giving you access to advanced features like feature selection, algorithm selection, and hyperparameter optimization.
+     Interactive Expert Mode gives you control over feature selection, algorithm choice, and HPO. You're prompted before running hyperparameter tuning, and the tuned model is what gets saved.
 
-     #### Example 3: Non-Interactive Expert Mode with Ridge Regression
+     #### Example 5: Non-Interactive Expert Mode with Tuned XGBoost
      ```bash
-     python3 p2predict_train.py --expert --input examples/example.csv --algorithm ridge --target Price --training_features Weight,Size
+     python3 p2predict_train.py --expert --input examples/example.csv --algorithm xgboost --target Price --training_features Weight,Size,Region --tune --budget fast
      ```
 
-     This runs P2Predict in Non-Interactive Expert Mode, training a Ridge regression model using the specified input file, target, and training features.
-
-     #### Example 4: Non-Interactive Auto-Mode with XGBoost
-     ```bash
-     python3 p2predict_train.py --input data/sales.csv --target Revenue --algorithm xgboost
-     ```
-
-     This example trains an XGBoost model in Auto-Mode, using 'Revenue' as the target variable. The program will automatically select the best features from the 'sales.csv' file.
-
-     #### Example 5: Verbose Mode with Random Forest
-     ```bash
-     python3 p2predict_train.py --input data/customer_data.csv --target Churn --algorithm randomforest --verbose
-     ```
-
-     This runs a Random Forest model training with increased verbosity, predicting customer churn based on the data in 'customer_data.csv'.
+     Trains an XGBoost model on the chosen features, runs `HalvingRandomSearchCV`, and saves the tuned model.
 
      #### Example 6: Specifying Multiple Training Features
      ```bash
-     python3 p2predict_train.py --input data/housing.csv --target Price --algorithm ridge --training_features Area,Bedrooms,Location,YearBuilt
+     python3 p2predict_train.py --expert --input data/housing.csv --target Price --algorithm ridge --training_features Area,Bedrooms,Location,YearBuilt
      ```
 
-     This example trains a Ridge regression model to predict housing prices, explicitly specifying multiple training features.
+     Trains a Ridge regression model with the specified features.
 
    - After training, the model will be saved and can be used for predictions with `p2predict.py`.
 
@@ -150,6 +156,20 @@ To use P2Predict, follow these steps:
 
    Note: Make sure the features you provide (either inline or in the CSV file) match the features the model was trained on. The model in these examples was trained using `p2predict_train.py`, and the prediction features should correspond to the training features used.
 
+## What's new in v0.2
+
+- **Auto-mode does real model selection.** Previously it always used a default Random Forest and threw away the tuning step. It now runs `HalvingRandomSearchCV` over Ridge, Random Forest and XGBoost and picks the best.
+- **Hyperparameter tuning in expert mode now replaces the saved model** instead of just printing scores.
+- **Automatic log-target transform** when the target is positive and skewed (typical for price data).
+- Tree models use `OrdinalEncoder` (no more one-hot blow-up on high-cardinality categoricals).
+- Fixed feature-importance grouping bug (previously misgrouped names like `weight_g`).
+- Fixed broken statistical check in evaluation (`evaluate_model` used to run the wrong t-test). Now reports R², MAE, RMSE and a residual-bias check.
+- Saved models include a timestamp in the filename; no more random suffix collisions or `None_*.model`.
+- Faster CSV sanity check; warns on NA values and drops them instead of aborting.
+- `--budget {fast,thorough}` flag controls HPO search size.
+
+> **Breaking change:** v0.2 changes the pipeline structure (new preprocessor and optional `TransformedTargetRegressor` wrap). Models trained on v0.1 will not load — retrain them. The metadata format now also includes a `log_target` field.
+
 ## Dependencies
 
 Check `requirements.txt` for exact versions. Install with `pip install -r requirements.txt`
@@ -160,7 +180,8 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 - numpy
 - pandas
 - rich
-- scikit-learn
+- scikit-learn (≥ 1.5)
+- scipy
 - seaborn
 - xgboost
 - halo
