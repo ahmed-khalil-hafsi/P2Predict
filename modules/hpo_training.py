@@ -6,19 +6,17 @@ console = Console()
 
 
 def hyper_parameter_tuning(
-    X_train, y_train, numerical_cols, categorical_cols, algorithm, budget="fast"
+    X_train, y_train, numerical_cols, categorical_cols, algorithm,
+    budget="fast", time_aware=False,
 ):
-    """Tune the given algorithm and return the refitted best pipeline.
-
-    Replaces the legacy implementation that only printed scores. The returned
-    model is what should be saved.
-    """
+    """Tune the given algorithm and return the refitted best pipeline."""
     log_target = should_log_target(y_train)
     pipeline = build_pipeline(
         algorithm, numerical_cols, categorical_cols, log_target=log_target
     )
     best_model, best_score = _tune(
-        pipeline, X_train, y_train, algorithm, budget, log_target
+        pipeline, X_train, y_train, algorithm, budget, log_target,
+        time_aware=time_aware,
     )
     console.print(f"Tuned {algorithm} --> CV R²: {round(best_score, 3)}")
     return best_model, best_score, log_target

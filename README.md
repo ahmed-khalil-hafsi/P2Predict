@@ -96,6 +96,8 @@ To use P2Predict, follow these steps:
      - `--training_features`, `-tf`: List of training features to be used, separated by commas.
      - `--budget`, `-b`: HPO search budget — `fast` (default) or `thorough`. Used by auto-mode model selection and by expert-mode `--tune`.
      - `--tune / --no-tune`: Expert mode only. Run hyperparameter tuning and save the tuned model.
+     - `--outliers`: How to handle outliers in the target column (Tukey IQR rule). `warn` (default), `drop`, `winsorize`, or `keep`.
+     - `--time-column`: Name of a date column. When given, train/test split and cross-validation become chronological (`TimeSeriesSplit`) — prevents the look-ahead bias you get from random splits on time-ordered data.
 
      For a complete list of options, run `python3 p2predict_train.py --help`.
 
@@ -180,7 +182,16 @@ To use P2Predict, follow these steps:
 
    Note: Make sure the features you provide (either inline or in the CSV file) match the features the model was trained on. The model in these examples was trained using `p2predict_train.py`, and the prediction features should correspond to the training features used.
 
-## What's new in v0.2
+## What's new in v0.3
+
+- **Tests, finally.** A proper `pytest` suite (~40 tests) covers the preprocessor, training/auto-train, log-target detection, save/load round-trip, outlier handling, time-aware CV, the CSV sanity check, feature importance, and evaluation metrics. CI runs them on every push.
+- **Outlier handling — `modules/outliers.py` is no longer a TODO.** A Tukey IQR rule flags extreme target values; a new `--outliers {warn,drop,winsorize,keep}` flag chooses what to do about them. Default is `warn`, so existing scripts behave the same but you actually find out about outliers in your data.
+- **Time-aware cross-validation.** Pass `--time-column DATE` and P2Predict switches to a chronological train/test split and `TimeSeriesSplit` for HPO. This is the honest thing to do for time-ordered procurement data, where random k-fold quietly leaks future prices into training. The flag is opt-in — random k-fold remains the default.
+- Bumped to `p2predict_version = v0.3` (no metadata-shape change vs. v0.2; v0.2 models still load).
+
+> **Honest note:** if your data was time-ordered, the R² you saw before may have been inflated by leakage. Re-running with `--time-column` will probably give a lower (and more truthful) R². Same for `--outliers drop` if you had silent outliers — the metrics may move because the model is no longer being judged on points it was never going to predict well anyway.
+
+## What was new in v0.2
 
 - **Auto-mode does real model selection.** Previously it always used a default Random Forest and threw away the tuning step. It now runs `HalvingRandomSearchCV` over Ridge, Random Forest and XGBoost and picks the best.
 - **Hyperparameter tuning in expert mode now replaces the saved model** instead of just printing scores.
@@ -214,6 +225,15 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 ## Data
 
 A small example dataset is in [`examples/example.csv`](examples/example.csv). The columns are the typical shape P2Predict expects: a few technical features per row (weight, region, supplier, size, …) and a price column.
+
+## Running the tests
+
+```bash
+pip install -r requirements.txt pytest
+pytest tests/
+```
+
+The same suite runs in CI on every push to `main` and on pull requests.
 
 ## Contributing
 

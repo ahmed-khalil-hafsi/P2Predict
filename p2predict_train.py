@@ -15,6 +15,7 @@ from modules import plotting
 from modules.cmdline_io import print_feature_stats, print_feature_weights, print_logo
 from modules.hpo_training import hyper_parameter_tuning
 from modules.model_evals import evaluate_model
+from modules.outliers import POLICIES as OUTLIER_POLICIES, apply_outlier_policy
 from modules.p2predict_feature_selection import (
     find_high_variation_features,
     find_no_variation_features,
@@ -49,7 +50,16 @@ spinner.stop()
               help="HPO search budget. 'fast' = small search, 'thorough' = wider search (slower).")
 @click.option("--tune/--no-tune", default=None,
               help="Expert mode only: run HPO on the chosen algorithm and save the tuned model.")
-def train(input, target, expert, algorithm, verbose, interactive, training_features, budget, tune):
+@click.option("--outliers", type=click.Choice(list(OUTLIER_POLICIES)), default="warn",
+              help="How to handle outliers in the target column (Tukey IQR rule). "
+                   "'warn' (default) = report only; 'drop' = remove rows; "
+                   "'winsorize' = cap values; 'keep' = silent.")
+@click.option("--time-column", default=None,
+              help="Name of a date/time column. When given, the train/test split and CV "
+                   "become chronological (TimeSeriesSplit), which prevents look-ahead bias "
+                   "for time-ordered data. The column is excluded from features.")
+def train(input, target, expert, algorithm, verbose, interactive, training_features,
+          budget, tune, outliers, time_column):
 
     print("")
     print_logo()
@@ -114,8 +124,48 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             console.print("Aborted: A target feature is required.", style="bold red")
             raise SystemExit
 
-    high_vars = find_high_variation_features(data)
-    low_vars = find_no_variation_features(data)
+    if time_column is not None and time_column not in data.columns:
+        console.print(
+            f"Aborted: --time-column '{time_column}' not found in CSV.", style="bold red"
+        )
+        raise SystemExit
+    if time_column is not None:
+        try:
+            data[time_column] = pd.to_datetime(data[time_column])
+        except Exception as exc:  # noqa: BLE001 — surface parse failures verbatim
+            console.print(
+                f"Aborted: could not parse --time-column '{time_column}': {exc}",
+                style="bold red",
+            )
+            raise SystemExit
+        console.print(
+            f"Time-aware mode: train/test split and CV will be chronological on "
+            f"'{time_column}'.",
+            style="bold blue",
+        )
+
+    data, outlier_summary = apply_outlier_policy(data, target, policy=outliers)
+    if outlier_summary["n_outliers"] > 0:
+        pct = 100.0 * outlier_summary["n_outliers"] / max(outlier_summary["n_total"], 1)
+        action_msg = {
+            "keep": "kept as-is",
+            "warn": "kept as-is — pass --outliers drop or winsorize to mitigate",
+            "drop": "dropped",
+            "winsorize": "winsorized to the IQR bounds",
+        }[outliers]
+        console.print(
+            f"Outliers in '{target}': {outlier_summary['n_outliers']} of "
+            f"{outlier_summary['n_total']} rows ({pct:.1f}%) outside "
+            f"[{outlier_summary['lower']:.2f}, {outlier_summary['upper']:.2f}] — {action_msg}.",
+            style="bold yellow",
+        )
+        print("")
+
+    # Exclude the time column from feature analysis — it isn't a training feature.
+    feature_data = data.drop(columns=[time_column]) if time_column else data
+
+    high_vars = find_high_variation_features(feature_data)
+    low_vars = find_no_variation_features(feature_data)
 
     print("")
     console.print("Low-information features detected:")
@@ -133,14 +183,17 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         # Non-interactive: always drop zero-variance features (they can't help).
         data = data.drop(low_vars, axis=1)
 
+    # Refresh after possible drops so downstream feature analysis matches.
+    feature_data = data.drop(columns=[time_column]) if time_column else data
+
     if not training_features:
         if expert:
-            best_features_ranked = get_most_predictable_features(data, target)
+            best_features_ranked = get_most_predictable_features(feature_data, target)
             console.print("Best features detected for prediction:", style="bold white")
             print("")
             print_dataframe(best_features_ranked)
 
-            options_list = [c for c in data.columns.tolist() if c != target]
+            options_list = [c for c in feature_data.columns.tolist() if c != target]
             selected_columns = questionary.checkbox(
                 "Select the features for training: ", choices=options_list
             ).ask()
@@ -148,7 +201,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 console.print("Aborted: You must select training features.", style="bold red")
                 raise SystemExit
         else:
-            ranked = get_most_predictable_features(data, target, output_only_headers=True)
+            ranked = get_most_predictable_features(feature_data, target, output_only_headers=True)
             # In auto mode we let the model selector see more signal than just
             # the top two — drop only the lowest-importance tail.
             selected_columns = ranked.head(max(2, min(len(ranked), 6))).tolist()
@@ -168,9 +221,13 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
 
     target_column = target
 
+    if time_column is not None and time_column in selected_columns:
+        selected_columns = [c for c in selected_columns if c != time_column]
+
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(
-        data, selected_columns, target_column
+        data, selected_columns, target_column, time_column=time_column
     )
+    time_aware = time_column is not None
 
     if expert and interactive:
         if questionary.confirm("Plot histograms of the selected features?").ask():
@@ -197,7 +254,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         spinner.start()
         model, feature_weights, log_target = start_training(
             X_train, y_train, numerical_cols, categorical_cols, algorithm,
-            budget=budget, tune=tune,
+            budget=budget, tune=tune, time_aware=time_aware,
         )
         spinner.stop()
 
@@ -214,7 +271,8 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         )
         spinner.start()
         model, algorithm, scores, log_target = auto_train(
-            X_train, y_train, numerical_cols, categorical_cols, budget=budget
+            X_train, y_train, numerical_cols, categorical_cols,
+            budget=budget, time_aware=time_aware,
         )
         spinner.stop()
         console.print(f"Selected best algorithm: [bold]{algorithm}[/bold]")
@@ -288,6 +346,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 categorical_cols=categorical_cols,
                 algorithm=algorithm,
                 budget=budget,
+                time_aware=time_aware,
             )
             spinner.stop()
             mae_t, r2_t, _, rmse_t = evaluate_model(X_test, y_test, tuned_model)
