@@ -18,7 +18,7 @@ def find_high_variation_features(df):
         cv = (stds / safe_means).dropna()
         high_variation.extend(cv[cv > 1].index.tolist())
 
-    categorical_df = df.select_dtypes(include=["object", "bool", "category"])
+    categorical_df = df.select_dtypes(include=["object", "str", "bool", "category"])
     if not categorical_df.empty:
         unique_ratio = categorical_df.apply(lambda x: x.nunique() / max(len(x), 1))
         high_variation.extend(unique_ratio[unique_ratio > 0.9].index.tolist())
@@ -33,7 +33,7 @@ def find_no_variation_features(df):
 
 def _column_types(X):
     numerical_cols = X.select_dtypes(include=["int64", "float64", "int32", "float32"]).columns
-    categorical_cols = X.select_dtypes(include=["object", "bool", "category"]).columns
+    categorical_cols = X.select_dtypes(include=["object", "str", "bool", "category"]).columns
     return numerical_cols, categorical_cols
 
 

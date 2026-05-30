@@ -69,13 +69,13 @@ def main(model, predict_using, predict_file):
         model = questionary.path("Enter model file path (.model)").ask()
         if not model:
             console.print("Aborted: please enter the path to the trained model.", style="bold red")
-            raise SystemExit
+            raise SystemExit(1)
 
     loaded = LoadModel(model)
     trained = loaded["model"]
     if not trained:
         console.print("Aborted: the selected model is corrupt.", style="bold red")
-        raise SystemExit
+        raise SystemExit(1)
 
     console.print(f"'{model}' successfully loaded.", style="bold white")
     if loaded.get("log_target"):
@@ -133,7 +133,7 @@ def main(model, predict_using, predict_file):
                 value = questionary.text(f"Enter a numeric value for {feature}:").ask()
             if not value:
                 console.print(f"Aborted: please enter a value for {feature}.", style="bold red")
-                raise SystemExit
+                raise SystemExit(1)
             features_dict[feature] = value
 
         features_df = _coerce_features(pd.DataFrame([features_dict]), feature_types)
