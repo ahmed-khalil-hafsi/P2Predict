@@ -8,21 +8,45 @@
 
 [![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
 
-P2Predict is an open-source Python comand-line program for advanced procurement price prediction. It employs Artificial Intelligence & machine learning techniques to provide reliable and actionable insights into price trends, aiding in strategic decision-making in procurement.
+**P2Predict benchmarks what similar parts have historically cost, to inform design and sourcing decisions.**
+
+You feed it a CSV of past purchases (technical features → price). It trains a model and lets you ask, *"given these features, what have parts like this cost?"* — turning historical data into a reality check engineering and procurement teams can use to discuss feature value, scope creep, and design trade-offs.
 
 ![User Experience Expert Mode](./documentation/p2predict_train.gif)
 
-The project is in active development - Contributions are welcome!
+### What it is (and isn't)
 
-As I work on core features first, this program is targeting procurement & commodity managers that are fairly technical. At this stage, P2Predict is not polished for the non-technical business user.
+P2Predict is a **parametric, data-driven cost-prediction tool** — the kind of model NASA, ICEAA, and the cost-estimating bodies call *parametric estimating*. It learns `features → price` from your historical data.
+
+It is **not bottom-up should-costing.** It does not decompose parts into material cost + labor minutes + machine time + overhead. Tools like aPriori or Siemens Teamcenter PCM do that, from first principles. P2Predict answers a complementary question: *"what has the market actually charged us for parts like this?"* The two approaches work well together — one tells you what a part ought to cost, the other tells you what similar parts have cost.
+
+### Who it's for
+
+Procurement, sourcing, and engineering teams that want a shared, data-grounded view of cost when reviewing designs. Typical use cases:
+
+- **Design reviews / VE/VA workshops** — "if we add this feature, what have similar parts with it cost historically?"
+- **Scope and tech-debt discussions** — quantify the cost of features that are nice-to-have vs. essential.
+- **Supplier benchmarking** — compare quoted prices against the model's prediction for the same spec.
+- **RFQ sanity checks** — flag quotes that are far from what similar parts have cost.
+
+This is a command-line tool aimed at fairly technical users (procurement engineers, commodity managers, cost engineers). It is not yet polished for non-technical business users.
 
 This software is released under the MIT license. See `LICENSE` for the license details.
 
+## How it works in one minute
+
+1. **Bring your history.** A CSV of past purchases — one row per part, with technical features (weight, material, region, supplier, size, …) and the price you paid.
+2. **Train a model.** P2Predict fits a regression model (Ridge / Random Forest / XGBoost), cross-validates them against each other, and keeps the best one.
+3. **Ask "what would similar parts cost?"** Feed it the technical features of a new or proposed part and it returns a benchmark price grounded in your historical data.
+
+The model learns from your data — so the benchmark reflects your supply base and your buying patterns, not a vendor's reference catalog.
+
 ## Features
 
-#### Prediction
-- Predict prices (or any other target feature) based on a trained model
-- Robust to unseen categorical values at prediction time
+#### Benchmarking / prediction
+- Predict the benchmark price (or any other numerical target) for a part given its technical features
+- Batch-predict an entire CSV of candidate parts in one call
+- Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
 
 #### Model Training
 - Import training data from a CSV file
@@ -189,7 +213,7 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 
 ## Data
 
-For data examples, check `dummy/example.csv`.
+A small example dataset is in [`examples/example.csv`](examples/example.csv). The columns are the typical shape P2Predict expects: a few technical features per row (weight, region, supplier, size, …) and a price column.
 
 ## Contributing
 
