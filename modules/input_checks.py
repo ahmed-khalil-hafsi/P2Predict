@@ -1,55 +1,57 @@
-import csv
 import pandas as pd
 from rich.console import Console
 
 console = Console()
 
-# TODO more testing for this code
+
 def check_csv_sanity(file):
+    """Load and sanity-check a CSV. Returns the cleaned DataFrame.
+
+    Aborts on empty files, malformed CSV, or missing files. Drops rows
+    with NA values (with a warning) rather than refusing to proceed.
+    """
     try:
-        # Check if the file is empty
-        if pd.read_csv(file).empty:
-            console.print("Aborted: CSV file is empty", style='red')
+        df = pd.read_csv(file)
+    except FileNotFoundError:
+        console.print(f"Aborted: File '{file}' not found", style="red")
+        raise SystemExit
+    except pd.errors.ParserError as e:
+        console.print(f"Aborted: Invalid CSV format in '{file}': {e}", style="red")
+        raise SystemExit
+    except pd.errors.EmptyDataError:
+        console.print("Aborted: CSV file is empty", style="red")
+        raise SystemExit
+
+    if df.empty:
+        console.print("Aborted: CSV file is empty", style="red")
+        raise SystemExit
+
+    empty_header_positions = [
+        i + 1 for i, col in enumerate(df.columns)
+        if isinstance(col, str) and col.strip() == ""
+    ]
+    if empty_header_positions:
+        console.print(
+            f"Aborted: CSV file contains empty column(s) at position(s): {empty_header_positions}",
+            style="red",
+        )
+        raise SystemExit
+
+    na_counts = df.isna().sum()
+    columns_with_na = na_counts[na_counts > 0]
+    if not columns_with_na.empty:
+        details = ", ".join(f"{col} ({n})" for col, n in columns_with_na.items())
+        console.print(
+            f"Warning: CSV contains missing values in: {details}. "
+            "Rows with NA will be dropped.",
+            style="yellow",
+        )
+        df = df.dropna()
+        if df.empty:
+            console.print(
+                "Aborted: dropping rows with missing values leaves no data.",
+                style="red",
+            )
             raise SystemExit
 
-        with open(file, 'r') as csv_file:
-            dialect = csv.Sniffer().sniff(csv_file.read(1024))
-            csv_file.seek(0)
-            reader = csv.reader(csv_file, dialect)
-            header = next(reader)  # Read the header row
-
-            # Check if the header contains any empty columns
-            if any(cell == '' for cell in header):
-                empty_columns = [i+1 for i, cell in enumerate(header) if cell == '']
-                console.print(f"Aborted: CSV file contains empty column(s) at position(s): {empty_columns}", style='red')
-                raise SystemExit
-
-            # Check if any cells are empty or contain NA values
-            for row_num, row in enumerate(reader, start=2):
-                empty_cells = [i+1 for i, cell in enumerate(row) if cell == '']
-                na_cells = [i+1 for i, cell in enumerate(row) if pd.isna(cell)]
-                if empty_cells or na_cells:
-                    error_msg = f"Aborted: CSV file contains empty cells or NA values in row {row_num}"
-                    if empty_cells:
-                        error_msg += f", empty cells at position(s): {empty_cells}"
-                    if na_cells:
-                        error_msg += f", NA values at position(s): {na_cells}"
-                    console.print(error_msg, style='red')
-                    raise SystemExit
-
-            # Check if cells mix categorical and numerical data
-            df = pd.read_csv(file)
-            for col_num, col in enumerate(df.columns, start=1):
-                if df[col].dtype != object and pd.api.types.is_categorical_dtype(df[col]):
-                    console.print(f"Aborted: Column '{col}' contains a mix of categorical and numerical data", style='red')
-                    raise SystemExit
-
-            
-
-    except FileNotFoundError:
-        console.print(f"Aborted: File '{file}' not found", style='red')
-        raise SystemExit
-    except csv.Error:
-        console.print(f"Aborted: Invalid CSV format in file '{file}'", style='red')
-        raise SystemExit
-
+    return df
