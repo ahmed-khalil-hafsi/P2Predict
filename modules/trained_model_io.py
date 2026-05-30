@@ -5,7 +5,7 @@ import sklearn
 
 from modules.input_checks import check_csv_sanity
 
-P2PREDICT_VERSION = "v0.2"
+P2PREDICT_VERSION = "v0.3"
 
 
 def SaveModel(model_metadata, model_name):

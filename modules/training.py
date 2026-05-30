@@ -4,7 +4,7 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_halving_search_cv  # noqa: F401
 from sklearn.linear_model import Ridge
-from sklearn.model_selection import HalvingRandomSearchCV
+from sklearn.model_selection import HalvingRandomSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 
@@ -49,10 +49,13 @@ def _search_space(algorithm, budget):
     raise ValueError(f"Unknown algorithm: {algorithm}")
 
 
-def _budget_params(budget):
+def _budget_params(budget, time_aware=False):
     if budget == "thorough":
-        return {"n_candidates": 24, "cv": 5}
-    return {"n_candidates": 10, "cv": 3}
+        n_candidates, n_splits = 24, 5
+    else:
+        n_candidates, n_splits = 10, 3
+    cv = TimeSeriesSplit(n_splits=n_splits) if time_aware else n_splits
+    return {"n_candidates": n_candidates, "cv": cv}
 
 
 def _prefix_params(params, log_target):
@@ -89,8 +92,8 @@ def _inner_pipeline(model):
     return model.regressor_ if isinstance(model, TransformedTargetRegressor) else model
 
 
-def _tune(pipeline, X_train, y_train, algorithm, budget, log_target):
-    bp = _budget_params(budget)
+def _tune(pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=False):
+    bp = _budget_params(budget, time_aware=time_aware)
     params = _prefix_params(_search_space(algorithm, budget), log_target)
     search = HalvingRandomSearchCV(
         pipeline,
@@ -106,7 +109,9 @@ def _tune(pipeline, X_train, y_train, algorithm, budget, log_target):
     return search.best_estimator_, search.best_score_
 
 
-def auto_train(X_train, y_train, numerical_cols, categorical_cols, budget="fast"):
+def auto_train(
+    X_train, y_train, numerical_cols, categorical_cols, budget="fast", time_aware=False
+):
     log_target = should_log_target(y_train)
     best_score = -np.inf
     best_model = None
@@ -116,7 +121,9 @@ def auto_train(X_train, y_train, numerical_cols, categorical_cols, budget="fast"
         pipeline = build_pipeline(
             algorithm, numerical_cols, categorical_cols, log_target=log_target
         )
-        model, score = _tune(pipeline, X_train, y_train, algorithm, budget, log_target)
+        model, score = _tune(
+            pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=time_aware
+        )
         scores[algorithm] = score
         if score > best_score:
             best_score = score
@@ -126,7 +133,14 @@ def auto_train(X_train, y_train, numerical_cols, categorical_cols, budget="fast"
 
 
 def start_training(
-    X_train, y_train, numerical_cols, categorical_cols, algorithm, budget="fast", tune=False
+    X_train,
+    y_train,
+    numerical_cols,
+    categorical_cols,
+    algorithm,
+    budget="fast",
+    tune=False,
+    time_aware=False,
 ):
     log_target = should_log_target(y_train)
     pipeline = build_pipeline(
@@ -135,7 +149,8 @@ def start_training(
 
     if tune:
         pipeline, _ = _tune(
-            pipeline, X_train, y_train, algorithm, budget, log_target
+            pipeline, X_train, y_train, algorithm, budget, log_target,
+            time_aware=time_aware,
         )
     else:
         pipeline.fit(X_train, y_train)
