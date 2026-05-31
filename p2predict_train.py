@@ -23,7 +23,12 @@ from modules.p2predict_feature_selection import (
 )
 from modules.prepare_data import prepare_data
 from modules.trained_model_io import SaveModel, Serialize_Trained_Model, load_csv_file
-from modules.training import ALGORITHMS, auto_train, start_training
+from modules.training import (
+    ALGORITHMS,
+    auto_train,
+    extract_feature_importances,
+    start_training,
+)
 from modules.ui_console import print_dataframe
 
 console = Console()
@@ -327,9 +332,22 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     if expert and interactive:
         if questionary.confirm("Generate the model quality PDF report?").ask():
             file_name = Prompt.ask("Enter PDF name (e.g., report.pdf)")
-            X_plotting = pd.concat([X_train, X_test])
-            y_prediction = model.predict(X_plotting)
-            plotting.plot_results_pdf(data[target], y_prediction, file_name)
+            # Use the true holdout so the report reflects genuine generalization.
+            y_pred_test = model.predict(X_test)
+            try:
+                feat_imp = extract_feature_importances(model, X_train)
+            except Exception:
+                feat_imp = None
+            plotting.plot_results_pdf(
+                y_test,
+                y_pred_test,
+                file_name,
+                target_name=target,
+                model_name=algorithm,
+                n_train=len(X_train),
+                training_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                feature_importances=feat_imp,
+            )
             print("")
 
     if expert and interactive and not tune:

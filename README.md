@@ -190,7 +190,6 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 - click
 - joblib
 - matplotlib
-- mpld3
 - numpy
 - pandas
 - rich
