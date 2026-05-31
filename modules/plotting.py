@@ -512,12 +512,18 @@ def plot_results_pdf(
     ) > 0
     total_pages = 3 if has_importance_page else 2
 
+    # Keep PDF /Info metadata strictly ASCII. matplotlib 3.7 switches the
+    # whole Info dict to UTF-16BE hex encoding the moment any field contains
+    # non-Latin-1 (e.g. an em-dash), which buries fields like the target name
+    # in hex and confuses any consumer that scans the file for text. The
+    # visible em-dashes in page titles/subtitles are rendered by matplotlib
+    # directly, so this only affects file-properties metadata.
     pdf_metadata = {
-        "Title": f"P2Predict — Model Quality Report ({target_name})",
+        "Title": f"P2Predict - Model Quality Report ({target_name})",
         "Author": "P2Predict",
         "Subject": (
             f"Parametric estimation holdout performance for {target_name}"
-            + (f" — model: {model_name}" if model_name else "")
+            + (f" - model: {model_name}" if model_name else "")
         ),
         "Keywords": "P2Predict, parametric estimation, model quality, procurement",
     }
