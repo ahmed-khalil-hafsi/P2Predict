@@ -16,7 +16,11 @@ from modules.cmdline_io import print_feature_stats, print_feature_weights, print
 from modules.hpo_training import hyper_parameter_tuning
 from modules.model_evals import evaluate_model
 from modules.intervals import compute_calibration_residuals
-from modules.outliers import POLICIES as OUTLIER_POLICIES, apply_outlier_policy
+from modules.outliers import (
+    POLICIES as OUTLIER_POLICIES,
+    apply_feature_outlier_policy,
+    apply_outlier_policy,
+)
 from modules.p2predict_feature_selection import (
     find_high_variation_features,
     find_no_variation_features,
@@ -60,12 +64,18 @@ spinner.stop()
               help="How to handle outliers in the target column (Tukey IQR rule). "
                    "'warn' (default) = report only; 'drop' = remove rows; "
                    "'winsorize' = cap values; 'keep' = silent.")
+@click.option("--feature-outliers", type=click.Choice(list(OUTLIER_POLICIES)), default="warn",
+              help="How to handle outliers in the numerical feature columns "
+                   "(Tukey IQR per column). 'drop' removes any row that has an "
+                   "outlier in any feature column; 'winsorize' caps each column "
+                   "at its own IQR bounds. 'warn' (default) = report only. "
+                   "Categorical features are ignored.")
 @click.option("--time-column", default=None,
               help="Name of a date/time column. When given, the train/test split and CV "
                    "become chronological (TimeSeriesSplit), which prevents look-ahead bias "
                    "for time-ordered data. The column is excluded from features.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
-          budget, tune, outliers, time_column):
+          budget, tune, outliers, feature_outliers, time_column):
 
     print("")
     print_logo()
@@ -163,6 +173,43 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             f"Outliers in '{target}': {outlier_summary['n_outliers']} of "
             f"{outlier_summary['n_total']} rows ({pct:.1f}%) outside "
             f"[{outlier_summary['lower']:.2f}, {outlier_summary['upper']:.2f}] — {action_msg}.",
+            style="bold yellow",
+        )
+        print("")
+
+    # Feature-side outlier check on numerical features only. We exclude the
+    # target (already handled above) and the time column (it's a date, not
+    # a model feature). Run before low-info detection so the IQR window
+    # there isn't biased by extreme inputs.
+    feature_outlier_candidates = [
+        c for c in data.columns if c != target and c != time_column
+    ]
+    data, feature_outlier_summary = apply_feature_outlier_policy(
+        data, feature_outlier_candidates, policy=feature_outliers
+    )
+    if feature_outlier_summary["n_outliers_total"] > 0:
+        pct = (
+            100.0 * feature_outlier_summary["n_outliers_total"]
+            / max(feature_outlier_summary["n_total"], 1)
+        )
+        feature_action_msg = {
+            "keep": "kept as-is",
+            "warn": "kept as-is — pass --feature-outliers drop or winsorize to mitigate",
+            "drop": "rows dropped",
+            "winsorize": "values winsorized per column",
+        }[feature_outliers]
+        # Show only columns that actually had outliers — the others are noise.
+        affected = {
+            col: stats for col, stats in feature_outlier_summary["per_column"].items()
+            if stats["n_outliers"] > 0
+        }
+        affected_details = ", ".join(
+            f"{col} ({stats['n_outliers']})" for col, stats in affected.items()
+        )
+        console.print(
+            f"Outliers in feature columns: {feature_outlier_summary['n_outliers_total']} "
+            f"of {feature_outlier_summary['n_total']} rows ({pct:.1f}%) affected "
+            f"[{affected_details}] — {feature_action_msg}.",
             style="bold yellow",
         )
         print("")
