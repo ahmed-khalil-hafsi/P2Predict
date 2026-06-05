@@ -91,12 +91,29 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 
 ![alt text](./documentation/model_perf_plot.png)
 
+## Three ways to use it
+
+P2Predict ships three surfaces. Pick the one that fits the workflow:
+
+| Surface | Who uses it | How |
+|---|---|---|
+| **CLI** | Procurement engineers, data scientists | `p2predict-train ...` and `p2predict ...` after `pip install` |
+| **Python API** | Apps, notebooks, custom pipelines | `from p2predict import auto_train, explain, predict_interval, what_if` |
+| **MCP server** *(coming v1.0)* | AI agents working on behalf of procurement teams | Typed tools the agent calls; the procurement user never touches a CLI |
+
+All three call the same underlying math. See [`examples/python_api.py`](examples/python_api.py) for an end-to-end Python walkthrough.
+
 ## Quick Start
 
-To use P2Predict, follow these steps:
+### 0. Install
 
-### 0. Install dependencies
-   - Install the required dependencies by invoking `pip install -r requirements.txt`
+```bash
+pip install -e .          # while developing from a clone
+# or once published:
+pip install p2predict
+```
+
+That installs the `p2predict` and `p2predict-train` commands and the `p2predict` Python package.
    
 ### 1. Prepare the data for training
    - Ensure your data is in a CSV format.
@@ -106,11 +123,11 @@ To use P2Predict, follow these steps:
 
 ### 2. Train your model
    
-   - Use the `p2predict_train.py` tool to train a new model.
+   - After installing, use the `p2predict-train` command. From a clone you can also run `python -m p2predict.cli.train` or `python3 p2predict_train.py`.
    - The tool accepts the following arguments:
 
      ```bash
-     python3 p2predict_train.py [OPTIONS]
+     p2predict-train [OPTIONS]
      ```
 
      - `--input`, `-i`: Path to your input CSV file. This dataset is used for training.
@@ -126,14 +143,14 @@ To use P2Predict, follow these steps:
      - `--feature-outliers`: How to handle outliers in the numerical feature columns (Tukey IQR per column). `drop` removes any row with an outlier in any feature column; `winsorize` caps each column independently at its own IQR bounds. `warn` (default) reports per-column counts without changing the data. Categorical features are ignored. Useful when a misrecorded `Weight=100000` would otherwise silently distort the model.
      - `--time-column`: Name of a date column. When given, train/test split and cross-validation become chronological (`TimeSeriesSplit`) — prevents the look-ahead bias you get from random splits on time-ordered data.
 
-     For a complete list of options, run `python3 p2predict_train.py --help`.
+     For a complete list of options, run `p2predict-train --help`.
 
      ### Examples:
 
      #### Example 1: Interactive Auto-Mode
 
      ```bash
-     python3 p2predict_train.py --interactive
+     p2predict-train --interactive
      ```
 
      Launches P2Predict in Interactive Auto-Mode. The program guides you through the process and automatically performs CV-based model selection across Ridge, Random Forest, and XGBoost.
@@ -141,7 +158,7 @@ To use P2Predict, follow these steps:
      #### Example 2: Non-Interactive Auto-Mode
 
      ```bash
-     python3 p2predict_train.py --input examples/example.csv --target Price
+     p2predict-train --input examples/example.csv --target Price
      ```
 
      Auto-mode picks the best algorithm and hyperparameters for you. Output names the winning algorithm and lists CV R² for each candidate.
@@ -149,7 +166,7 @@ To use P2Predict, follow these steps:
      #### Example 3: Auto-Mode with Thorough HPO
 
      ```bash
-     python3 p2predict_train.py --input data/sales.csv --target Revenue --budget thorough
+     p2predict-train --input data/sales.csv --target Revenue --budget thorough
      ```
 
      Same as Example 2 but with a wider hyperparameter search (slower, usually higher accuracy).
@@ -157,21 +174,21 @@ To use P2Predict, follow these steps:
      #### Example 4: Interactive Expert Mode
      
      ```bash
-     python3 p2predict_train.py --expert --interactive
+     p2predict-train --expert --interactive
      ```
 
      Interactive Expert Mode gives you control over feature selection, algorithm choice, and HPO. You're prompted before running hyperparameter tuning, and the tuned model is what gets saved.
 
      #### Example 5: Non-Interactive Expert Mode with Tuned XGBoost
      ```bash
-     python3 p2predict_train.py --expert --input examples/example.csv --algorithm xgboost --target Price --training_features Weight,Size,Region --tune --budget fast
+     p2predict-train --expert --input examples/example.csv --algorithm xgboost --target Price --training_features Weight,Size,Region --tune --budget fast
      ```
 
      Trains an XGBoost model on the chosen features, runs `HalvingRandomSearchCV`, and saves the tuned model.
 
      #### Example 6: Specifying Multiple Training Features
      ```bash
-     python3 p2predict_train.py --expert --input data/housing.csv --target Price --algorithm ridge --training_features Area,Bedrooms,Location,YearBuilt
+     p2predict-train --expert --input data/housing.csv --target Price --algorithm ridge --training_features Area,Bedrooms,Location,YearBuilt
      ```
 
      Trains a Ridge regression model with the specified features.
@@ -184,7 +201,7 @@ To use P2Predict, follow these steps:
    - The tool accepts the following arguments:
 
      ```bash
-     python3 p2predict.py -m MODEL_PATH [-p PREDICT_USING] [-i PREDICT_FILE]
+     p2predict -m MODEL_PATH [-p PREDICT_USING] [-i PREDICT_FILE]
      ```
 
      - `-m, --model MODEL_PATH`: Path to the trained model file (.model file).
@@ -198,19 +215,60 @@ To use P2Predict, follow these steps:
 
      1. Using inline prediction:
      ```bash
-     python3 p2predict.py -m models/my_trained_model.model -p "weight_g:25,region:5"
+     p2predict -m models/my_trained_model.model -p "weight_g:25,region:5"
      ```
 
      This command uses the model saved in `models/my_trained_model.model` to predict the price for an object with a weight of 25g and located in region 5.
 
      2. Using a prediction file:
      ```bash
-     python3 p2predict.py -m models/my_trained_model.model -i prediction_data.csv
+     p2predict -m models/my_trained_model.model -i prediction_data.csv
      ```
 
      This command uses the model saved in `models/my_trained_model.model` to generate predictions for all the entries in the `prediction_data.csv` file.
 
    Note: Make sure the features you provide (either inline or in the CSV file) match the features the model was trained on. The model in these examples was trained using `p2predict_train.py`, and the prediction features should correspond to the training features used.
+
+## Python API
+
+Everything the CLI can do is also reachable from Python. This is the surface an embedded application — or an AI agent acting on behalf of a procurement user — calls when it doesn't want to shell out to a subprocess.
+
+```python
+import pandas as pd
+from p2predict import (
+    auto_train,           # CV-based model selection (Ridge/RF/XGBoost)
+    explain,              # exact SHAP attribution per prediction
+    predict_interval,     # conformal "likely range" with guaranteed coverage
+    what_if,              # base vs counterfactual comparison
+    load_model, save_model,
+)
+from p2predict.prepare_data import prepare_data
+from p2predict.intervals import compute_calibration_residuals
+
+data = pd.read_csv("purchases.csv")
+features = ["Weight", "Region", "Supplier", "Size"]
+
+# Train (cross-validated model selection across three algorithms).
+X_train, X_test, y_train, y_test, num, cat = prepare_data(data, features, "Price")
+model, algorithm, scores, log_target = auto_train(X_train, y_train, num, cat)
+
+# Inference + per-feature attribution.
+new_part = pd.DataFrame([{"Weight": 15, "Region": "EU",
+                          "Supplier": "A", "Size": "Standard"}])
+calibration = compute_calibration_residuals(model, X_test, y_test)
+
+[interval] = predict_interval(model, new_part, calibration, coverage=0.90)
+explanation = explain(model, new_part, background_X=X_train.sample(100))
+
+print(f"Predicted: {interval.prediction:.2f}")
+print(f"Likely range (90%): {interval.low:.2f}–{interval.high:.2f}")
+for feature, contribution in explanation.contributions.items():
+    print(f"  {feature}: {contribution:+.2f}")
+```
+
+See [`examples/python_api.py`](examples/python_api.py) for an end-to-end script that loads `examples/example.csv`, trains, persists, reloads, and demonstrates all four entry points (`auto_train`, `predict_interval`, `explain`, `what_if`).
+
+The public API surface is everything in `from p2predict import ...`; submodule paths like `p2predict.training` and `p2predict.intervals` are stable but lower-level.
 
 ## Dependencies
 

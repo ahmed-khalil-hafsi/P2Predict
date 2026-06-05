@@ -8,7 +8,7 @@ from sklearn.model_selection import HalvingRandomSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 
-from modules.preprocessing import build_preprocessor, model_family_for
+from p2predict.preprocessing import build_preprocessor, model_family_for
 
 ALGORITHMS = ("ridge", "random_forest", "xgboost")
 LOG_TARGET_SKEW_THRESHOLD = 1.0

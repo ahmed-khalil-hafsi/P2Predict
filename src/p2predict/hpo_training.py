@@ -1,6 +1,6 @@
 from rich.console import Console
 
-from modules.training import ALGORITHMS, _budget_params, _tune, build_pipeline, should_log_target
+from p2predict.training import ALGORITHMS, _budget_params, _tune, build_pipeline, should_log_target
 
 console = Console()
 

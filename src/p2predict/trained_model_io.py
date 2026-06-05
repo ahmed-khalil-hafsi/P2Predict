@@ -3,12 +3,12 @@ import datetime
 import joblib
 import sklearn
 
-from modules.input_checks import check_csv_sanity
+from p2predict.input_checks import check_csv_sanity
 
-# v0.7 adds --feature-outliers (training-time CLI behaviour) but does not
-# change the persisted metadata schema. Bumped so saved models reflect the
-# runtime that produced them; older models load unchanged.
-P2PREDICT_VERSION = "v0.7"
+# v0.8 makes P2Predict pip-installable as the `p2predict` package and
+# exposes a public Python API surface. No persisted metadata schema
+# change; older models load unchanged.
+P2PREDICT_VERSION = "v0.8"
 
 
 def SaveModel(model_metadata, model_name):
@@ -37,7 +37,7 @@ def Serialize_Trained_Model(
     TreeExplainer.
 
     ``calibration`` is the dict returned by
-    ``modules.intervals.compute_calibration_residuals`` — the test-set
+    ``p2predict.intervals.compute_calibration_residuals`` — the test-set
     residuals (in log space when log-target is active, target space
     otherwise) used by split-conformal to compute likely-range intervals.
 

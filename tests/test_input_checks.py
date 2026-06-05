@@ -1,6 +1,6 @@
 import pytest
 
-from modules.input_checks import check_csv_sanity
+from p2predict.input_checks import check_csv_sanity
 
 
 def test_check_csv_sanity_loads_clean_csv(csv_path_clean):

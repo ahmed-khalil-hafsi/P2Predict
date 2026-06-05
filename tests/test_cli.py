@@ -10,8 +10,8 @@ from pathlib import Path
 import joblib
 from click.testing import CliRunner
 
-from p2predict import main as predict_cli
-from p2predict_train import train as train_cli
+from p2predict.cli.predict import main as predict_cli
+from p2predict.cli.train import train as train_cli
 
 
 def _train_args(csv_path, **overrides):
@@ -71,7 +71,7 @@ def test_train_expert_ridge_writes_model_with_v03_metadata(
     meta = joblib.load(model_path)
     # Read the version from the module rather than hardcoding so future
     # bumps don't break this test the way the v0.3 -> v0.4 bump did.
-    from modules.trained_model_io import P2PREDICT_VERSION
+    from p2predict.trained_model_io import P2PREDICT_VERSION
     assert meta["p2predict_version"] == P2PREDICT_VERSION
     assert meta["target_feature"] == "Price"
     assert set(meta["features"]) == {"Weight", "Region", "Supplier", "Size"}
