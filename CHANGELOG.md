@@ -2,6 +2,23 @@
 
 All notable changes to P2Predict are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [v0.8] — 2026-06
+
+### Added
+- **Pip-installable as the `p2predict` package.** `pyproject.toml` with `[project.scripts]` entries registers `p2predict` and `p2predict-train` as console scripts. Closes ROADMAP item #5. Install with `pip install -e .` (development) or `pip install p2predict` (once published).
+- **Public Python API.** `from p2predict import auto_train, explain, predict_interval, what_if, save_model, load_model, ...` — the same functionality the CLI exposes, callable from scripts / notebooks / agent code without shelling out. This is the surface AI agents will call once the MCP server lands in v1.0.
+- **`python -m p2predict`** invokes the predict CLI without needing the console script entry point (useful for sandboxed environments or one-off use).
+- **`examples/python_api.py`** — end-to-end walkthrough loading `examples/example.csv`, training, persisting, reloading, and demonstrating all four programmatic entry points.
+
+### Changed
+- **Package layout: `modules/` → `src/p2predict/`.** Standard PEP 517 / 518 src-layout. The internal module rename `modules.p2predict_feature_selection` → `p2predict.feature_selection` drops a redundant package-name prefix now that everything lives under the `p2predict` namespace. Git history is preserved via `git mv`.
+- **CI workflow now installs via `pip install -e ".[dev]"`** and runs an install-time smoke check (`p2predict --help` / `p2predict-train --help`), so the install path is validated on every push, not just the test path.
+- **Root scripts:** `p2predict_train.py` stays as a thin shim that delegates to `p2predict.cli.train`. The old `p2predict.py` is gone — it collided with the package name. Use the `p2predict` console script or `python -m p2predict`.
+
+### Compatibility
+- `p2predict_version` bumped to `v0.8`. No model-format change. v0.7 and earlier models load and predict unchanged.
+- **Breaking for direct CLI invocation:** `python3 p2predict.py ...` no longer works (the package name collided with the script). Use `p2predict ...` (after install) or `python -m p2predict ...`. `python3 p2predict_train.py ...` still works.
+
 ## [v0.7] — 2026-06
 
 ### Added

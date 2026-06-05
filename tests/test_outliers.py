@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from modules.outliers import (
+from p2predict.outliers import (
     POLICIES,
     apply_feature_outlier_policy,
     apply_outlier_policy,

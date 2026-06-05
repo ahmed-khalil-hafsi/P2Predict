@@ -1,4 +1,4 @@
-from modules.prepare_data import prepare_data
+from p2predict.prepare_data import prepare_data
 
 
 def test_prepare_data_random_split_excludes_target(synthetic_parts):

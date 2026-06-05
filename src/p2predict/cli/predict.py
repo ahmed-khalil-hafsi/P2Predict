@@ -12,11 +12,11 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
-from modules.cmdline_io import print_logo
-from modules.explain import Explanation, explain_row, top_drivers
-from modules.intervals import coverage_health, predict_interval
-from modules.trained_model_io import LoadModel
-from modules.whatif import (
+from p2predict.cmdline_io import print_logo
+from p2predict.explain import Explanation, explain_row, top_drivers
+from p2predict.intervals import coverage_health, predict_interval
+from p2predict.trained_model_io import LoadModel
+from p2predict.whatif import (
     WhatIfResult,
     compute_whatif,
     interaction_is_material,

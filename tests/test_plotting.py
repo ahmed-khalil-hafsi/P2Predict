@@ -11,7 +11,7 @@ import pytest
 import matplotlib
 matplotlib.use("Agg")
 
-from modules.plotting import (
+from p2predict.plotting import (
     _abs_pct_errors,
     _error_by_price_band,
     _summary_metrics,

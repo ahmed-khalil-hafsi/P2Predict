@@ -13,14 +13,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from modules.explain import (
+from p2predict.explain import (
     Explanation,
     _detect_family,
     explain_row,
     top_drivers,
 )
-from modules.prepare_data import prepare_data
-from modules.training import start_training
+from p2predict.prepare_data import prepare_data
+from p2predict.training import start_training
 
 
 # ---------------------------------------------------------------------------
