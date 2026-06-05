@@ -10,3 +10,4 @@ seaborn==0.12.2
 xgboost==1.7.5
 halo==0.0.31
 questionary==1.10.0
+shap>=0.44,<0.50

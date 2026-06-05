@@ -69,7 +69,10 @@ def test_train_expert_ridge_writes_model_with_v03_metadata(
     assert result.exit_code == 0, result.output
     model_path = _saved_model(tmp_path, "ridge_Price")
     meta = joblib.load(model_path)
-    assert meta["p2predict_version"] == "v0.3"
+    # Read the version from the module rather than hardcoding so future
+    # bumps don't break this test the way the v0.3 -> v0.4 bump did.
+    from modules.trained_model_io import P2PREDICT_VERSION
+    assert meta["p2predict_version"] == P2PREDICT_VERSION
     assert meta["target_feature"] == "Price"
     assert set(meta["features"]) == {"Weight", "Region", "Supplier", "Size"}
     assert "log_target" in meta
