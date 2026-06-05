@@ -16,6 +16,12 @@ from modules.cmdline_io import print_logo
 from modules.explain import Explanation, explain_row, top_drivers
 from modules.intervals import coverage_health, predict_interval
 from modules.trained_model_io import LoadModel
+from modules.whatif import (
+    WhatIfResult,
+    compute_whatif,
+    interaction_is_material,
+    parse_changes,
+)
 
 
 def _inner_pipeline(model):
@@ -189,6 +195,149 @@ def _print_interval(console, interval_result, target_name: str, coverage_pct: in
     )
 
 
+def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
+    """Render a what-if comparison. Designed for design-review use: lead
+    with the headline delta, then the side-by-side, then where the
+    change came from (per-feature SHAP attribution).
+    """
+    # Headline delta.
+    headline_table = Table(
+        title="What-if Analysis", show_header=True, header_style="bold magenta",
+        expand=False,
+    )
+    headline_table.add_column("Scenario")
+    headline_table.add_column(f"Predicted {target_name}", justify="right")
+    if result.base_interval is not None:
+        headline_table.add_column("Likely range", justify="right")
+    headline_table.add_row(
+        "Base",
+        f"{result.base_prediction:,.2f}",
+        *(
+            [f"{result.base_interval.low:,.2f} – {result.base_interval.high:,.2f}"]
+            if result.base_interval is not None
+            else []
+        ),
+    )
+    headline_table.add_row(
+        "Counterfactual",
+        f"{result.counterfactual_prediction:,.2f}",
+        *(
+            [f"{result.cf_interval.low:,.2f} – {result.cf_interval.high:,.2f}"]
+            if result.cf_interval is not None
+            else []
+        ),
+    )
+    sign_style = "green" if result.delta >= 0 else "red"
+    delta_label = "Change"
+    delta_value = f"[{sign_style}]{result.delta:+,.2f}[/{sign_style}]"
+    if result.log_target and result.multiplicative_factor is not None:
+        delta_pct = (result.multiplicative_factor - 1.0) * 100.0
+        delta_value += (
+            f" ([{sign_style}]{delta_pct:+.1f}%[/{sign_style}], "
+            f"×{result.multiplicative_factor:.3f})"
+        )
+    else:
+        delta_value += f" ([{sign_style}]{result.delta_pct:+.1f}%[/{sign_style}])"
+    headline_table.add_row(delta_label, delta_value, *([""] if result.base_interval is not None else []))
+    console.print(headline_table)
+
+    # What changed.
+    changes_table = Table(
+        title="Changes applied",
+        show_header=True, header_style="bold magenta", expand=False,
+    )
+    changes_table.add_column("Feature")
+    changes_table.add_column("Base", justify="right")
+    changes_table.add_column("Counterfactual", justify="right")
+    for col, (base_val, cf_val) in result.changes.items():
+        changes_table.add_row(col, str(base_val), str(cf_val))
+    console.print(changes_table)
+
+    # Per-feature attribution of the delta. For non-log models, contributions
+    # are in target units and sum to the total delta (modulo floating point).
+    # For log-target models, we show multiplicative factors per change and
+    # note that they multiply to the total ratio.
+    attribution_table = Table(
+        title=("Drivers of the change (SHAP × factor)" if result.log_target
+               else "Drivers of the change (SHAP)"),
+        show_header=True, header_style="bold magenta", expand=False,
+    )
+    attribution_table.add_column("Feature")
+    if result.log_target:
+        attribution_table.add_column("× Factor", justify="right")
+        attribution_table.add_column("Effect", justify="right")
+    else:
+        attribution_table.add_column("Contribution", justify="right")
+        attribution_table.add_column("Share", justify="right")
+
+    # Share normalised against the sum of *absolute* contributions so the
+    # shares add to ~100% even when the changed and interaction terms
+    # partially cancel. Sharing against the net delta produced visually
+    # confusing values (e.g. one feature at +160% because another row was
+    # negative); the absolute-normalisation reads cleanly in a meeting.
+    abs_total = sum(abs(v) for v in result.changed_contributions.values()) + abs(
+        result.interaction_contribution
+    )
+    abs_total = abs_total if abs_total > 1e-12 else 1.0
+    ordered = sorted(
+        result.changed_contributions.items(),
+        key=lambda kv: abs(kv[1]),
+        reverse=True,
+    )
+    for col, value in ordered:
+        if result.log_target and result.changed_multiplicative_factors is not None:
+            factor = result.changed_multiplicative_factors[col]
+            pct = (factor - 1.0) * 100.0
+            sign_style = "green" if pct >= 0 else "red"
+            attribution_table.add_row(
+                col,
+                f"×{factor:.3f}",
+                f"[{sign_style}]{pct:+.1f}%[/{sign_style}]",
+            )
+        else:
+            share = abs(value) / abs_total * 100.0
+            sign_style = "green" if value >= 0 else "red"
+            attribution_table.add_row(
+                col,
+                f"[{sign_style}]{value:+,.2f}[/{sign_style}]",
+                f"{share:.0f}%",
+            )
+
+    # Interaction effects row — only when material (>5% of total) so we
+    # don't clutter the table with floating-point noise.
+    if interaction_is_material(result):
+        if result.log_target and result.interaction_multiplicative_factor is not None:
+            factor = result.interaction_multiplicative_factor
+            pct = (factor - 1.0) * 100.0
+            sign_style = "green" if pct >= 0 else "red"
+            attribution_table.add_row(
+                "[dim]Other interaction effects[/dim]",
+                f"×{factor:.3f}",
+                f"[{sign_style}]{pct:+.1f}%[/{sign_style}]",
+            )
+        else:
+            share = abs(result.interaction_contribution) / abs_total * 100.0
+            sign_style = "green" if result.interaction_contribution >= 0 else "red"
+            attribution_table.add_row(
+                "[dim]Other interaction effects[/dim]",
+                f"[{sign_style}]{result.interaction_contribution:+,.2f}[/{sign_style}]",
+                f"{share:.0f}%",
+            )
+    console.print(attribution_table)
+
+    if result.log_target:
+        console.print(
+            "Factors multiply: × Region × Supplier × ... = total change factor.",
+            style="italic dim",
+        )
+    else:
+        console.print(
+            "Contributions add up to the total change. "
+            "Features you didn't change can still show up here when there are interactions in the model.",
+            style="italic dim",
+        )
+
+
 @click.command()
 @click.option("-m", "--model", type=click.Path(exists=True),
               help="Path to the trained model file (.model)")
@@ -204,7 +353,13 @@ def _print_interval(console, interval_result, target_name: str, coverage_pct: in
                    "(e.g. --interval 90 for a range that contains the value "
                    "for about 9 in 10 similar parts). Range is calibrated on "
                    "the training holdout; see the README for the math.")
-def main(model, predict_using, predict_file, explain_flag, interval_coverage):
+@click.option("--whatif", "whatif_spec", default=None,
+              help='What-if comparison. Takes a base scenario from -p (or '
+                   'CSV row 0 from -i) and compares it to a counterfactual '
+                   'where one or more features change. Same format as -p, '
+                   'e.g. --whatif "Region:EU,Supplier:B".')
+def main(model, predict_using, predict_file, explain_flag, interval_coverage,
+         whatif_spec):
     console = Console()
 
     print("")
@@ -269,6 +424,17 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage):
         elif warning:
             interval_soft_warning = warning
 
+    # --whatif is inline-only (needs a single base scenario). Reject it
+    # in batch mode now so the user gets a clear message rather than a
+    # cryptic failure later.
+    if whatif_spec is not None and predict_file:
+        console.print(
+            "Aborted: --whatif is not supported in batch mode (-i). "
+            "Use -p to specify a base scenario.",
+            style="bold red",
+        )
+        raise SystemExit(1)
+
     features_dict = {}
     if predict_using:
         features_dict = dict(item.split(":") for item in predict_using.split(","))
@@ -289,6 +455,27 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage):
             print("")
             explanation = explain_row(trained, features_df[loaded["features"]], background)
             _print_explanation(console, explanation, target_name)
+        if whatif_spec is not None:
+            print("")
+            try:
+                changes = parse_changes(whatif_spec)
+            except ValueError as exc:
+                console.print(f"Aborted: {exc}", style="bold red")
+                raise SystemExit(1)
+            try:
+                whatif_result = compute_whatif(
+                    trained,
+                    features_df[loaded["features"]],
+                    changes,
+                    feature_types,
+                    background_X=background,
+                    calibration=calibration if interval_coverage is not None else None,
+                    coverage=(interval_coverage or 90) / 100.0,
+                )
+            except ValueError as exc:
+                console.print(f"Aborted: {exc}", style="bold red")
+                raise SystemExit(1)
+            _print_whatif(console, whatif_result, target_name)
 
     elif predict_file:
         features_df = pd.read_csv(predict_file)

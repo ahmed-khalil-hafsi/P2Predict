@@ -26,17 +26,11 @@ Deliberately model-agnostic — one code path serves Ridge, Random Forest, and X
 
 ---
 
-## 3. What-if / counterfactual mode
+## ~~3. What-if / counterfactual mode~~ ✅ Shipped in v0.6
 
-**Why it matters.** "What if we change the region from CN to EU?" is the question design reviews want to ask. Today users have to re-run the CLI twice and eyeball the difference. A dedicated mode that takes a base set of features and a list of changes, and prints a delta table, is the killer feature for the should-cost discussion.
+`p2predict.py -m M -p "..." --whatif "Region:EU,Supplier:B"`. Side-by-side base/counterfactual predictions with deltas (dollars and percent), composed with the v0.5 likely-range intervals and the v0.4 SHAP attributions. The SHAP decomposition of the delta is locked in by the test suite: per-feature contributions sum to the total delta (and for log-target models, multiplicative factors multiply to the total change ratio).
 
-**Scope**
-- New CLI subcommand or flag: `p2predict.py whatif -m M --base "Weight:15,Region:CN,..." --change "Region=EU,Supplier=B"`.
-- Returns: base prediction, counterfactual prediction, delta, and (if SHAP is implemented) the per-feature contribution of each change.
-
-**Acceptance**
-- Works with multiple simultaneous changes.
-- Output is a clean table, copy-pasteable into review meeting notes.
+Features the user *didn't* change can still pick up SHAP attribution due to real interactions in the model. Surfaced as a single "other interaction effects" row only when material (>5% of total delta).
 
 ---
 
