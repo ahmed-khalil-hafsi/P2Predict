@@ -6,19 +6,13 @@ Ordered by impact for the "engineering ↔ procurement design-review" use case.
 
 ---
 
-## 1. SHAP — per-prediction explanations
+## ~~1. SHAP — per-prediction explanations~~ ✅ Shipped in v0.4
 
-**Why it matters more than anything else here.** The use case is "should we keep this feature given the cost?" Without per-prediction attribution, the answer is a black-box number that gets dismissed. With it: *"this part is predicted at $1.32 because Weight contributes +$0.40, Region=EU contributes +$0.32, and Supplier choice contributes +$0.18."* That's what unlocks the cross-functional conversation.
+Per-prediction Shapley attributions via `--explain`. Exact algorithms only: `LinearExplainer` (closed-form) for Ridge/Lasso, `TreeExplainer` with `tree_path_dependent` (exact in O(TLD²)) for Random Forest and XGBoost. No KernelExplainer fallback.
 
-**Scope**
-- Add `shap` to dependencies (works with all three model families: linear via `LinearExplainer`, trees via `TreeExplainer`).
-- Compute explanations in `p2predict.py` and add a `--explain` flag that prints the per-feature contribution table alongside the prediction.
-- Save a small background-data sample with the model (for KernelExplainer fallback if needed).
+The log-target wrap switched from `log1p/expm1` to `log/exp` so SHAP's multiplicative axiom holds strictly in price space: `pred / base = ∏ exp(φᵢ)`. Per-feature multiplicative factors are the axiomatically-clean attribution; an approximate dollar attribution is also surfaced for procurement readability, clearly labelled as approximate.
 
-**Acceptance**
-- `p2predict.py -m M -p "Weight:15,..." --explain` prints a table of (feature, contribution_to_price) summing to the predicted value minus the baseline.
-- Works for ridge, RF, and XGBoost models.
-- Works for log-target models (explanation in price space, not log space).
+Local-accuracy axiom (`φ₀ + Σ φᵢ = f(x)`) is asserted in the test suite for every supported model family.
 
 ---
 

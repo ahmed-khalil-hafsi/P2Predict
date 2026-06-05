@@ -1,4 +1,5 @@
 import click
+import numpy as np
 import pandas as pd
 import questionary
 from rich.console import Console
@@ -10,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from modules.cmdline_io import print_logo
+from modules.explain import Explanation, explain_row, top_drivers
 from modules.trained_model_io import LoadModel
 
 
@@ -51,6 +53,109 @@ def _coerce_features(features_df, feature_types):
     return features_df
 
 
+def _print_explanation(console, explanation: Explanation, target_name: str) -> None:
+    """Render a SHAP attribution table for a single-row prediction.
+
+    Non-log models: standard additive decomposition in target units. The
+    baseline plus the sum of contributions exactly reproduces the
+    prediction (within floating-point) per SHAP's local-accuracy axiom.
+
+    Log-target models: per-feature *multiplicative factors* are the
+    axiomatically clean per-feature attribution in price space (their
+    product times the baseline reproduces the prediction). We additionally
+    show an approximate dollar attribution — clearly labelled as approximate
+    — for procurement readability.
+    """
+    table = Table(
+        title="Prediction Explanation (SHAP)",
+        show_header=True,
+        header_style="bold magenta",
+        expand=False,
+    )
+
+    if not explanation.log_target:
+        table.add_column("Feature")
+        table.add_column("Contribution", justify="right")
+        table.add_row(
+            "[dim]Baseline (model expected value)[/dim]",
+            f"{explanation.baseline:+.2f}",
+        )
+        # Show contributions in decreasing |magnitude| so the drivers are obvious.
+        ordered = sorted(
+            explanation.contributions.items(), key=lambda kv: abs(kv[1]), reverse=True
+        )
+        for col, value in ordered:
+            sign_style = "green" if value >= 0 else "red"
+            table.add_row(col, f"[{sign_style}]{value:+.2f}[/{sign_style}]")
+        table.add_row(
+            "[bold]Predicted " + target_name + "[/bold]",
+            f"[bold yellow]{explanation.prediction:+.2f}[/bold yellow]",
+        )
+        console.print(table)
+    else:
+        # Log-target case: lead with the strict (multiplicative) attribution
+        # and follow with the approximate dollar attribution.
+        table.add_column("Feature")
+        table.add_column("× Factor", justify="right")
+        table.add_column("Effect", justify="right")
+        baseline = explanation.baseline_price
+        prediction = explanation.predicted_price
+        table.add_row(
+            "[dim]Baseline (geometric mean)[/dim]",
+            "—",
+            f"{baseline:,.2f}",
+        )
+        ordered = sorted(
+            explanation.multiplicative_factors.items(),
+            key=lambda kv: abs(np.log(kv[1])) if kv[1] > 0 else 0.0,
+            reverse=True,
+        )
+        for col, factor in ordered:
+            pct = (factor - 1.0) * 100.0
+            sign_style = "green" if pct >= 0 else "red"
+            table.add_row(
+                col,
+                f"×{factor:.3f}",
+                f"[{sign_style}]{pct:+.1f}%[/{sign_style}]",
+            )
+        table.add_row(
+            "[bold]Predicted " + target_name + "[/bold]",
+            "—",
+            f"[bold yellow]{prediction:,.2f}[/bold yellow]",
+        )
+        console.print(table)
+        console.print(
+            "Multiplicative factors are strict SHAP in price space "
+            "(their product equals predicted / baseline).",
+            style="italic dim",
+        )
+        if explanation.dollar_attribution is not None:
+            d_table = Table(
+                title="Approximate Dollar Attribution (rescaled, not strict SHAP)",
+                show_header=True,
+                header_style="bold magenta",
+                expand=False,
+            )
+            d_table.add_column("Feature")
+            d_table.add_column("Approx. contribution", justify="right")
+            ordered_d = sorted(
+                explanation.dollar_attribution.items(),
+                key=lambda kv: abs(kv[1]),
+                reverse=True,
+            )
+            for col, value in ordered_d:
+                sign_style = "green" if value >= 0 else "red"
+                d_table.add_row(col, f"[{sign_style}]{value:+,.2f}[/{sign_style}]")
+            console.print(d_table)
+
+    if abs(explanation.residual) > 1e-3 * max(1.0, abs(explanation.prediction)):
+        console.print(
+            f"Note: local-accuracy residual is {explanation.residual:+.3g} "
+            "(non-trivial; the SHAP/model wiring may need a look).",
+            style="italic yellow",
+        )
+
+
 @click.command()
 @click.option("-m", "--model", type=click.Path(exists=True),
               help="Path to the trained model file (.model)")
@@ -58,7 +163,9 @@ def _coerce_features(features_df, feature_types):
               help='Feature values, e.g. "weight:100,color:red"')
 @click.option("-i", "--predict_file", type=click.Path(exists=True),
               help="CSV file containing feature values for batch prediction")
-def main(model, predict_using, predict_file):
+@click.option("--explain", "explain_flag", is_flag=True, default=False,
+              help="Show per-feature SHAP attribution alongside the prediction.")
+def main(model, predict_using, predict_file, explain_flag):
     console = Console()
 
     print("")
@@ -106,6 +213,9 @@ def main(model, predict_using, predict_file):
 
     console.print("\n" + "=" * 50 + "\n")
 
+    background = loaded.get("background_sample")
+    target_name = loaded["target_feature"]
+
     features_dict = {}
     if predict_using:
         features_dict = dict(item.split(":") for item in predict_using.split(","))
@@ -113,12 +223,41 @@ def main(model, predict_using, predict_file):
         y = trained.predict(features_df)
         features_df["prediction"] = y
         console.print(Panel(Pretty(features_df), title="Prediction"))
+        if explain_flag:
+            print("")
+            explanation = explain_row(trained, features_df[loaded["features"]], background)
+            _print_explanation(console, explanation, target_name)
 
     elif predict_file:
         features_df = pd.read_csv(predict_file)
         features_df = _coerce_features(features_df, feature_types)
         y = trained.predict(features_df)
-        features_df[loaded["target_feature"]] = y
+        features_df[target_name] = y
+        if explain_flag:
+            # Add top-3 driver columns. We could batch-explain in one shot,
+            # but per-row keeps the API simple and the call count is tiny in
+            # the typical procurement RFQ batch (tens to low hundreds).
+            top1, top2, top3 = [], [], []
+            for i in range(len(features_df)):
+                row = features_df.iloc[[i]][loaded["features"]]
+                ex = explain_row(trained, row, background)
+                drivers = top_drivers(ex, n=3)
+                # Format: "Feature (factor)" for log-target, "Feature (±value)" otherwise.
+                formatted = []
+                for col, value in drivers:
+                    if ex.log_target:
+                        pct = (value - 1.0) * 100.0
+                        formatted.append(f"{col} ({pct:+.1f}%)")
+                    else:
+                        formatted.append(f"{col} ({value:+.2f})")
+                while len(formatted) < 3:
+                    formatted.append("")
+                top1.append(formatted[0])
+                top2.append(formatted[1])
+                top3.append(formatted[2])
+            features_df["top1_driver"] = top1
+            features_df["top2_driver"] = top2
+            features_df["top3_driver"] = top3
         features_df.to_csv(predict_file, index=False)
         console.print(Panel(Pretty(features_df), title="Prediction"))
 
@@ -151,6 +290,12 @@ def main(model, predict_using, predict_file):
             f"\n[bold]Predicted {loaded['target_feature']}:[/bold] "
             f"[yellow]{prediction_value:.2f}[/yellow]"
         )
+        if explain_flag:
+            print("")
+            explanation = explain_row(
+                trained, features_df[loaded["features"]], background
+            )
+            _print_explanation(console, explanation, target_name)
 
     return y
 

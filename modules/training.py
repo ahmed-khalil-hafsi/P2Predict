@@ -82,8 +82,12 @@ def build_pipeline(algorithm, numerical_cols, categorical_cols, log_target=False
         steps=[("preprocessor", preprocessor), ("model", _make_estimator(algorithm))]
     )
     if log_target:
+        # log/exp (not log1p/expm1) so SHAP's multiplicative axiom in price
+        # space is clean: per-feature factors multiply the price directly,
+        # not (1 + price). Safe because should_log_target() only fires when
+        # all training targets are strictly positive.
         return TransformedTargetRegressor(
-            regressor=pipeline, func=np.log1p, inverse_func=np.expm1
+            regressor=pipeline, func=np.log, inverse_func=np.exp
         )
     return pipeline
 

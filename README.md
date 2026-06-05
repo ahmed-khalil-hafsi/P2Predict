@@ -46,6 +46,7 @@ The model learns from your data — so the benchmark reflects your supply base a
 #### Benchmarking / prediction
 - Predict the benchmark price (or any other numerical target) for a part given its technical features
 - Batch-predict an entire CSV of candidate parts in one call
+- **Per-prediction explanations** via `--explain` — uses exact SHAP (TreeExplainer for tree models, LinearExplainer for linear models). Shows the additive decomposition `baseline + Σ contributions = prediction`, or for log-target models the strict multiplicative factors in price space
 - Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
 
 #### Model Training
@@ -165,6 +166,7 @@ To use P2Predict, follow these steps:
      - `-m, --model MODEL_PATH`: Path to the trained model file (.model file).
      - `-p, --predict_using TEXT`: Inline prediction feature/value pair to be fed to the trained model.
      - `-i, --predict_file FILE`: A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.
+     - `--explain`: Print a per-feature SHAP attribution alongside the prediction. In batch mode (`-i`) adds `top1_driver`, `top2_driver`, `top3_driver` columns to the output CSV.
 
      Examples:
 
@@ -199,6 +201,7 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 - xgboost
 - halo
 - questionary
+- shap
 
 ## Data
 
