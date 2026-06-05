@@ -15,6 +15,7 @@ from modules import plotting
 from modules.cmdline_io import print_feature_stats, print_feature_weights, print_logo
 from modules.hpo_training import hyper_parameter_tuning
 from modules.model_evals import evaluate_model
+from modules.intervals import compute_calibration_residuals
 from modules.outliers import POLICIES as OUTLIER_POLICIES, apply_outlier_policy
 from modules.p2predict_feature_selection import (
     find_high_variation_features,
@@ -392,6 +393,13 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         else None
     )
 
+    # Calibrate the conformal interval on the test residuals. This is the
+    # same test set the R²/MAE/RMSE metrics above are computed on — using
+    # it twice is statistically sound (we never select the model based on
+    # these residuals; we just measure them) and avoids burning another
+    # split of the training data on a separate calibration set.
+    calibration = compute_calibration_residuals(model, X_test, y_test)
+
     model_metadata = Serialize_Trained_Model(
         algorithm,
         selected_columns,
@@ -400,6 +408,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         r2,
         log_target=log_target,
         background_sample=background_sample,
+        calibration=calibration,
     )
 
     if interactive:
