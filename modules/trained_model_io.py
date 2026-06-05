@@ -5,11 +5,10 @@ import sklearn
 
 from modules.input_checks import check_csv_sanity
 
-# v0.6 adds --whatif but does not change the persisted metadata schema —
-# what-if uses only fields already present in v0.5+ models (background_sample
-# for SHAP, calibration for likely-range intervals). Bumped purely so saved
-# models reflect the runtime that produced them.
-P2PREDICT_VERSION = "v0.6"
+# v0.7 adds --feature-outliers (training-time CLI behaviour) but does not
+# change the persisted metadata schema. Bumped so saved models reflect the
+# runtime that produced them; older models load unchanged.
+P2PREDICT_VERSION = "v0.7"
 
 
 def SaveModel(model_metadata, model_name):

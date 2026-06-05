@@ -57,7 +57,7 @@ Notes that matter in practice:
 - **The target column is whatever you pass with `--target`.** It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
 - **Identifier columns** (part numbers, SKUs, anything near-unique) are auto-detected as "high variation" and flagged for you to drop. You usually don't want them in the model.
 - **Missing values:** rows with any NA in selected columns are dropped with a warning. If you want to keep them, impute upstream.
-- **Outliers in the target:** flagged by default (Tukey IQR). Pass `--outliers drop` or `--outliers winsorize` to act on them.
+- **Outliers in the target or in numerical features:** flagged by default (Tukey IQR). Pass `--outliers drop` / `--outliers winsorize` to act on the target column, and `--feature-outliers drop` / `--feature-outliers winsorize` to act on the feature columns. Feature-side `drop` is row-level (any column outlier removes the row); feature-side `winsorize` caps each column at its own IQR bounds.
 - **Time-ordered data:** if the CSV has a date column, pass `--time-column DATE` so the train/test split and CV become chronological — random splitting on time-ordered data inflates measured accuracy.
 
 See [`examples/example.csv`](examples/example.csv) for a working procurement-shaped dataset.
@@ -76,7 +76,7 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 - Import training data from a CSV file
 - **Cross-validated model selection** across Ridge, Random Forest and XGBoost (`HalvingRandomSearchCV`) — auto-mode picks the best model *and* hyperparameters for your data
 - **Automatic log-target transform** for positive, skewed targets (typical of price data)
-- **Outlier handling** on the target column (Tukey IQR rule) with four policies: `warn`, `drop`, `winsorize`, `keep`
+- **Outlier handling** on both the target *and* the feature columns (Tukey IQR rule) with four policies each: `warn`, `drop`, `winsorize`, `keep`. Feature-side `drop` removes any row with an outlier in any numerical feature; `winsorize` caps each column at its own IQR bounds. Categorical features are ignored
 - **Time-aware cross-validation** via `--time-column` — chronological train/test split and `TimeSeriesSplit` for HPO, to prevent look-ahead bias on time-ordered data
 - Auto-detection of the most predictive features using a Random Forest baseline
 - Auto-detection of low/no information features that might bias the model
@@ -123,6 +123,7 @@ To use P2Predict, follow these steps:
      - `--budget`, `-b`: HPO search budget — `fast` (default) or `thorough`. Used by auto-mode model selection and by expert-mode `--tune`.
      - `--tune / --no-tune`: Expert mode only. Run hyperparameter tuning and save the tuned model.
      - `--outliers`: How to handle outliers in the target column (Tukey IQR rule). `warn` (default), `drop`, `winsorize`, or `keep`.
+     - `--feature-outliers`: How to handle outliers in the numerical feature columns (Tukey IQR per column). `drop` removes any row with an outlier in any feature column; `winsorize` caps each column independently at its own IQR bounds. `warn` (default) reports per-column counts without changing the data. Categorical features are ignored. Useful when a misrecorded `Weight=100000` would otherwise silently distort the model.
      - `--time-column`: Name of a date column. When given, train/test split and cross-validation become chronological (`TimeSeriesSplit`) — prevents the look-ahead bias you get from random splits on time-ordered data.
 
      For a complete list of options, run `python3 p2predict_train.py --help`.
