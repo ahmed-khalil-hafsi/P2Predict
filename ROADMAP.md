@@ -16,19 +16,13 @@ Local-accuracy axiom (`φ₀ + Σ φᵢ = f(x)`) is asserted in the test suite f
 
 ---
 
-## 2. Prediction intervals
+## ~~2. Prediction intervals~~ ✅ Shipped in v0.5
 
-**Why it matters.** "$1.32" reads as a guess; "$1.32 (90% CI: $1.10–$1.55)" reads as analysis. Engineering reviews dismiss the former and engage with the latter.
+Likely-range intervals via `--interval N` (default 90). Split-conformal calibration on the test holdout — coverage is mathematically guaranteed under exchangeability, the same assumption the model's R²/MAE/RMSE already rely on. Empirical coverage at 80% / 90% / 95% is asserted in the test suite within ±5pp on synthetic data.
 
-**Scope**
-- For tree models: quantile regression via XGBoost's `quantile` objective, or bootstrap intervals from the RF.
-- For Ridge: residual-based intervals from the training distribution.
-- Add a `--interval` flag (default `90`) to `p2predict.py` and surface low/high alongside the point estimate.
+For log-target models the calibration runs in log space, yielding multiplicative intervals in price space (constant percentage width, scale-natural for procurement data). For non-log targets we use additive intervals in target units.
 
-**Acceptance**
-- Predictions include `prediction_low` and `prediction_high` columns in batch mode.
-- Inline mode prints both with the point estimate.
-- Width of intervals is sensible (a quick sanity test: ~90% of held-out test points fall inside the 90% interval).
+Deliberately model-agnostic — one code path serves Ridge, Random Forest, and XGBoost. Language is procurement-facing throughout: "likely range", "9 in 10 similar parts", no "confidence interval" or "alpha".
 
 ---
 
