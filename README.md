@@ -84,11 +84,12 @@ A P2Predict model trained on the historical buys captures the *pattern* — what
 
 ## See it on real data — [case studies](case-studies/)
 
-Three reproducible case studies on public datasets, each targeting a different audience:
+Four reproducible case studies on public datasets, each targeting a different audience:
 
 - **[Electronic components](case-studies/electronic-components/)** — parametric pricing for EE procurement (Octopart / Mouser API).
 - **[Used vehicles](case-studies/used-cars/)** — the tutorial, on prices that span orders of magnitude (Kaggle, CC-licensed).
 - **[Aerospace contracts](case-studies/aerospace-contracts/)** — government / large-procurement parametric estimating (USAspending.gov, public domain).
+- **[PCBA composition](case-studies/pcba-composition/)** — composes three trained models (components + PCB + assembly) into BOM-level cost with per-stage attribution. The composability story for hardware-procurement cost engineering.
 
 Each one ships with a `README` walking through the story, a `fetch_data.py` to pull the dataset, training command, and worked predictions with `--explain` / `--interval` / `--whatif`.
 
