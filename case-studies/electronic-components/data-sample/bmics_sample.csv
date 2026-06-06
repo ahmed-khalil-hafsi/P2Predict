@@ -1,0 +1,31 @@
+manufacturer,unit_price_at_1_usd,price_at_1k_usd,Battery Chemistry,op_temp_min_C,op_temp_max_C,Interface,max_cells_supported,is_multi_cell,package_pins
+Analog Devices Inc.,6.94,3.95409,unknown,-40.0,125.0,unknown,,unknown,8.0
+Analog Devices Inc./Maxim Integrated,3.76,2.02569,LiFePO4/Li-ion,-40.0,85.0,I2C,1.0,False,9.0
+Texas Instruments,2.28,1.1656,Multi-Chemistry,-40.0,125.0,unknown,1.0,False,10.0
+Nordic Semiconductor ASA,2.95,1.58357,Lithium Ion/Polymer,-40.0,85.0,"GPIO, I2C",1.0,False,32.0
+Analog Devices Inc./Maxim Integrated,4.61,2.53391,Lithium Ion/Polymer,-40.0,85.0,USB,1.0,False,24.0
+Microchip Technology,2.41,1.82001,Lithium Ion/Polymer,-40.0,85.0,USB,1.0,False,20.0
+Texas Instruments,2.53,1.24306,Lithium Ion,-40.0,125.0,USB,1.0,False,16.0
+Texas Instruments,4.11,2.19594,unknown,-40.0,125.0,On/Off,,unknown,20.0
+Texas Instruments,0.95,0.44277,Lithium Ion/Polymer,-40.0,85.0,unknown,1.0,False,10.0
+Texas Instruments,2.52,1.29971,Lithium Ion,0.0,125.0,I2C,4.0,True,20.0
+Texas Instruments,3.43,1.82286,Lithium Ion/Polymer,-40.0,85.0,"I2C, USB",1.0,False,24.0
+Analog Devices Inc.,3.78,2.02859,unknown,-40.0,125.0,I2C,1.0,False,16.0
+Texas Instruments,1.97,0.99511,Lithium Ion,-40.0,85.0,I2C,1.0,False,9.0
+Analog Devices Inc./Maxim Integrated,4.86,2.70227,Multi-Chemistry,-40.0,85.0,"I2C, USB",1.0,False,36.0
+Texas Instruments,1.93,0.97012,unknown,-40.0,125.0,On/Off,,unknown,14.0
+Texas Instruments,3.08,1.67185,Multi-Chemistry,-40.0,85.0,unknown,16.0,True,16.0
+Texas Instruments,4.84,2.75197,Lithium Ion/Polymer,-40.0,85.0,"I2C, SPI",10.0,True,48.0
+Texas Instruments,5.93,3.42658,Multi-Chemistry,-40.0,85.0,I2C,16.0,True,48.0
+Texas Instruments,2.43,1.24998,Lithium Ion,-40.0,125.0,USB,1.0,False,16.0
+Texas Instruments,2.09,1.06032,Lithium Ion/Polymer,-40.0,125.0,unknown,6.0,True,10.0
+STMicroelectronics,3.62,1.91925,unknown,-40.0,125.0,unknown,,unknown,8.0
+Texas Instruments,5.22,2.98888,LiFePO4/Li-ion,-40.0,85.0,"I2C, SPI",16.0,True,48.0
+Texas Instruments,2.92,1.53277,Lithium Ion/Polymer,-40.0,85.0,I2C,1.0,False,18.0
+Texas Instruments,5.22,2.98888,LiFePO4/Li-ion,-40.0,85.0,I2C,16.0,True,48.0
+Analog Devices Inc.,5.65,3.16336,unknown,-40.0,125.0,I2C,1.0,False,12.0
+Analog Devices Inc./Maxim Integrated,6.21,3.50454,Lithium Ion/Polymer,-40.0,85.0,I2C,4.0,True,24.0
+Analog Devices Inc./Maxim Integrated,4.27,2.32812,Multi-Chemistry,-40.0,85.0,I2C,1.0,False,9.0
+Texas Instruments,3.55,1.89697,Lithium Ion/Polymer,-40.0,85.0,I2C,1.0,False,18.0
+Texas Instruments,4.48,2.45301,unknown,-40.0,85.0,unknown,,unknown,8.0
+Würth Elektronik,6.22,,unknown,-40.0,125.0,unknown,,unknown,
