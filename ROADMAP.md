@@ -34,18 +34,11 @@ Features the user *didn't* change can still pick up SHAP attribution due to real
 
 ---
 
-## 4. Feature-side outlier detection
+## ~~4. Feature-side outlier detection~~ ✅ Shipped in v0.7
 
-**Why it matters.** v0.3 catches outliers in the target column. But a misrecorded `Weight=100000` in a feature column silently distorts training and there's no warning. Procurement data has both kinds.
+`--feature-outliers {keep,warn,drop,winsorize}` flag in `p2predict_train.py`. Per-column Tukey IQR detection on the numerical features; categorical features are ignored. `drop` is row-level (any column outlier removes the row); `winsorize` is per-column independent. Default is `warn`.
 
-**Scope**
-- Extend `modules/outliers.py` with `detect_feature_outliers(df, numerical_cols)` using the same IQR rule per column.
-- Report counts per column during training; reuse the existing `--outliers` policy semantics.
-- Add a `--feature-outliers {keep,warn,drop}` flag (separate from target outliers — we don't want to winsorize features blindly).
-
-**Acceptance**
-- Training output shows a per-column outlier summary for numerical features.
-- New tests in `tests/test_outliers.py` covering the multi-column case.
+Also fixed a latent bug in `detect_outliers()` while we were in there — near-constant columns like `[10]*20 + [10_000]` used to slip through silently because IQR was zero. The new behaviour treats anything not equal to the central point as an outlier in that degenerate case.
 
 ---
 
