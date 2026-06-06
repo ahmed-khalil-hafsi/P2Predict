@@ -2,6 +2,23 @@
 
 All notable changes to P2Predict are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [v0.9] — 2026-06
+
+### Added
+- **`--json` flag on both CLIs** for machine-readable structured output, replacing Rich-formatted tables. Designed for AI agents, scripts, and downstream tooling that need to ingest P2Predict's output without regexing terminal text. Closes ROADMAP item #1 (the agent-readiness prerequisite for the upcoming MCP server).
+- **`p2predict.json_output` module** documents the stable response schema for both `predict` and `train`. Every response carries `schema_version: "1.0"` so consumers can evolve safely as fields are added.
+- **JSON error path** — when `--json` is set, abort cases emit `{"error": {"code": "...", "message": "..."}}` on stdout with exit 1 instead of Rich abort messages, so an agent piping output gets a parseable failure document.
+- **Composability** — `--json` works alongside `--interval`, `--explain`, and `--whatif`; each adds its block to the response without affecting the others. Interactive mode is rejected with a clear error under `--json` (it would require prompts no agent can answer).
+- **15 new tests in `tests/test_json_output.py`** assert the schema shape for every documented field, on both CLIs, on success and on failure. The schema is now a tested contract, not a docstring.
+
+### Changed
+- Train CLI no longer starts the import-time Halo spinner under `--json` (sniffs `sys.argv` early so the spinner doesn't write to stdout before Click parses the flag).
+- The Rich `Console` used by both CLIs is redirected to `/dev/null` under `--json` as a belt-and-suspenders measure — guards on individual `console.print` calls are the primary defence; the redirect catches anything that escapes.
+
+### Compatibility
+- `p2predict_version` bumped to `v0.9`. No persisted metadata schema change; older models load and predict unchanged.
+- Default (non-JSON) output is unchanged. Existing scripts and workflows continue to work without modification.
+
 ## [v0.8] — 2026-06
 
 ### Added
