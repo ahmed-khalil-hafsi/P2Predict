@@ -69,6 +69,7 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 - Batch-predict an entire CSV of candidate parts in one call
 - **Likely-range intervals** via `--interval` — a "9 in 10" range around each prediction, calibrated on the training holdout. Quotes outside the range are unusual and worth questioning. Coverage is mathematically guaranteed under the same distribution assumption as the model's accuracy metrics
 - **Per-prediction explanations** via `--explain` — uses exact SHAP (TreeExplainer for tree models, LinearExplainer for linear models). Shows the additive decomposition `baseline + Σ contributions = prediction`, or for log-target models the strict multiplicative factors in price space
+- **What-if analysis** via `--whatif "Region:EU,Supplier:B"` — compare a base scenario against a counterfactual where one or more features change. Shows base and counterfactual predictions side-by-side (with likely ranges), the delta in dollars and percent, and a SHAP-attributed decomposition of where the change came from. The design-review tool for cross-functional cost discussions
 - Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
 
 #### Model Training
@@ -190,6 +191,7 @@ To use P2Predict, follow these steps:
      - `-i, --predict_file FILE`: A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.
      - `--explain`: Print a per-feature SHAP attribution alongside the prediction. In batch mode (`-i`) adds `top1_driver`, `top2_driver`, `top3_driver` columns to the output CSV.
      - `--interval N`: Show the model's likely range for the prediction. `--interval 90` produces a range that contains the target value for about 9 in 10 similar parts (calibrated on the training holdout). In batch mode adds `<target>_low` and `<target>_high` columns. Useful for supplier benchmarking and RFQ sanity checks — quotes outside the range are unusual and worth questioning.
+     - `--whatif "Feature:NewValue,..."`: Compare the base scenario (from `-p`) against a counterfactual where the listed features change. Prints the new predicted price, the delta in dollars and percent, and where the change came from feature by feature. Combine with `--interval` to also see the shift in the likely range, and with `--explain` to see the SHAP breakdown of the base prediction alongside. Inline only — not supported with `-i` batch mode.
 
      Examples:
 

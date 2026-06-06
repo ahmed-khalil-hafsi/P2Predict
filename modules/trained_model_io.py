@@ -5,11 +5,11 @@ import sklearn
 
 from modules.input_checks import check_csv_sanity
 
-# Bumped for v0.5 because the metadata gains an optional ``calibration``
-# field — the test-set residuals used by split-conformal to compute
-# likely-range intervals at predict time. Older models still load and
-# predict; --interval refuses to run on them with a helpful message.
-P2PREDICT_VERSION = "v0.5"
+# v0.6 adds --whatif but does not change the persisted metadata schema —
+# what-if uses only fields already present in v0.5+ models (background_sample
+# for SHAP, calibration for likely-range intervals). Bumped purely so saved
+# models reflect the runtime that produced them.
+P2PREDICT_VERSION = "v0.6"
 
 
 def SaveModel(model_metadata, model_name):
