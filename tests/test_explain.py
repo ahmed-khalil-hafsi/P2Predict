@@ -53,8 +53,18 @@ def rf_model(synthetic_parts):
 
 
 @pytest.fixture
+def xgb_model(synthetic_parts):
+    return _train(synthetic_parts, "xgboost")
+
+
+@pytest.fixture
 def log_target_rf_model(synthetic_parts_skewed):
     return _train(synthetic_parts_skewed, "random_forest", log_target_in_data=True)
+
+
+@pytest.fixture
+def log_target_xgb_model(synthetic_parts_skewed):
+    return _train(synthetic_parts_skewed, "xgboost", log_target_in_data=True)
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +127,24 @@ def test_random_forest_local_accuracy(rf_model):
     assert reconstructed == pytest.approx(ex.prediction, rel=1e-4, abs=1e-4)
 
 
+def test_xgboost_local_accuracy(xgb_model):
+    """phi_0 + sum(phi_i) ~= f(x) for an XGBoost regressor.
+
+    Regression for shap/shap#4184: XGBoost >= 3.0 stores ``base_score`` as a
+    stringified list (e.g. ``'[9.567467E0]'``), which SHAP 0.49.x's
+    ``XGBTreeModelLoader`` can't ``float()``. Without our workaround, this
+    test crashes with ``ValueError: could not convert string to float`` long
+    before any SHAP value is produced. With the workaround, TreeExplainer
+    runs and the local-accuracy axiom holds.
+    """
+    model, _, X_test, _ = xgb_model
+    row = X_test.iloc[[0]]
+    ex = explain_row(model, row, background_X=None)
+
+    reconstructed = ex.baseline + sum(ex.contributions.values())
+    assert reconstructed == pytest.approx(ex.prediction, rel=1e-4, abs=1e-4)
+
+
 def test_random_forest_local_accuracy_across_many_rows(rf_model):
     """The local-accuracy property should hold for every row, not just one."""
     model, _, X_test, _ = rf_model
@@ -162,14 +190,17 @@ def test_rollup_does_not_collapse_prefix_collisions(synthetic_parts):
 # ---------------------------------------------------------------------------
 
 
-def test_log_target_multiplicative_additivity(log_target_rf_model):
+@pytest.mark.parametrize("fixture_name", ["log_target_rf_model", "log_target_xgb_model"])
+def test_log_target_multiplicative_additivity(fixture_name, request):
     """For a log-target model, the product of per-feature multiplicative
     factors times the baseline price must equal the predicted price.
 
     This is the axiomatically clean statement of "SHAP in price space" for
-    a multiplicative model.
+    a multiplicative model. Exercised across both tree families so the
+    XGBoost path (which had to round-trip through SHAP's XGBTreeModelLoader)
+    can't silently regress while RandomForest stays green.
     """
-    model, _, X_test, log_target = log_target_rf_model
+    model, _, X_test, log_target = request.getfixturevalue(fixture_name)
     assert log_target
 
     row = X_test.iloc[[0]]
@@ -248,3 +279,54 @@ def test_explain_row_rejects_multi_row_input(ridge_model):
     bg = X_train.sample(50, random_state=0)
     with pytest.raises(ValueError, match="single-row"):
         explain_row(model, X_test.iloc[:2], background_X=bg)
+
+
+def test_ridge_explain_works_with_high_cardinality_categoricals():
+    """Regression: ColumnTransformer with OHE returns a *scipy sparse*
+    matrix once the OHE columns dominate the dense ones (default
+    sparse_threshold=0.3). The previous ``np.asarray(preprocessor.transform(...))``
+    wrapped the sparse matrix in a 0-d object array, which then broke
+    every downstream ``len()`` / indexing call inside SHAP's
+    LinearExplainer.
+
+    This test reproduces the production failure surfaced by the used-cars
+    case study (8 categorical columns, ~140 total OHE features) on a
+    smaller scale that still trips the sparse path. The single assertion
+    is that ``explain_row`` returns *anything* — the bug was a raised
+    ``TypeError`` long before any SHAP value was produced.
+    """
+    rng = np.random.default_rng(7)
+    n = 400
+    # Eight high-cardinality categoricals deliberately chosen to push the
+    # ColumnTransformer over its sparse_threshold and force the sparse path.
+    df = pd.DataFrame({
+        "Weight": rng.uniform(1, 50, n),
+        "Region":   rng.choice([f"R{i}" for i in range(15)], n),
+        "Supplier": rng.choice([f"S{i}" for i in range(15)], n),
+        "Size":     rng.choice([f"Z{i}" for i in range(10)], n),
+        "Color":    rng.choice([f"C{i}" for i in range(20)], n),
+        "Plant":    rng.choice([f"P{i}" for i in range(12)], n),
+        "Grade":    rng.choice([f"G{i}" for i in range(8)], n),
+        "Channel":  rng.choice([f"H{i}" for i in range(10)], n),
+        "Status":   rng.choice([f"T{i}" for i in range(6)], n),
+    })
+    df["Price"] = 0.08 * df["Weight"] + rng.normal(0, 0.1, n)
+
+    features = [c for c in df.columns if c != "Price"]
+    X_train, X_test, _, _, num, cat = prepare_data(df, features, "Price")
+    model, _, _ = start_training(X_train, df.loc[X_train.index, "Price"],
+                                 num, cat, algorithm="ridge", tune=False)
+
+    # Confirm we actually triggered the sparse output the bug needs.
+    transformed = model.named_steps["preprocessor"].transform(X_train.head(10))
+    assert hasattr(transformed, "toarray"), (
+        "Test setup did not trigger sparse output; the regression "
+        "scenario is no longer being exercised."
+    )
+
+    bg = X_train.sample(50, random_state=0)
+    ex = explain_row(model, X_test.iloc[[0]], background_X=bg)
+
+    # Axiomatic sanity: local accuracy still holds.
+    reconstructed = ex.baseline + sum(ex.contributions.values())
+    assert reconstructed == pytest.approx(ex.prediction, abs=1e-6)

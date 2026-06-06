@@ -5,9 +5,12 @@ points users invoke (`p2predict_train.py` and `p2predict.py`) — wiring of
 flags, flow control, and the save/load contract between the two scripts.
 """
 
+import json
 from pathlib import Path
 
 import joblib
+import numpy as np
+import pandas as pd
 from click.testing import CliRunner
 
 from p2predict.cli.predict import main as predict_cli
@@ -157,7 +160,54 @@ def test_predict_batch_writes_predictions_back_to_csv(
     )
     assert predict_result.exit_code == 0, predict_result.output
 
-    import pandas as pd
     written = pd.read_csv(batch_path)
     assert "Price" in written.columns
     assert written["Price"].notna().all()
+
+
+def _csv_with_ten_features(tmp_path):
+    """CSV with 10 numerical features, all carrying signal so none get
+    pruned as low-information before auto feature selection runs."""
+    rng = np.random.default_rng(0)
+    n = 240
+    df = pd.DataFrame({f"f{i}": rng.uniform(0.5, 5.0, n) for i in range(10)})
+    coefs = np.linspace(0.3, 1.2, 10)
+    df["Price"] = df.values @ coefs + rng.normal(0, 0.1, n)
+    p = tmp_path / "ten_features.csv"
+    df.to_csv(p, index=False)
+    return str(p)
+
+
+def _parse_json(output):
+    start = output.find("{")
+    end = output.rfind("}")
+    return json.loads(output[start:end + 1])
+
+
+def test_auto_mode_default_max_features_caps_at_six(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    csv_path = _csv_with_ten_features(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert len(doc["features_selected"]) == 6
+
+
+def test_auto_mode_respects_max_features_override(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    csv_path = _csv_with_ten_features(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast",
+         "--max-features", "10", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert len(doc["features_selected"]) == 10
