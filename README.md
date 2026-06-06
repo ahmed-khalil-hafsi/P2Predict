@@ -10,28 +10,85 @@
 
 **P2Predict benchmarks what similar parts have historically cost, to inform design and sourcing decisions.**
 
-You feed it a CSV of past purchases (technical features → price). It trains a model and lets you ask, *"given these features, what have parts like this cost?"* — turning historical data into a reality check engineering and procurement teams can use to discuss feature value, scope creep, and design trade-offs.
+You feed it a CSV of past purchases (technical features → price). It trains a model and lets you ask, *"given these features, what have parts like this cost?"* — turning historical data into a reality check that engineering and procurement teams can actually use together.
 
-![User Experience Expert Mode](./documentation/p2predict_train.gif)
+MIT-licensed. See [`LICENSE`](LICENSE).
 
 ### What it is (and isn't)
 
 P2Predict is a **parametric, data-driven cost-prediction tool** — the kind of model NASA, ICEAA, and the cost-estimating bodies call *parametric estimating*. It learns `features → price` from your historical data.
 
-It is **not bottom-up should-costing.** It does not decompose parts into material cost + labor minutes + machine time + overhead. Tools like aPriori or Siemens Teamcenter PCM do that, from first principles. P2Predict answers a complementary question: *"what has the market actually charged us for parts like this?"* The two approaches work well together — one tells you what a part ought to cost, the other tells you what similar parts have cost.
+It is **not bottom-up should-costing.** It does not decompose parts into material cost + labor minutes + machine time + overhead. Tools like aPriori or Siemens Teamcenter PCM do that, from first principles. P2Predict answers the complementary question: *"what has the market actually charged us for parts like this?"* The two approaches work well together — one tells you what a part ought to cost, the other tells you what similar parts have cost.
 
-### Who it's for
+---
 
-Procurement, sourcing, and engineering teams that want a shared, data-grounded view of cost when reviewing designs. Typical use cases:
+# Part 1 — What it's worth
 
-- **Design reviews / VE/VA workshops** — "if we add this feature, what have similar parts with it cost historically?"
-- **Scope and tech-debt discussions** — quantify the cost of features that are nice-to-have vs. essential.
-- **Supplier benchmarking** — compare quoted prices against the model's prediction for the same spec.
-- **RFQ sanity checks** — flag quotes that are far from what similar parts have cost.
+P2Predict isn't trying to replace anyone's judgment. It's a shared, data-grounded reference that takes specific conversations from anecdote to numbers. Here are the conversations it's built for.
 
-This is a command-line tool aimed at fairly technical users (procurement engineers, commodity managers, cost engineers). It is not yet polished for non-technical business users.
+## Procurement ↔ Engineering
 
-This software is released under the MIT license. See `LICENSE` for the license details.
+Most cost overruns get baked in during design — when engineering chooses features and procurement is downstream of the choice. The two functions usually meet over those choices in three places.
+
+### Design reviews: "is this feature worth it?"
+
+An engineer proposes tighter tolerances on a fastener — ±0.05mm instead of ±0.1mm. Procurement suspects that pushes the part above target cost.
+
+**Without P2Predict**: a 45-minute debate based on intuition. The decision ends up driven by whoever speaks loudest.
+
+**With P2Predict**: one `--whatif` call returns *"this change adds $0.42 per unit (+18%), with a 9-in-10 likely range of $0.30–$0.55."* Now the conversation is *"is +18% worth it for this requirement?"* — a real engineering question with a real answer.
+
+### BOM challenges from finance: "is this realistic?"
+
+The CFO walks in and asks the BOM owner *"are we sure this $42 per-unit BOM is achievable?"*
+
+**Without P2Predict**: defended with anecdote and one-off supplier conversations.
+
+**With P2Predict**: defended with `--interval` against the model. *"15 of these 18 line items are inside the model's 9-in-10 likely range. The three that aren't, and what's pulling each one: supplier choice on line 5, the EU-only requirement on line 11, the tolerance on line 14."* That's the difference between "trust us" and a numerical defense.
+
+### Material and supplier trade-offs: "what's the actual cost delta?"
+
+Engineering wants to move a part from aluminum to a higher-spec alloy. Procurement wants to know the cost impact before saying yes.
+
+**Without P2Predict**: source two RFQs, take a week, get a single supplier's number.
+
+**With P2Predict**: `--whatif "Material:Alloy7075"` returns the predicted delta based on every similar part the company has historically bought, with a SHAP attribution showing whether the cost driver is the material itself or correlated features that ride along with it. Same answer in 30 seconds.
+
+## Inside procurement
+
+P2Predict is also built for procurement people working without engineering in the room.
+
+### RFQ triage: spend the meeting on the lines that need a meeting
+
+A new RFQ arrives with 200 line items. You have an afternoon, not a week.
+
+Running `--interval` over the batch CSV: every line gets a low/high prediction. Lines inside the likely range are routine — auto-approve or queue them. The 8–15 lines that fall outside are the ones worth a phone call. You stop spending equal attention on every line and start spending it where it actually moves spend.
+
+### Negotiation prep: know exactly what to push back on
+
+Supplier quotes $14.20 for a part the model predicts at $12.40 (90% range $10.80–$13.90).
+
+With `--explain` you see the contribution table: supplier choice +$0.85, rush-delivery flag +$1.20, size +$0.40. You stop arguing about the unit price and start arguing about its *components*. *"Why is rush delivery on this line? We agreed to standard."*
+
+### Audit defense: explain the decision six months later
+
+Finance asks why a $14.20 unit price got approved on PO #4521.
+
+With `--explain` + `--interval` on the saved model, there's a written rationale: the model expected $12.40 ± $1.50, the quote landed $0.30 above the high end, the drivers were tolerance and supplier — both consistent with the engineering spec on that part. That's an auditable answer with a paper trail, not "Bob said it was fine."
+
+### Buyer onboarding: capture the institutional knowledge before the senior people leave
+
+A senior buyer who's been benchmarking the company's plastic parts for 20 years retires. That intuition usually walks out with them.
+
+A P2Predict model trained on the historical buys captures the *pattern* — what features drive cost in your supply base, what a typical range looks like, what looks off. The new buyer doesn't inherit Maria's intuition, but they inherit a baseline that lets them ask better questions and a backstop that flags things even Maria might have missed.
+
+---
+
+# Part 2 — How it works
+
+If Part 1 sold the scenarios, this part is the tool itself: how the model is trained, what the CSV needs to look like, the CLI flags, the Python API, and the install path.
+
+![User Experience Expert Mode](./documentation/p2predict_train.gif)
 
 ## How it works in one minute
 
@@ -287,14 +344,10 @@ Check `requirements.txt` for exact versions. Install with `pip install -r requir
 - questionary
 - shap
 
-## Data
-
-A small example dataset is in [`examples/example.csv`](examples/example.csv). The columns are the typical shape P2Predict expects: a few technical features per row (weight, region, supplier, size, …) and a price column.
-
 ## Running the tests
 
 ```bash
-pip install -r requirements.txt pytest
+pip install -e ".[dev]"
 pytest tests/
 ```
 
