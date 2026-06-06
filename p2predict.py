@@ -1,3 +1,5 @@
+from typing import Optional
+
 import click
 import numpy as np
 import pandas as pd
@@ -12,6 +14,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from modules.cmdline_io import print_logo
 from modules.explain import Explanation, explain_row, top_drivers
+from modules.intervals import coverage_health, predict_interval
 from modules.trained_model_io import LoadModel
 
 
@@ -156,6 +159,36 @@ def _print_explanation(console, explanation: Explanation, target_name: str) -> N
         )
 
 
+def _print_interval(console, interval_result, target_name: str, coverage_pct: int) -> None:
+    """Render one likely-range result. Deliberate language choices:
+    'likely range', natural-frequency framing (n in 10), no
+    'confidence interval' or 'alpha' anywhere — the audience is
+    procurement and engineering, not statisticians.
+    """
+    out_of_10 = round(coverage_pct / 10)
+    table = Table(
+        title=f"Likely range ({coverage_pct}%)",
+        show_header=True,
+        header_style="bold magenta",
+        expand=False,
+    )
+    table.add_column(f"Low {target_name}", justify="right")
+    table.add_column(f"Predicted {target_name}", justify="right")
+    table.add_column(f"High {target_name}", justify="right")
+    table.add_row(
+        f"[cyan]{interval_result.low:,.2f}[/cyan]",
+        f"[bold yellow]{interval_result.prediction:,.2f}[/bold yellow]",
+        f"[cyan]{interval_result.high:,.2f}[/cyan]",
+    )
+    console.print(table)
+    console.print(
+        f"The {target_name.lower()} for about {out_of_10} in 10 similar "
+        f"parts falls in this range. Quotes outside it are unusual "
+        "and worth questioning.",
+        style="italic dim",
+    )
+
+
 @click.command()
 @click.option("-m", "--model", type=click.Path(exists=True),
               help="Path to the trained model file (.model)")
@@ -165,7 +198,13 @@ def _print_explanation(console, explanation: Explanation, target_name: str) -> N
               help="CSV file containing feature values for batch prediction")
 @click.option("--explain", "explain_flag", is_flag=True, default=False,
               help="Show per-feature SHAP attribution alongside the prediction.")
-def main(model, predict_using, predict_file, explain_flag):
+@click.option("--interval", "interval_coverage", type=click.IntRange(1, 99),
+              default=None,
+              help="Show the model's likely range for the prediction "
+                   "(e.g. --interval 90 for a range that contains the value "
+                   "for about 9 in 10 similar parts). Range is calibrated on "
+                   "the training holdout; see the README for the math.")
+def main(model, predict_using, predict_file, explain_flag, interval_coverage):
     console = Console()
 
     print("")
@@ -215,6 +254,20 @@ def main(model, predict_using, predict_file, explain_flag):
 
     background = loaded.get("background_sample")
     target_name = loaded["target_feature"]
+    calibration = loaded.get("calibration")
+
+    # Decide whether the model can support a likely-range interval at all,
+    # and whether to soft-warn about a small calibration set.
+    interval_soft_warning: Optional[str] = None
+    if interval_coverage is not None:
+        warning = coverage_health(calibration)
+        if warning and (calibration is None or calibration.get("n_calibration", 0) == 0):
+            console.print(
+                f"Likely range disabled: {warning}.", style="italic yellow"
+            )
+            interval_coverage = None
+        elif warning:
+            interval_soft_warning = warning
 
     features_dict = {}
     if predict_using:
@@ -223,6 +276,15 @@ def main(model, predict_using, predict_file, explain_flag):
         y = trained.predict(features_df)
         features_df["prediction"] = y
         console.print(Panel(Pretty(features_df), title="Prediction"))
+        if interval_coverage is not None:
+            print("")
+            [interval_result] = predict_interval(
+                trained, features_df[loaded["features"]],
+                calibration, coverage=interval_coverage / 100.0,
+            )
+            _print_interval(console, interval_result, target_name, interval_coverage)
+            if interval_soft_warning:
+                console.print(f"Note: {interval_soft_warning}.", style="italic yellow")
         if explain_flag:
             print("")
             explanation = explain_row(trained, features_df[loaded["features"]], background)
@@ -233,6 +295,13 @@ def main(model, predict_using, predict_file, explain_flag):
         features_df = _coerce_features(features_df, feature_types)
         y = trained.predict(features_df)
         features_df[target_name] = y
+        if interval_coverage is not None:
+            intervals = predict_interval(
+                trained, features_df[loaded["features"]],
+                calibration, coverage=interval_coverage / 100.0,
+            )
+            features_df[f"{target_name}_low"] = [ir.low for ir in intervals]
+            features_df[f"{target_name}_high"] = [ir.high for ir in intervals]
         if explain_flag:
             # Add top-3 driver columns. We could batch-explain in one shot,
             # but per-row keeps the API simple and the call count is tiny in
@@ -290,6 +359,15 @@ def main(model, predict_using, predict_file, explain_flag):
             f"\n[bold]Predicted {loaded['target_feature']}:[/bold] "
             f"[yellow]{prediction_value:.2f}[/yellow]"
         )
+        if interval_coverage is not None:
+            print("")
+            [interval_result] = predict_interval(
+                trained, features_df[loaded["features"]],
+                calibration, coverage=interval_coverage / 100.0,
+            )
+            _print_interval(console, interval_result, target_name, interval_coverage)
+            if interval_soft_warning:
+                console.print(f"Note: {interval_soft_warning}.", style="italic yellow")
         if explain_flag:
             print("")
             explanation = explain_row(

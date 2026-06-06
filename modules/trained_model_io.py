@@ -5,11 +5,11 @@ import sklearn
 
 from modules.input_checks import check_csv_sanity
 
-# Bumped for v0.4 because the metadata gains an optional ``background_sample``
-# field used by SHAP's LinearExplainer (and any future model-agnostic
-# explainer). v0.3 and v0.2 models still load — the extra field is optional
-# and the rest of the schema is unchanged.
-P2PREDICT_VERSION = "v0.4"
+# Bumped for v0.5 because the metadata gains an optional ``calibration``
+# field — the test-set residuals used by split-conformal to compute
+# likely-range intervals at predict time. Older models still load and
+# predict; --interval refuses to run on them with a helpful message.
+P2PREDICT_VERSION = "v0.5"
 
 
 def SaveModel(model_metadata, model_name):
@@ -28,15 +28,23 @@ def Serialize_Trained_Model(
     r2,
     log_target=False,
     background_sample=None,
+    calibration=None,
 ):
     """Pack a trained model and provenance metadata.
 
     ``background_sample`` is a small (typically ~100-row) DataFrame of raw
     pre-preprocessor feature rows. It is required for SHAP's LinearExplainer
     on linear models (which needs it to estimate E[x_i]); it is ignored by
-    TreeExplainer. Optional for backwards compatibility — older models
-    without it still load and predict, but ``--explain`` for linear models
-    will refuse to run on them.
+    TreeExplainer.
+
+    ``calibration`` is the dict returned by
+    ``modules.intervals.compute_calibration_residuals`` — the test-set
+    residuals (in log space when log-target is active, target space
+    otherwise) used by split-conformal to compute likely-range intervals.
+
+    Both fields are optional for backwards compatibility. Older models
+    still load and predict; ``--explain`` and ``--interval`` refuse to
+    run on models that lack the relevant field, with a helpful message.
     """
     return {
         "model": model,
@@ -49,6 +57,7 @@ def Serialize_Trained_Model(
         "scikit_learn_version": sklearn.__version__,
         "p2predict_version": P2PREDICT_VERSION,
         "background_sample": background_sample,
+        "calibration": calibration,
     }
 
 

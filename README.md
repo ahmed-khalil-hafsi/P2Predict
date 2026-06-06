@@ -67,6 +67,7 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 #### Benchmarking / prediction
 - Predict the benchmark price (or any other numerical target) for a part given its technical features
 - Batch-predict an entire CSV of candidate parts in one call
+- **Likely-range intervals** via `--interval` — a "9 in 10" range around each prediction, calibrated on the training holdout. Quotes outside the range are unusual and worth questioning. Coverage is mathematically guaranteed under the same distribution assumption as the model's accuracy metrics
 - **Per-prediction explanations** via `--explain` — uses exact SHAP (TreeExplainer for tree models, LinearExplainer for linear models). Shows the additive decomposition `baseline + Σ contributions = prediction`, or for log-target models the strict multiplicative factors in price space
 - Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
 
@@ -188,6 +189,7 @@ To use P2Predict, follow these steps:
      - `-p, --predict_using TEXT`: Inline prediction feature/value pair to be fed to the trained model.
      - `-i, --predict_file FILE`: A CSV file that contains prediction features and values. This file will be fed to the trained model to generate predictions.
      - `--explain`: Print a per-feature SHAP attribution alongside the prediction. In batch mode (`-i`) adds `top1_driver`, `top2_driver`, `top3_driver` columns to the output CSV.
+     - `--interval N`: Show the model's likely range for the prediction. `--interval 90` produces a range that contains the target value for about 9 in 10 similar parts (calibrated on the training holdout). In batch mode adds `<target>_low` and `<target>_high` columns. Useful for supplier benchmarking and RFQ sanity checks — quotes outside the range are unusual and worth questioning.
 
      Examples:
 
