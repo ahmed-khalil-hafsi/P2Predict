@@ -2,6 +2,20 @@
 
 All notable changes to P2Predict are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [v0.9.2] — 2026-06
+
+### Added
+- **`--report PATH` flag in `p2predict-train`.** Writes the procurement-style 3-page PDF model-quality report (provenance, performance metrics, predicted-vs-actual scatter, error-by-target-band chart, feature-importance bar chart) to PATH after training. Works in both auto and expert mode, and with or without `--interactive` — the report was previously reachable only via the expert + interactive prompt, which hid it from auto-mode users and from non-interactive callers (CI, agents, scripted runs). Surfaced by the used-cars case study, which was shelling out to `plot_results_pdf` via a separate `generate_quality_report.py` script because the CLI couldn't produce the PDF itself.
+- **`report_path` field in the train `--json` response.** String when `--report` wrote a PDF, `null` otherwise — so agents calling `p2predict-train --json --report ...` know exactly where the PDF landed without parsing terminal output.
+- **Integration test `test_train_auto_writes_pdf_report_when_requested`** in `tests/test_cli.py` asserts that `--report` produces a non-trivially-sized PDF on disk in auto mode and that the JSON payload's `report_path` matches.
+
+### Changed
+- The expert + interactive "Generate the model quality PDF report?" prompt still works as a fallback when `--report` is not passed. When `--report PATH` is passed in interactive mode, the prompt is skipped to avoid asking the same question twice.
+- Case-study `case-studies/used-cars/README.md` reproduction recipe now uses `--report assets/model_quality_report.pdf` in the train step. The separate `generate_quality_report.py` script becomes optional (PNG-preview generation only).
+
+### Compatibility
+- No model-format change. `p2predict_version` unchanged from v0.9.
+
 ## [v0.9.1] — 2026-06
 
 ### Added

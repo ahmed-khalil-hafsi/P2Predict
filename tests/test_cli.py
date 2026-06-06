@@ -198,6 +198,23 @@ def test_auto_mode_default_max_features_caps_at_six(tmp_path, monkeypatch):
     assert len(doc["features_selected"]) == 6
 
 
+def test_train_auto_writes_pdf_report_when_requested(tmp_path, monkeypatch, csv_path_clean):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    pdf_path = tmp_path / "report.pdf"
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path_clean), "-t", "Price", "-b", "fast",
+         "--report", str(pdf_path), "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 5_000  # non-trivial multi-page PDF
+    doc = _parse_json(result.output)
+    assert doc["report_path"] == str(pdf_path)
+
+
 def test_auto_mode_respects_max_features_override(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "models").mkdir()

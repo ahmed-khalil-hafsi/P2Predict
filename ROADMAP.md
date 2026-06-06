@@ -70,6 +70,10 @@ The three remaining case studies — electronic components (Octopart), aerospace
 
 ## Next — distribution + agent-first
 
+### ~~0a. `--report PATH` for the PDF model-quality report~~ ✅ Shipped in v0.9.2
+
+The procurement-style 3-page model-quality PDF was previously reachable only via the expert + interactive prompt — invisible to auto-mode users and to non-interactive callers (CI, agents, scripted runs). `--report PATH` works in both auto and expert mode, with or without `--interactive`, and adds `report_path` to the `--json` payload so agents know where the PDF landed. The used-cars case study surfaced this gap by routing around it with a separate `generate_quality_report.py` script that called `plot_results_pdf` directly; the case-study reproduction now uses the flag.
+
 ### ~~0. `--max-features` for auto-mode feature selection~~ ✅ Shipped in v0.9.1
 
 Small but load-bearing. Auto-mode previously capped at 6 features with no override — the used-cars case study showed this leaves real signal on the table (CV R² 0.34 → 0.52 on a 10-feature dataset, and the cap was also masking the log-target transform). `--max-features N` lifts the cap; default stays at 6 so existing workflows are untouched. When the ranker returns more columns than the cap, a one-line notice now reports it so the dropped features aren't invisible.

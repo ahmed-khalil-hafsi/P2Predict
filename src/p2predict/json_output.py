@@ -133,7 +133,8 @@ Train (``p2predict-train ... --json``)
         "residual_bias_p_value": float,
         "quality_label": "Excellent" | "Good" | "Needs Improvement"
       },
-      "model_path": str | null     # null if not saved (interactive declined)
+      "model_path": str | null,    # null if not saved (interactive declined)
+      "report_path": str | null    # null unless --report PATH was passed
     }
 
 Errors (any command, when --json is set)
