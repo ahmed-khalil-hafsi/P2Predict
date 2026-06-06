@@ -5,10 +5,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Make the project importable when running `pytest` from the repo root.
+# Make the p2predict package importable when running tests without first
+# doing `pip install -e .`. In CI we install the package properly; this
+# fallback keeps local "git clone + pytest" working too.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+SRC = os.path.join(ROOT, "src")
+for path in (SRC, ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 
 def _synthetic_parts(n=200, seed=0, skewed=False, with_date=False):

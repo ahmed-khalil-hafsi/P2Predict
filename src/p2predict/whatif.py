@@ -58,8 +58,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from modules.explain import Explanation, explain_row
-from modules.intervals import IntervalResult, predict_interval
+from p2predict.explain import Explanation, explain_row
+from p2predict.intervals import IntervalResult, predict_interval
 
 # A SHAP delta below this absolute fraction of the total delta is rolled
 # up into the "other interaction effects" bucket in the CLI rendering.

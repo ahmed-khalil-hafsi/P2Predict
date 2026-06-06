@@ -20,10 +20,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from modules.prepare_data import prepare_data
-from modules.training import start_training
-from modules.intervals import compute_calibration_residuals
-from modules.whatif import (
+from p2predict.prepare_data import prepare_data
+from p2predict.training import start_training
+from p2predict.intervals import compute_calibration_residuals
+from p2predict.whatif import (
     INTERACTION_MATERIALITY_THRESHOLD,
     WhatIfResult,
     compute_whatif,

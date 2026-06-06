@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from modules.p2predict_feature_selection import (
+from p2predict.feature_selection import (
     find_high_variation_features,
     find_no_variation_features,
     get_most_predictable_features,

@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 
-from modules.preprocessing import build_preprocessor
+from p2predict.preprocessing import build_preprocessor
 
 
 def find_high_variation_features(df):

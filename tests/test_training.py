@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from modules.prepare_data import prepare_data
-from modules.training import (
+from p2predict.prepare_data import prepare_data
+from p2predict.training import (
     ALGORITHMS,
     auto_train,
     build_pipeline,

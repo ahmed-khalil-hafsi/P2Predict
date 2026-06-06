@@ -42,20 +42,17 @@ Also fixed a latent bug in `detect_outliers()` while we were in there — near-c
 
 ---
 
-## 5. `pyproject.toml` and pip-installable
+## ~~5. `pyproject.toml` and pip-installable~~ ✅ Shipped in v0.8
 
-**Why it matters.** Not robustness per se, but adoption friction. "Clone the repo and run `python3 p2predict_train.py`" is a steeper ask than `pip install p2predict && p2predict-train ...`. Also unlocks an MCP server (see below) being a normal dependency.
+`pip install -e .` (development) or `pip install p2predict` (once published) installs the package and the `p2predict` / `p2predict-train` console scripts. `from p2predict import auto_train, explain, predict_interval, what_if, ...` is now the supported Python API surface — used by embedded apps, notebooks, and the MCP server that lands next.
 
-**Scope**
-- Add `pyproject.toml` with project metadata.
-- Define console_scripts entry points: `p2predict-train = p2predict_train:train`, `p2predict = p2predict:main`.
-- Move modules under a `p2predict/` package so it's importable.
-- Add a release workflow that publishes to PyPI on tag.
+Package layout moved to `src/p2predict/` (PEP 517 / 518 src-layout). CI installs via `pip install -e ".[dev]"` and runs an install-time smoke check, so the install path is validated on every push.
 
-**Acceptance**
-- `pip install -e .` works locally.
-- `p2predict-train --help` and `p2predict --help` work from anywhere in the venv.
-- CI publishes on `v*` tags.
+---
+
+## Next: agent-first deployment surface (v1.0 — MCP server)
+
+With v0.8 the Python API is stable. The MCP server wraps it as typed tools so AI agents (Claude, Cursor, custom procurement agents) can call P2Predict natively — `predict`, `explain`, `predict_interval`, `what_if`, `train`, `list_models` — without shelling out to the CLI. This is the surface that makes P2Predict appear as a first-class tool in agent platforms and procurement workflows where the human user never sees a terminal.
 
 ---
 

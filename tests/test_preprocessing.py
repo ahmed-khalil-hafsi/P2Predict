@@ -2,7 +2,7 @@ import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
-from modules.preprocessing import build_preprocessor, model_family_for
+from p2predict.preprocessing import build_preprocessor, model_family_for
 
 
 def test_tree_family_uses_ordinal_encoder():

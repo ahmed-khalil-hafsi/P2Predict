@@ -1,15 +1,15 @@
 import numpy as np
 import pandas as pd
 
-from modules.model_evals import evaluate_model
-from modules.prepare_data import prepare_data
-from modules.trained_model_io import (
+from p2predict.model_evals import evaluate_model
+from p2predict.prepare_data import prepare_data
+from p2predict.trained_model_io import (
     LoadModel,
     P2PREDICT_VERSION,
     SaveModel,
     Serialize_Trained_Model,
 )
-from modules.training import start_training
+from p2predict.training import start_training
 
 
 def test_serialize_trained_model_includes_log_target_field():
