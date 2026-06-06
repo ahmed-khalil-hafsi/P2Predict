@@ -52,6 +52,18 @@ For the full path, get a Kaggle API token from
 [kaggle.com/settings](https://www.kaggle.com/settings) → "Create New
 Token" and save it to `~/.kaggle/api_token` (`chmod 600`).
 
+> [!TIP]
+> **💡 What does "right-skewed" mean?**
+>
+> A right-skewed distribution has a long tail of large values. Used-car
+> prices are a textbook example: most listings cluster around $5k–$25k,
+> but a few specialty cars push past $80k. Those few high-end outliers
+> "pull" the average price above the median — that asymmetry is what
+> *skew* mathematically measures. When skew gets large (> 1.0 here), we
+> transform the target with `log` before modelling, which converts the
+> asymmetric tail into something the math handles cleanly. The
+> Methodology section below walks through why.
+
 **Columns we use:**
 
 | Column | Type | Notes |
@@ -115,6 +127,19 @@ outside the *fence* `[Q1 − 1.5·IQR, Q3 + 1.5·IQR]` is flagged, where
 `IQR = Q3 − Q1` is the inter-quartile range. No distributional
 assumption, robust to skew, the same rule that draws box-plot whiskers.
 
+<details>
+<summary>💡 <b>What's the IQR rule, in plain English?</b></summary>
+
+Sort all the values from smallest to largest. The 25th-percentile value
+is **Q1**, the 75th is **Q3**, and the middle 50% sitting between them
+is the **inter-quartile range** (IQR). Tukey's rule flags anything more
+than 1.5× IQR below Q1 or above Q3 as an outlier — these are the same
+"whiskers" you see on a box-plot. The advantage over a mean-and-stdev
+rule: outliers can't pollute their own detection (the quartiles
+basically ignore them), and the rule makes no assumption about the
+distribution shape. It just works.
+</details>
+
 **Where it runs.** Twice, on different axes:
 
 | Axis | Flag | Default | This case study uses |
@@ -136,6 +161,20 @@ to learn.
 **Source.** `src/p2predict/outliers.py`.
 
 ### Log-target trigger — skewness-based, automatic
+
+> [!TIP]
+> **💡 Why "log-transform" the target at all?**
+>
+> A log transformation re-scales values so that *doubling* becomes
+> *adding a constant*. So the jump from $5,000 → $10,000 looks the
+> same in log space as $10,000 → $20,000 — both are "×2." Most
+> positive quantities in the real world (prices, costs, weights,
+> populations) behave this way: a 10% change feels the same on a small
+> or a large number. Modelling in log space matches how the underlying
+> data actually works, makes the model better behaved on the right
+> tail, and — as we'll see in the SHAP section — lets the per-feature
+> attribution become *multiplicative factors* in dollars, which is
+> exactly how a procurement buyer already reasons.
 
 **What's measured.** The Fisher–Pearson sample skewness of the target
 column. Positive means right-tailed (many small values, a few big
@@ -198,9 +237,38 @@ becomes feature-scale-dependent) and one-hot encoded categoricals (so
 the linear combination is well-defined). Trees are scale-invariant and
 prefer compact integer codes for splits.
 
+<details>
+<summary>💡 <b>What's "one-hot encoding" and why do we need it?</b></summary>
+
+A linear model needs numbers, not the word "honda." One-hot encoding
+replaces a categorical column with one yes/no (1/0) column per value: a
+row with `manufacturer="honda"` becomes a 1 in an "is-honda" column and
+a 0 in "is-ford", "is-tesla", and every other manufacturer column.
+That's how the linear model can have a separate coefficient (and
+therefore a separate price effect) per manufacturer.
+
+Trees don't need this — they can split on integer-coded categories
+directly — which is why P2Predict gives trees an `OrdinalEncoder`
+(every category gets a number 0..N-1) and gives linear models a
+`OneHotEncoder` instead. Different math, different food.
+</details>
+
 **Source.** `src/p2predict/preprocessing.py::build_preprocessor`.
 
 ### Algorithm selection — CV-driven, three candidates
+
+> [!TIP]
+> **💡 What's cross-validation, and why use it?**
+>
+> If you train two algorithms on all of your data and pick the one with
+> the higher score, both will look great — they'll have *memorised* the
+> data. Cross-validation gives an honest comparison instead: split the
+> training data into K equal chunks ("folds"), train on K−1 folds,
+> measure performance on the K-th fold, rotate, and average the K
+> scores. The result is an estimate of how the algorithm performs on
+> data it has never seen — which is what actually matters for
+> predictions on a new vehicle. P2Predict uses 5 folds at
+> `--budget thorough` and 3 at `--budget fast`.
 
 P2Predict cross-validates *each* of Ridge, RandomForest, and XGBoost
 with hyperparameter search, then picks the winner by mean CV R². This
@@ -218,6 +286,18 @@ fit, evaluated, and discarded in the same run.
 **Source.** `src/p2predict/training.py::auto_train`.
 
 ### Hyperparameter search — `HalvingRandomSearchCV`
+
+<details>
+<summary>💡 <b>What's a hyperparameter, and why do we search?</b></summary>
+
+A hyperparameter is a setting *you* choose before training that the
+algorithm itself doesn't learn from the data — like Ridge's
+regularisation strength, or the depth limit on each XGBoost tree.
+Different settings give meaningfully different models. There's no
+analytical formula for the best setting on a given dataset, so the
+practical approach is: try lots of plausible settings, see which
+performs best in cross-validation, keep that one.
+</details>
 
 **What it is.** sklearn's successive-halving randomised search.
 Sample `n_candidates` hyperparameter configurations randomly from the
@@ -262,6 +342,20 @@ refit on the full training set (`X_train`, `y_train`). The saved
 
 ### Conformal intervals — split-conformal on the test residuals
 
+> [!TIP]
+> **💡 What does "90% likely range" actually mean?**
+>
+> If you make many predictions like this one and check what the true
+> price turned out to be each time, **9 out of 10** of them will have
+> the true price fall inside the stated range. That's a real
+> guarantee from the math, not a hand-wavy calibration claim. The only
+> assumption is that future vehicles look like the training vehicles in
+> distribution (statisticians call this *exchangeability*) — the same
+> assumption R² and every other model-quality metric already rely on.
+> The wider the range, the less the model knows about that part of
+> feature space; that's why the Tesla's interval is much wider than the
+> Civic's.
+
 **What it is.** Split-conformal prediction
 ([Lei et al. 2018](https://arxiv.org/abs/1604.04173)). Compute the
 residuals on the held-out test set; the (1 − α) empirical quantile of
@@ -295,6 +389,26 @@ interval is `pred ± q̂` (additive). Same conformal math, different scale.
 and `predict_interval`.
 
 ### SHAP attribution — exact algorithms only
+
+> [!TIP]
+> **💡 What's a Shapley value?**
+>
+> Shapley values come from **game theory**: they answer "if N players
+> cooperate to produce an outcome, how do you fairly split credit
+> across them?" Here the "players" are the model's features (year,
+> odometer, manufacturer, …) and the "outcome" is the prediction. The
+> Shapley value is the **unique** way to split credit that satisfies
+> four common-sense fairness rules at once:
+>
+> 1. **Efficiency** — the parts add up to the whole (φ₀ + Σ φᵢ = prediction).
+> 2. **Symmetry** — two features that contribute the same get the same credit.
+> 3. **Missingness** — a feature that doesn't matter gets zero.
+> 4. **Consistency** — if the model changes to depend more on a feature, its credit can't go down.
+>
+> That uniqueness is why we can say "FWD pulls the price 15% off" and
+> *defend it under scrutiny* — instead of mumbling "feature
+> importance," which is a heuristic that can violate any of these
+> four rules.
 
 P2Predict uses the SHAP explainer that's *exact* for the model family
 and polynomial-time. No `KernelExplainer` fallback (slow,
@@ -330,6 +444,20 @@ holds exactly.
 
 ### Quality label
 
+<details>
+<summary>💡 <b>What's R², in one sentence?</b></summary>
+
+R² is the **fraction of variation in the data the model explains**.
+Predicting "the average price" for every vehicle would give R² = 0
+(you explain nothing); a perfect oracle that nails every price exactly
+would give R² = 1. Our holdout R² of 0.634 means the model explains
+about 63% of the variation in used-car prices using the 10 features we
+gave it. The remaining 37% is some mix of noise, missing features
+(trim, options, regional supply, seasonality), and structure the model
+just isn't capturing — which is what the residual-bias test below
+quantifies.
+</details>
+
 Computed deterministically from R² for a one-glance summary:
 
 | R² × 100 | Label |
@@ -343,6 +471,23 @@ This case study: R² = 0.634 → composite 63.4 → **Good**.
 **Source.** `src/p2predict/cli/train.py` (search for `quality_label`).
 
 ### Residual-bias test — one-sample t-test against zero
+
+<details>
+<summary>💡 <b>What's a p-value, in plain English?</b></summary>
+
+A p-value is the probability of seeing data this extreme **if the
+thing you're testing for is actually *not* happening**. Here we're
+testing whether the model's average error is meaningfully different
+from zero. Our p-value of ≈ 6 × 10⁻⁷⁵ is effectively *impossibly small*
+— meaning there's essentially no chance the bias we're seeing is just
+noise from a fundamentally unbiased model. The model really is leaning
+in one direction.
+
+One important caveat: with enough data, even very tiny biases become
+"statistically significant." So the p-value tells you the **direction
+of the bias is real**, not that the bias is necessarily *large in
+dollars*. Always combine with MAE/RMSE for the size picture.
+</details>
 
 **What's being tested.** Whether the residuals `y_test − ŷ_test`
 have a mean significantly different from zero. Under a well-calibrated
@@ -508,6 +653,20 @@ this distinction; the interval surfaces it.
 
 ### 2. Why $17,341 for the Civic? — SHAP multiplicative attribution
 
+> [!TIP]
+> **💡 What's "baseline" in SHAP?**
+>
+> The **baseline** is what the model would predict if it knew nothing
+> specific about this vehicle — essentially the average prediction
+> across the training data, which works out to $12,942 here. Then each
+> feature pushes the prediction up or down from that baseline. The
+> whole job of SHAP is to fairly assign credit for the gap from
+> baseline ($12,942) to prediction ($17,341) across the 10 features.
+> The "Net factor: ×1.340" line below is just saying $17,341 / $12,942
+> = 1.340 — the model thinks this specific Civic is worth 34% more
+> than the average vehicle in training data, and the per-feature
+> factors below show *why*.
+
 ![Per-feature attribution for the Civic](assets/civic_attribution.png)
 
 ```
@@ -536,6 +695,27 @@ multiplicative factors should equal pred/baseline *exactly*, and it does.
 Same for non-log models: baseline + Σ(contributions) = prediction
 exactly. P2Predict checks this on every explanation; if you ever see a
 failed axiom in the output, the explanation is unsound.
+
+<details>
+<summary>💡 <b>Why "multiplicative factors" and not dollar contributions?</b></summary>
+
+The model predicts `log(price)`, not price directly — because the data
+is right-skewed and log-space behaves better. When SHAP attributes
+credit in log-space and we exponentiate back to dollars, each
+contribution becomes a **multiplier** instead of an add-on. So
+"year × 1.689" means: the model thinks this vehicle's year (2019,
+newer than average) makes it worth **68.9% more** than the baseline.
+Multipliers compose by multiplication, so the 10 per-feature factors
+above multiply out to ×1.340 — and 1.340 × $12,942 = $17,341, exactly
+matching the prediction. That equality is the *multiplicative axiom*,
+and it's what makes "FWD pulls 15% off" the kind of statement you can
+take into a supplier negotiation, not a hand-wavy directional claim.
+
+For a procurement parallel: if your part's baseline cost is $40 and
+the SHAP attribution says "steel grade × 1.20, supplier region ×
+0.85", you know the part should land at $40 × 1.20 × 0.85 = $40.80,
+and you can quote the rationale line-by-line.
+</details>
 
 ### 3. What-if: same Civic, but with 90,000 miles instead of 45,000
 
