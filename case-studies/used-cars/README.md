@@ -115,6 +115,12 @@ p2predict-train \
 # 4. Walk through point estimate + interval + SHAP + what-if on three
 #    realistic listings.
 python predict_examples.py
+
+# 5. (Optional.) Regenerate the three charts in assets/ from the current
+#    trained model. The charts checked into the repo are what you get
+#    from the full path; if you only train on the sample, your numbers
+#    will differ and you may want fresh charts.
+python generate_charts.py
 ```
 
 ### Quick path (no Kaggle account needed)
@@ -186,6 +192,8 @@ their actual impact.
 
 ### 1. Point estimates and 90% likely ranges
 
+![Honest uncertainty across three listings](assets/intervals_comparison.png)
+
 | Listing | Predicted | 90% likely range |
 |---|---:|---|
 | 2019 Honda sedan, 45,000 mi, excellent, CA | **$17,341** | $9,001 – $33,409 |
@@ -200,6 +208,8 @@ is dense around its part of feature space. A point estimate alone hides
 this distinction; the interval surfaces it.
 
 ### 2. Why $17,341 for the Civic? — SHAP multiplicative attribution
+
+![Per-feature attribution for the Civic](assets/civic_attribution.png)
 
 ```
   Baseline:      $12,942  (the model's E[price] over the training data)
@@ -229,6 +239,8 @@ exactly. P2Predict checks this on every explanation; if you ever see a
 failed axiom in the output, the explanation is unsound.
 
 ### 3. What-if: same Civic, but with 90,000 miles instead of 45,000
+
+![Mileage depreciation curve for the Civic](assets/mileage_curve.png)
 
 ```
   Base prediction:        $17,341
