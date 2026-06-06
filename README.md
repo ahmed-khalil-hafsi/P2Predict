@@ -82,6 +82,16 @@ A senior buyer who's been benchmarking the company's plastic parts for 20 years 
 
 A P2Predict model trained on the historical buys captures the *pattern* — what features drive cost in your supply base, what a typical range looks like, what looks off. The new buyer doesn't inherit Maria's intuition, but they inherit a baseline that lets them ask better questions and a backstop that flags things even Maria might have missed.
 
+## See it on real data — [case studies](case-studies/)
+
+Three reproducible case studies on public datasets, each targeting a different audience:
+
+- **[Electronic components](case-studies/electronic-components/)** — parametric pricing for EE procurement (Octopart / Mouser API).
+- **[Used vehicles](case-studies/used-cars/)** — the tutorial, on prices that span orders of magnitude (Kaggle, CC-licensed).
+- **[Aerospace contracts](case-studies/aerospace-contracts/)** — government / large-procurement parametric estimating (USAspending.gov, public domain).
+
+Each one ships with a `README` walking through the story, a `fetch_data.py` to pull the dataset, training command, and worked predictions with `--explain` / `--interval` / `--whatif`.
+
 ---
 
 # Part 2 — How it works
