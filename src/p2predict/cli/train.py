@@ -110,6 +110,12 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
               help='Comma-separated list of features (e.g., "Weight,Size,Color").')
 @click.option("-b", "--budget", type=click.Choice(["fast", "thorough"]), default="fast",
               help="HPO search budget. 'fast' = small search, 'thorough' = wider search (slower).")
+@click.option("--max-features", "max_features", type=click.IntRange(min=2), default=6,
+              show_default=True,
+              help="Auto mode only: cap on how many top-ranked features auto-selection keeps. "
+                   "Default 6 preserves prior behaviour. Pass a higher number (or use -tf to pick "
+                   "features explicitly) when ranking suggests more columns are predictive. "
+                   "Ignored in expert mode (the user selects features interactively or via -tf).")
 @click.option("--tune/--no-tune", default=None,
               help="Expert mode only: run HPO on the chosen algorithm and save the tuned model.")
 @click.option("--outliers", type=click.Choice(list(OUTLIER_POLICIES)), default="warn",
@@ -131,7 +137,7 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
                    "Rich-formatted output. Useful for agents and scripts. "
                    "See p2predict.json_output for the schema.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
-          budget, tune, outliers, feature_outliers, time_column, json_mode):
+          budget, max_features, tune, outliers, feature_outliers, time_column, json_mode):
 
     # Redirect Rich to /dev/null under --json so any console.print that
     # escapes a guard cannot corrupt the JSON document on stdout.
@@ -311,11 +317,19 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                        "You must select training features.")
         else:
             ranked = get_most_predictable_features(feature_data, target, output_only_headers=True)
-            selected_columns = ranked.head(max(2, min(len(ranked), 6))).tolist()
+            n_ranked = len(ranked)
+            cap = max(2, min(n_ranked, max_features))
+            selected_columns = ranked.head(cap).tolist()
             if not json_mode:
                 console.print(
                     f"Auto-selected features for training: {selected_columns}", style="bold blue"
                 )
+                if n_ranked > cap:
+                    console.print(
+                        f"Auto-selected {cap} of {n_ranked} features "
+                        f"(use --max-features to override or pass -tf).",
+                        style="italic",
+                    )
                 print("")
     else:
         requested = [c.strip() for c in training_features.split(",")]

@@ -158,5 +158,8 @@ cython_debug/
 
 .DS_Store
 
+# Trained model artifacts — produced locally, never checked in.
+models/
+
 # Case study downloaded data — fetched on demand, never checked in.
 case-studies/*/data/

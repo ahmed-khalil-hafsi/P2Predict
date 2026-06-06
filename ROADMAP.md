@@ -56,7 +56,23 @@ Package layout moved to `src/p2predict/` (PEP 517 / 518 src-layout). CI installs
 
 ---
 
+## ~~6. First case study — used vehicle pricing~~ ✅ Shipped in v0.9.1
+
+`case-studies/used-cars/` is the tutorial case study and the warm-up before the procurement-specific ones. End-to-end reproducible build on the 426k-row Craigslist Cars+Trucks dataset (CC0): `fetch_data.py` (kagglehub + new-style Kaggle API token), `prepare_data.py` (clean + sample), `p2predict-train`, and `predict_examples.py` (point estimate + 90% likely range + SHAP multiplicative attribution + what-if).
+
+Two reproducibility paths in the README: full Kaggle (matches the numbers exactly — Ridge wins auto-selection at CV R² 0.520 with log-target active, holdout R² 0.634, MAE $5,381) and a 5,000-row sample checked into git for readers without a Kaggle account.
+
+Case studies earn their keep on day one: this one surfaced two real bugs (SHAP sparse-matrix breakage on Ridge/Lasso with high-cardinality categoricals; SHAP + XGBoost 3.x `base_score` parse error) and one UX wart (auto-mode's silent 6-feature cap). All three landed alongside the case study as fixes + regression tests + the `--max-features` flag.
+
+The three remaining case studies — electronic components (Octopart), aerospace contracts (USAspending.gov), and PCBA composition (compose three trained models) — are scaffolded in `case-studies/` and queued for v0.9.2+.
+
+---
+
 ## Next — distribution + agent-first
+
+### ~~0. `--max-features` for auto-mode feature selection~~ ✅ Shipped in v0.9.1
+
+Small but load-bearing. Auto-mode previously capped at 6 features with no override — the used-cars case study showed this leaves real signal on the table (CV R² 0.34 → 0.52 on a 10-feature dataset, and the cap was also masking the log-target transform). `--max-features N` lifts the cap; default stays at 6 so existing workflows are untouched. When the ranker returns more columns than the cap, a one-line notice now reports it so the dropped features aren't invisible.
 
 ### ~~1. JSON output mode~~ ✅ Shipped in v0.9
 

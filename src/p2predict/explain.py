@@ -76,6 +76,20 @@ from sklearn.compose import TransformedTargetRegressor
 _LOCAL_ACCURACY_TOL = 1e-4
 
 
+def _to_dense_2d(X) -> np.ndarray:
+    """Coerce a sklearn ColumnTransformer output into a dense 2-d ndarray.
+
+    ColumnTransformer with OneHotEncoder (the linear-model path) returns a
+    scipy sparse matrix. ``np.asarray`` on a sparse matrix wraps it in a
+    0-d object array, which then breaks every downstream ``len()`` and
+    indexing call inside SHAP. We densify here so both LinearExplainer and
+    the local-accuracy ``estimator.predict(x_t)`` get an actual 2-d array.
+    """
+    if hasattr(X, "toarray"):
+        return X.toarray()
+    return np.asarray(X)
+
+
 @dataclass
 class Explanation:
     """Per-row attribution result.
@@ -197,6 +211,50 @@ def _shap_values(explainer, X_t):
     return sv
 
 
+def _patch_shap_xgboost_base_score(shap_module) -> None:
+    """Coerce XGBoost >= 3.0's stringified-list ``base_score`` to a scalar
+    before SHAP's XGBTreeModelLoader tries to ``float()`` it.
+
+    XGBoost 3.x serialises ``base_score`` as a stringified one-element list
+    (e.g. ``'[9.567467E0]'``); SHAP 0.49.x's ``XGBTreeModelLoader`` calls
+    ``float(learner_model_param["base_score"])`` and raises ``ValueError:
+    could not convert string to float`` (shap/shap#4184, #4202, #4288). The
+    upstream fix (shap/shap#4187) is merged but not yet released, so we
+    patch the field inside the decoded UBJ payload before the loader sees
+    it. The patch is idempotent.
+    """
+    tree_mod = shap_module.explainers._tree
+    if getattr(tree_mod, "_p2predict_base_score_patched", False):
+        return
+
+    original_init = tree_mod.XGBTreeModelLoader.__init__
+    original_decode = tree_mod.decode_ubjson_buffer
+
+    def patched_init(self, xgb_model):
+        def coercing_decode(fp):
+            jmodel = original_decode(fp)
+            try:
+                lmp = jmodel["learner"]["learner_model_param"]
+                bs = lmp.get("base_score")
+                if isinstance(bs, str) and bs.startswith("["):
+                    import ast
+                    val = ast.literal_eval(bs)
+                    if isinstance(val, (list, tuple)) and val:
+                        lmp["base_score"] = str(float(val[0]))
+            except (KeyError, ValueError, SyntaxError):
+                pass
+            return jmodel
+
+        tree_mod.decode_ubjson_buffer = coercing_decode
+        try:
+            original_init(self, xgb_model)
+        finally:
+            tree_mod.decode_ubjson_buffer = original_decode
+
+    tree_mod.XGBTreeModelLoader.__init__ = patched_init
+    tree_mod._p2predict_base_score_patched = True
+
+
 def _build_explainer(estimator, family: str, background_X_t):
     """Construct the right SHAP explainer.
 
@@ -208,6 +266,7 @@ def _build_explainer(estimator, family: str, background_X_t):
                   # dependency on shap unless --explain is actually used.
 
     if family == "tree":
+        _patch_shap_xgboost_base_score(shap)
         return shap.TreeExplainer(
             estimator, feature_perturbation="tree_path_dependent"
         )
@@ -251,9 +310,9 @@ def explain_row(
     estimator = inner.named_steps["model"]
     family = _detect_family(estimator)
 
-    x_t = np.asarray(preprocessor.transform(x))
+    x_t = _to_dense_2d(preprocessor.transform(x))
     bg_t = (
-        np.asarray(preprocessor.transform(background_X))
+        _to_dense_2d(preprocessor.transform(background_X))
         if background_X is not None
         else None
     )

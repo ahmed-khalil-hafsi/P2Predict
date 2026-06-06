@@ -2,6 +2,21 @@
 
 All notable changes to P2Predict are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [v0.9.1] — 2026-06
+
+### Added
+- **First end-to-end case study: used vehicle pricing.** `case-studies/used-cars/` now ships a full reproducible build on the 426k-row Craigslist Cars+Trucks dataset (CC0). `fetch_data.py` uses the new-style Kaggle API token + `kagglehub`; `prepare_data.py` cleans and samples; `predict_examples.py` walks through point estimates, 90% likely ranges, SHAP multiplicative attribution, and a what-if counterfactual on three realistic listings. The README documents both reproducibility paths (full Kaggle + 5k-row checked-in sample) and the results: Ridge wins auto-selection at CV R² 0.520 with log-target active, holdout R² 0.634, MAE $5,381.
+- **`--max-features N` flag in `p2predict-train`** for auto mode. Defaults to 6 (prior behaviour). Raises the cap on how many top-ranked features auto-selection keeps — the silent 6-cap was masking real signal on wider datasets. The used-cars case study exposed this: passing the 10 curated columns lifted CV R² from 0.34 → 0.52 (and unlocked the log-target transform that the 6-cap was hiding). Expert mode is unaffected (features are picked interactively or via `-tf`).
+- **Drop-notice in auto mode.** When the ranker returns more features than the cap, the CLI now prints `Auto-selected N of M features (use --max-features to override or pass -tf).` so the dropped columns aren't invisible.
+
+### Fixed
+- **SHAP `LinearExplainer` crashed on Ridge/Lasso models with high-cardinality categoricals.** When the OneHotEncoder columns dominate, `ColumnTransformer` returns a scipy sparse matrix; `np.asarray` on that matrix wraps it in a 0-d object array, breaking every downstream `len()` and indexing call inside SHAP. Surfaced by the used-cars case study (10 categoricals → ~140 OHE columns → sparse output). Fixed via a `_to_dense_2d` helper at the SHAP boundary in `explain.py`; regression test `test_ridge_explain_works_with_high_cardinality_categoricals` deliberately trips the sparse path so this can't regress.
+- **SHAP + XGBoost 3.x `base_score` parse error.** XGBoost ≥ 3.0 serialises `base_score` as a stringified one-element list (e.g. `'[9.567467E0]'`); SHAP 0.49.x's `XGBTreeModelLoader` calls `float(...)` on it and raises `ValueError` ([shap/shap#4184](https://github.com/shap/shap/issues/4184)). Worked around with an idempotent monkeypatch in `_build_explainer` that coerces the field inside the UBJ payload before the loader sees it. Patch goes away once the upstream fix ships. Regression test `test_xgboost_local_accuracy` locks in the SHAP local-accuracy axiom on XGBoost.
+
+### Compatibility
+- Default behaviour unchanged: auto mode still caps at 6 unless `--max-features` is passed.
+- No model-format change. `p2predict_version` unchanged from v0.9.
+
 ## [v0.9] — 2026-06
 
 ### Added
