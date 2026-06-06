@@ -48,7 +48,8 @@ tool for your shop, run this one.
 >   1. [Data](#data) — the Craigslist dataset and the columns we kept
 >   2. [Methodology](#methodology) — every modelling decision, with code references and teaching nuggets
 >   3. [Results](#results) — the trained-model quality metrics
->   4. [Reproducing this case study](#reproducing-this-case-study) — the exact commands
+>   4. [Model quality report (PDF)](#model-quality-report-pdf) — the procurement-style 3-page PDF P2Predict produces
+>   5. [Reproducing this case study](#reproducing-this-case-study) — the exact commands
 > - **Part 3 — Caveats**
 >   1. [Notes & footnotes worth knowing](#notes--footnotes-worth-knowing)
 >   2. [What this case study does *not* do](#what-this-case-study-does-not-do-and-why)
@@ -915,6 +916,83 @@ though the effect per unit is large. The SHAP attribution in the
 price-space factors) gives the more interpretable view of their actual
 impact.
 
+## Model quality report (PDF)
+
+P2Predict ships a built-in procurement-style **PDF report generator**
+([`p2predict.plotting.plot_results_pdf`](../../src/p2predict/plotting.py))
+that produces a 3-page model-quality report with the trained model's
+provenance, holdout performance, error calibration by target band, and
+ranked feature importance. The same report that `p2predict-train`
+itself produces interactively in expert mode.
+
+[**Download the full report (PDF, 282 KB)**](assets/model_quality_report.pdf)
+
+Page previews inline:
+
+### Page 1 — Summary
+
+![Model quality report — page 1](assets/model_quality_report_page_1.png)
+
+Headline: **median prediction error of 21.9%**, P90 error of 59.9%.
+On half the holdout the model lands within ~22% of the actual price;
+on 9 in 10 listings it lands within ~60%. The predicted-vs-actual
+scatter on the right shows the model is well-calibrated through the
+$10k–$30k band (most listings hug the perfect-prediction line) and
+diverges most on the cheap-car tail (the dust cloud near the origin)
+— exactly where the residual-bias test was pointing.
+
+> [!TIP]
+> **🧮 Mean vs median for percentage error.** The MAPE on this page is
+> 68.9%, much higher than the median 21.9% or even the P90 59.9%.
+> That's not a bug — MAPE is a *mean* of absolute percentage errors,
+> and a handful of cheap-car predictions (e.g. a $500 listing
+> predicted at $5,000) produce 900%+ errors that drag the mean way
+> above the median. For skewed-target use cases like used-car
+> pricing, **median % error is the more honest single number** to
+> quote. The histogram on page 2 makes the source of MAPE's blow-up
+> visible.
+
+### Page 2 — Error distribution and calibration
+
+![Model quality report — page 2](assets/model_quality_report_page_2.png)
+
+This is the most insightful page. The bar chart on the right shows
+**median % error by price band**: accuracy is best on the
+$9,000–$12,793 band (17.5% median error) and worst on the
+$500–$4,400 band (61.2%). Bands above the overall median are
+highlighted in amber. The pattern is unmistakable — the model is well
+calibrated through the middle of the price distribution and struggles
+at both tails (the cheap-car tail dominantly, but also the
+$38k+ specialty-car tail).
+
+For procurement use, this exact chart on a parts dataset answers
+*"where is the model trustworthy and where do I want a quote
+instead?"* — a directly actionable question.
+
+### Page 3 — Feature importance
+
+![Model quality report — page 3](assets/model_quality_report_page_3.png)
+
+The procurement-shaped feature importance view: **manufacturer alone
+explains 50.8% of the model's decisions**; together with state
+(13.3%) and condition (12.2%), the top 3 features explain **76% of
+what the model is doing**. This is the visual confirmation of
+Finding #1 in [So what?](#1-brand-alone-moves-price-by-27) — the
+brand premium dominates everything else, including year and odometer
+(which sit near the bottom of the chart in importance-share terms
+because they're standard-scaled before Ridge sees them — see the
+note under [Results > Feature importance](#feature-importance-ridge-coefficient-magnitudes-in-log-space-after-preprocessing)).
+
+> **How to generate this report yourself.** After training a model,
+> run `python case-studies/used-cars/generate_quality_report.py`. The
+> script loads the most recent `models/ridge_price_*.model`,
+> re-derives the same train/test split, predicts on the holdout, and
+> calls `plot_results_pdf()` directly. The same code path runs inside
+> `p2predict-train --expert -c` when you answer *yes* to "generate
+> the PDF report?" — the case study calls the API directly because
+> auto-mode training doesn't currently offer the report prompt.
+> [Open ticket to make `--report PATH` work in auto-mode too.]
+
 ## Reproducing this case study
 
 ### Full reproduction (matches numbers above)
@@ -957,6 +1035,11 @@ python predict_examples.py
 #    from the full path; if you only train on the sample, your numbers
 #    will differ and you may want fresh charts.
 python generate_charts.py
+
+# 6. (Optional.) Regenerate the procurement-style PDF model-quality
+#    report. Calls p2predict.plotting.plot_results_pdf directly and also
+#    emits PNG previews of each page for inline embedding in this README.
+python generate_quality_report.py
 ```
 
 ### Quick path (no Kaggle account needed)
