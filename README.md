@@ -210,6 +210,7 @@ That installs the `p2predict` and `p2predict-train` commands and the `p2predict`
      - `--outliers`: How to handle outliers in the target column (Tukey IQR rule). `warn` (default), `drop`, `winsorize`, or `keep`.
      - `--feature-outliers`: How to handle outliers in the numerical feature columns (Tukey IQR per column). `drop` removes any row with an outlier in any feature column; `winsorize` caps each column independently at its own IQR bounds. `warn` (default) reports per-column counts without changing the data. Categorical features are ignored. Useful when a misrecorded `Weight=100000` would otherwise silently distort the model.
      - `--time-column`: Name of a date column. When given, train/test split and cross-validation become chronological (`TimeSeriesSplit`) — prevents the look-ahead bias you get from random splits on time-ordered data.
+     - `--json`: Emit a machine-readable JSON document to stdout instead of Rich-formatted output. Same schema family as the predict CLI. Useful for agents and scripts that need structured train results (model path, CV scores, evaluation metrics, feature importances). See [Machine-readable JSON output](#machine-readable-json-output).
 
      For a complete list of options, run `p2predict-train --help`.
 
@@ -278,6 +279,7 @@ That installs the `p2predict` and `p2predict-train` commands and the `p2predict`
      - `--explain`: Print a per-feature SHAP attribution alongside the prediction. In batch mode (`-i`) adds `top1_driver`, `top2_driver`, `top3_driver` columns to the output CSV.
      - `--interval N`: Show the model's likely range for the prediction. `--interval 90` produces a range that contains the target value for about 9 in 10 similar parts (calibrated on the training holdout). In batch mode adds `<target>_low` and `<target>_high` columns. Useful for supplier benchmarking and RFQ sanity checks — quotes outside the range are unusual and worth questioning.
      - `--whatif "Feature:NewValue,..."`: Compare the base scenario (from `-p`) against a counterfactual where the listed features change. Prints the new predicted price, the delta in dollars and percent, and where the change came from feature by feature. Combine with `--interval` to also see the shift in the likely range, and with `--explain` to see the SHAP breakdown of the base prediction alongside. Inline only — not supported with `-i` batch mode.
+     - `--json`: Emit a machine-readable JSON document to stdout instead of Rich-formatted tables. Composes with `--interval`, `--explain`, and `--whatif` — each adds its block to the response. Designed for AI agents and scripts. See [Machine-readable JSON output](#machine-readable-json-output) below for the schema.
 
      Examples:
 
@@ -337,6 +339,81 @@ for feature, contribution in explanation.contributions.items():
 See [`examples/python_api.py`](examples/python_api.py) for an end-to-end script that loads `examples/example.csv`, trains, persists, reloads, and demonstrates all four entry points (`auto_train`, `predict_interval`, `explain`, `what_if`).
 
 The public API surface is everything in `from p2predict import ...`; submodule paths like `p2predict.training` and `p2predict.intervals` are stable but lower-level.
+
+## Machine-readable JSON output
+
+Both CLIs accept `--json`, which suppresses all Rich-formatted output and emits a single JSON document on stdout instead. The schema is documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.py) and versioned via a `schema_version` field on every response.
+
+The shape of an inline prediction with all three extras composed:
+
+```bash
+p2predict -m my_model.model \
+  -p "Weight:15,Region:EU,Supplier:A,Size:Standard" \
+  --interval 90 --explain --whatif "Region:CN" \
+  --json | jq '.'
+```
+
+```json
+{
+  "schema_version": "1.0",
+  "command": "predict",
+  "model": {
+    "path": "my_model.model",
+    "algorithm": "random_forest",
+    "target": "Price",
+    "version": "v0.9",
+    "log_target": false,
+    "features": ["Weight", "Region", "Supplier", "Size"]
+  },
+  "mode": "inline",
+  "predictions": [
+    {"input": {"Weight": "15", "Region": "EU", "Supplier": "A", "Size": "Standard"},
+     "prediction": 1.318}
+  ],
+  "interval": {
+    "coverage": 0.90,
+    "per_row": [{"low": 1.04, "prediction": 1.318, "high": 1.59}],
+    "soft_warning": null
+  },
+  "explanation": [
+    {
+      "baseline": 1.35,
+      "prediction": 1.318,
+      "log_target": false,
+      "contributions": [
+        {"feature": "Weight", "value": -0.059},
+        {"feature": "Region", "value": 0.030},
+        ...
+      ],
+      "multiplicative_factors": null,
+      "dollar_attribution": null,
+      "residual": 0.0
+    }
+  ],
+  "whatif": {
+    "changes": {"Region": {"from": "EU", "to": "CN"}},
+    "base_prediction": 1.318,
+    "counterfactual_prediction": 1.250,
+    "delta": -0.068,
+    "delta_pct": -5.2,
+    "changed_contributions": [...],
+    "interaction_contribution": -0.012,
+    "interaction_is_material": false,
+    "base_interval": {"low": 1.04, "high": 1.59},
+    "cf_interval": {"low": 0.97, "high": 1.52}
+  }
+}
+```
+
+Key points for agents and downstream tools:
+
+- **Stable schema, versioned.** Tests in [`tests/test_json_output.py`](tests/test_json_output.py) lock in the top-level keys for both commands. New fields can be added without bumping the schema version; renames or removals bump the major number.
+- **stdout is exclusively the JSON document.** No banner, no logo, no spinner. `jq` and other parsers work on the raw output without preprocessing.
+- **Errors emit JSON too.** Failure paths produce `{"schema_version": "1.0", "command": ..., "error": {"code": "...", "message": "..."}}` on stdout with exit code 1, so an agent piping output still gets something parseable when something goes wrong.
+- **`--json` composes with `--interval`, `--explain`, and `--whatif`.** Each adds its block to the response without changing the others.
+- **Interactive mode is incompatible with `--json`** — `p2predict --json` without `-p` or `-i` errors cleanly instead of prompting for input no agent can answer.
+
+The train CLI's JSON shape (with `cv_scores`, `evaluation`, `feature_importances`, `model_path`, etc.) is documented at the top of [`src/p2predict/json_output.py`](src/p2predict/json_output.py).
 
 ## Dependencies
 

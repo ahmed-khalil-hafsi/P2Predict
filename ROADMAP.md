@@ -58,20 +58,13 @@ Package layout moved to `src/p2predict/` (PEP 517 / 518 src-layout). CI installs
 
 ## Next — distribution + agent-first
 
-### 1. JSON output mode (v0.9)
+### ~~1. JSON output mode~~ ✅ Shipped in v0.9
 
-**Why it matters.** Today every CLI command emits Rich-formatted tables — beautiful for humans, painful for agents and scripts that need to parse the output. `--json` on every command gives any downstream tool (or AI agent that shells out before the MCP server lands) a structured response it can ingest directly. This is the cheapest agent-readiness improvement we can ship, and it's a prerequisite for the agent-first thesis.
+`--json` on both `p2predict` and `p2predict-train`. Stable schema with `schema_version: "1.0"` on every response. Composes with `--interval`, `--explain`, and `--whatif`; each adds its block. Errors emit JSON too (`{"error": {"code": "...", "message": "..."}}` on stdout, exit 1) so agents piping the output get a parseable failure document.
 
-**Scope**
-- `--json` flag on `p2predict` and `p2predict-train`.
-- A stable schema for each command's response (with a `schema_version` field so we can evolve it without surprising consumers).
-- Tests asserting the JSON shape doesn't drift across releases.
+15 new tests in `tests/test_json_output.py` assert the documented top-level keys on both CLIs, for both success and failure paths. The schema is now a tested contract.
 
-**Acceptance**
-- `p2predict -m M -p "..." --explain --interval 90 --json | jq '.prediction'` returns the predicted price.
-- All command-line metadata (model version, calibration size, log-target flag, etc.) is reachable from the JSON without re-running.
-- Rich-table output unchanged when `--json` is absent — no back-compat break.
-- JSON schema documented in the README.
+Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.py) and the [README](README.md#machine-readable-json-output).
 
 ### 2. MCP server (v1.0 — the agentic-first headliner)
 
