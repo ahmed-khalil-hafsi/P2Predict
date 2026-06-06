@@ -983,15 +983,12 @@ brand premium dominates everything else, including year and odometer
 because they're standard-scaled before Ridge sees them — see the
 note under [Results > Feature importance](#feature-importance-ridge-coefficient-magnitudes-in-log-space-after-preprocessing)).
 
-> **How to generate this report yourself.** After training a model,
-> run `python case-studies/used-cars/generate_quality_report.py`. The
-> script loads the most recent `models/ridge_price_*.model`,
-> re-derives the same train/test split, predicts on the holdout, and
-> calls `plot_results_pdf()` directly. The same code path runs inside
-> `p2predict-train --expert -c` when you answer *yes* to "generate
-> the PDF report?" — the case study calls the API directly because
-> auto-mode training doesn't currently offer the report prompt.
-> [Open ticket to make `--report PATH` work in auto-mode too.]
+> **How to generate this report yourself.** As of v0.9.2, pass
+> `--report PATH` to `p2predict-train` and the PDF is written in one
+> step — see the train command in the [Reproducing](#reproducing-this-case-study)
+> section. Works in both auto and expert mode, with or without
+> `--interactive`. The same code path runs when you answer *yes* to
+> the legacy expert + interactive "generate the PDF report?" prompt.
 
 ## Reproducing this case study
 
@@ -1018,13 +1015,16 @@ python prepare_data.py
 # 3. Train. Note --outliers warn (not drop) — we deliberately preserve
 #    the long right tail so the log-target wrap activates. And -tf
 #    overrides auto-mode's default 6-feature cap (see "Notes" below).
+#    --report writes the procurement-style PDF model-quality report in
+#    one step; no separate script needed (new in v0.9.2).
 p2predict-train \
   -i data/vehicles_training.csv \
   -t price \
   -tf year,odometer,manufacturer,condition,fuel,transmission,drive,type,state,paint_color \
   --outliers warn \
   --feature-outliers drop \
-  --budget thorough
+  --budget thorough \
+  --report assets/model_quality_report.pdf
 
 # 4. Walk through point estimate + interval + SHAP + what-if on three
 #    realistic listings.
@@ -1036,9 +1036,11 @@ python predict_examples.py
 #    will differ and you may want fresh charts.
 python generate_charts.py
 
-# 6. (Optional.) Regenerate the procurement-style PDF model-quality
-#    report. Calls p2predict.plotting.plot_results_pdf directly and also
-#    emits PNG previews of each page for inline embedding in this README.
+# 6. (Optional.) Re-render the PDF report's per-page PNG previews for
+#    inline embedding in this README. The PDF itself is already produced
+#    by step 3's --report flag; this script now only handles the PNG
+#    conversion (sips + pypdf split). Skip it if you don't need the
+#    inline previews refreshed.
 python generate_quality_report.py
 ```
 

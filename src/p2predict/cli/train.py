@@ -132,12 +132,18 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
               help="Name of a date/time column. When given, the train/test split and CV "
                    "become chronological (TimeSeriesSplit), which prevents look-ahead bias "
                    "for time-ordered data. The column is excluded from features.")
+@click.option("--report", "report", type=click.Path(), default=None,
+              help="Write the procurement-style PDF model-quality report to PATH "
+                   "after training. Works in both auto and expert mode, and with "
+                   "or without --interactive — pass this whenever you want the "
+                   "PDF without answering an interactive prompt.")
 @click.option("--json", "json_mode", is_flag=True, default=False,
               help="Emit machine-readable JSON to stdout instead of "
                    "Rich-formatted output. Useful for agents and scripts. "
                    "See p2predict.json_output for the schema.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
-          budget, max_features, tune, outliers, feature_outliers, time_column, json_mode):
+          budget, max_features, tune, outliers, feature_outliers, time_column,
+          report, json_mode):
 
     # Redirect Rich to /dev/null under --json so any console.print that
     # escapes a guard cannot corrupt the JSON document on stdout.
@@ -459,26 +465,12 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 )
             print("")
 
-    if expert and interactive:
+    # Fallback prompt for the legacy expert+interactive flow. Skip it if
+    # the user already passed --report PATH — we'll write the report after
+    # save and don't want to ask twice.
+    if expert and interactive and report is None:
         if questionary.confirm("Generate the model quality PDF report?").ask():
-            file_name = Prompt.ask("Enter PDF name (e.g., report.pdf)")
-            y_pred_test = model.predict(X_test)
-            try:
-                feat_imp = extract_feature_importances(model, X_train)
-            except Exception:
-                feat_imp = None
-            plotting.plot_results_pdf(
-                y_test,
-                y_pred_test,
-                file_name,
-                target_name=target,
-                model_name=algorithm,
-                n_train=len(X_train),
-                training_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-                feature_importances=feat_imp,
-            )
-            if not json_mode:
-                print("")
+            report = Prompt.ask("Enter PDF name (e.g., report.pdf)")
 
     if expert and interactive and not tune:
         if questionary.confirm(
@@ -530,14 +522,16 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         calibration=calibration,
     )
 
-    # Feature importances for the response payload. Don't fail the train
-    # CLI if extraction misbehaves — surface it as missing instead.
+    # Feature importances. Extracted once, reused for both the PDF report
+    # and the JSON payload. Don't fail the train CLI if extraction misbehaves
+    # — surface it as missing instead.
     try:
         importances = extract_feature_importances(model, X_train)
         importances_block = [
             {"feature": k, "importance": float(v)} for k, v in importances
         ]
     except Exception:
+        importances = None
         importances_block = []
 
     saved_model_path: str | None = None
@@ -553,6 +547,23 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         saved_model_path = model_name
         if not json_mode:
             console.print(f"Model saved to {model_name}", style="bold green")
+
+    report_path: str | None = None
+    if report:
+        y_pred_test = model.predict(X_test)
+        plotting.plot_results_pdf(
+            y_test,
+            y_pred_test,
+            report,
+            target_name=target,
+            model_name=algorithm,
+            n_train=len(X_train),
+            training_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            feature_importances=importances,
+        )
+        report_path = report
+        if not json_mode:
+            console.print(f"PDF report written to {report}", style="bold green")
 
     if not json_mode:
         print("")
@@ -588,6 +599,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             "quality_label": quality_label,
         },
         "model_path": saved_model_path,
+        "report_path": report_path,
     })
     emit(response)
 
