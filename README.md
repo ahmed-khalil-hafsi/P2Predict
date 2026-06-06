@@ -41,6 +41,27 @@ This software is released under the MIT license. See `LICENSE` for the license d
 
 The model learns from your data — so the benchmark reflects your supply base and your buying patterns, not a vendor's reference catalog.
 
+## Data format
+
+One row per part. One column is the target (the price or whatever else you want to predict); the rest are the technical features the model will learn from.
+
+```csv
+CPN,Weight,Region,Supplier,Size,Price
+CP17-17921595,17,EU,supplier A,Standard,1.41
+CP2-5580430,2,CN,supplier A,Small,0.18
+CP30-19674030,30,SG,supplier A,Large,2.15
+```
+
+Notes that matter in practice:
+- **Column types are auto-detected.** Numeric columns become numerical features; text and boolean columns become categorical. You don't have to one-hot encode by hand.
+- **The target column is whatever you pass with `--target`.** It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
+- **Identifier columns** (part numbers, SKUs, anything near-unique) are auto-detected as "high variation" and flagged for you to drop. You usually don't want them in the model.
+- **Missing values:** rows with any NA in selected columns are dropped with a warning. If you want to keep them, impute upstream.
+- **Outliers in the target:** flagged by default (Tukey IQR). Pass `--outliers drop` or `--outliers winsorize` to act on them.
+- **Time-ordered data:** if the CSV has a date column, pass `--time-column DATE` so the train/test split and CV become chronological — random splitting on time-ordered data inflates measured accuracy.
+
+See [`examples/example.csv`](examples/example.csv) for a working procurement-shaped dataset.
+
 ## Features
 
 #### Benchmarking / prediction
