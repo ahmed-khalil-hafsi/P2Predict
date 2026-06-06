@@ -735,6 +735,153 @@ structure makes it scale-invariant: the same factor would apply going
 from 90k to 180k miles, in the limit where the model is locally linear
 in log-mileage.
 
+## So what? — five findings the analysis surfaces
+
+The case study isn't just a methodology demo. Once the model is
+trained, sweeping one feature at a time with everything else held
+fixed reveals real findings about how used-car prices actually work —
+the kind of patterns a human reviewer would have to stare at a
+spreadsheet for a week to find. Each finding has a procurement
+parallel underneath; the same workflow on a parts BOM tells you the
+same kind of story.
+
+**Baseline for these sweeps:** a 2015 Honda sedan, 100k miles, good
+condition, gas, automatic, FWD, silver, CA. Predicted price:
+**$10,142**. Every "× factor" below is "what happens if you keep
+this baseline and change exactly that one feature."
+[Reproduce with `python case-studies/used-cars/extract_insights.py`.]
+
+### 1. Brand alone moves price by 2.7×
+
+Holding *everything else equal*, the same vehicle is worth **$21,837 as
+a Porsche** and **$8,028 as a Kia** — a 2.7× spread. The top end is
+Porsche → Tesla → Lexus → Audi → Mercedes-Benz. The bottom is Kia
+→ Chrysler → Nissan → Hyundai → Mazda. Honda is the median (that's
+why we picked it for the baseline).
+
+> [!TIP]
+> **🛒 Procurement parallel.** The same analysis on a parts dataset
+> answers "which supplier commands the biggest premium for the same
+> physical part?" — with a number, not a hunch, and with an axiom check
+> showing the attribution adds up exactly. Standard procurement
+> spreadsheets can't separate "supplier premium" from "the parts that
+> supplier happens to make"; this model can.
+
+### 2. The condition rating has a cliff at "fair"
+
+The top four condition labels — `excellent`, `like new`, `new`,
+`good` — all sit within **±6%** of each other. Then:
+
+```
+  excellent       +6%    \
+  new             +4%     \  Same neighborhood.
+  like new        +2%     /
+  good             0%    /
+  fair           −50%    ◄ Discrete cliff.
+  salvage        −63%
+```
+
+It's not a gradient — it's a **cliff**. The market doesn't reward
+"slightly nicer"; it punishes "starts to be a problem."
+
+> [!TIP]
+> **🛒 Procurement parallel.** Quality grades, supplier ratings, and
+> certification levels often have the same step-function structure.
+> The model surfaces the cliff automatically — useful when negotiating
+> a quality spec, because you learn that paying for `excellent` over
+> `good` buys you 6%, but accepting `fair` instead of `good` loses
+> you 50%.
+
+### 3. Mileage depreciation declines *per mile* — not per percent
+
+```
+   25,000 mi → 50,000 mi   Δ per 10k mi:  −$425
+   50,000 mi → 75,000 mi                  −$390
+   75,000 mi → 100,000 mi                 −$358   (the baseline)
+  100,000 mi → 125,000 mi                 −$329
+  125,000 mi → 150,000 mi                 −$303
+  150,000 mi → 200,000 mi                 −$267
+  200,000 mi → 250,000 mi                 −$225
+```
+
+Every fleet manager has been told "cars lose $X per mile." The model
+says **that rule of thumb is wrong by 2× at the extremes** — $454 per
+10k miles at low mileage, $225 per 10k at high mileage. The
+*percentage* curve is the real curve, because the model works in
+log-mileage; in dollars, the marginal depreciation declines as the
+car gets cheaper.
+
+> [!TIP]
+> **🛒 Procurement parallel.** Weight, complexity, throughput, and most
+> other continuous parametric drivers behave the same way: a 10%
+> reduction is a 10% reduction whether the part starts at $10 or
+> $1,000. Linear "cost per kilogram" rules of thumb routinely
+> over-charge at the high end and under-charge at the low end.
+
+### 4. Diesel commands +93% over gas — and that's the model leaking "truck"
+
+Switch the baseline sedan's fuel from gas to diesel: $10,142 →
+**$19,558**. **+93%.** That isn't a typo; it's the model generalising
+from the broader dataset, where diesel is rare in sedans but
+common-and-valuable in trucks. The model has effectively learned
+"`fuel=diesel` ⇒ probably a truck ⇒ worth a lot more."
+
+This is the right *kind* of wrong: a model trained on a broad
+population is leaking a population prior into a narrow query. SHAP
+makes it visible; a black-box estimator would just confidently say
+$19,558.
+
+> [!TIP]
+> **🛒 Procurement parallel.** This is exactly how
+> *spec-interaction artifacts* sneak into sourcing models. "Our
+> supplier only does cast iron in volumes > 50k, so the model
+> assigns high prices to cast iron when really it's pricing volume."
+> Worth catching with SHAP before it distorts a sourcing decision.
+
+### 5. Geography only moves prices by 1.34×
+
+Top state vs bottom state for the same vehicle:
+
+```
+  Most expensive  ND  $11,551  +14%
+                  NE  $11,062  +9%
+                  MT  $10,984  +8%
+                  …
+                  RI  $ 8,807  −13%
+                  OH  $ 8,674  −15%
+  Cheapest        CT  $ 8,605  −15%
+```
+
+A 1.34× spread, less than the popular "rust-belt cars cost more,
+California is expensive" intuition would suggest. Geography is a real
+lever, but a small one — brand, body type, and condition all dominate
+it.
+
+> [!TIP]
+> **🛒 Procurement parallel.** The same question on a parts dataset
+> answers "how much does region or supplier-country actually cost me,
+> holding everything else fixed?" Often less than the gut feel
+> suggests — most of the value comes from picking the right supplier
+> and the right specs, not the right zip code.
+
+### Bonus finding: the model knows when it doesn't know
+
+Look back at the **2021 Tesla** in the worked-examples section. The
+point estimate is $54,667, but the 90% likely range is
+**$28,375 – $105,321** — almost 4× span. The model is essentially
+saying *"I have no idea."* Tesla and high-end EVs are
+underrepresented in the Craigslist data; the conformal interval
+widens automatically to reflect that.
+
+> [!TIP]
+> **🛒 Procurement parallel.** This is what you want a parametric
+> cost model to do on a new supplier, new material, or a part with
+> an unusual feature combination. A point estimate alone hides the
+> uncertainty; an interval surfaces it, and your buyer knows to ask
+> for a quote rather than benchmark off the model.
+
+---
+
 ## The story
 
 The case study earns its keep in five claims that are easy to verify
