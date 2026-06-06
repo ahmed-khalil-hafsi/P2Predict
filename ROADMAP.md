@@ -1,4 +1,10 @@
-# Roadmap — getting to 8/10 robustness
+# Roadmap
+
+The first arc — getting from 6/10 to 8/10 robustness — shipped across v0.4 to v0.8. SHAP attributions, conformal likely-range intervals, what-if comparisons, feature-side outlier handling, and pip-install + public Python API. All five with axiomatic tests locking in the property each feature claims.
+
+The next arc is **distribution and agent-first deployment**: putting the rigorous math in front of the procurement workflows and AI agents that will actually use it. Four items, ordered.
+
+## Shipped — v0.4 → v0.8 (8/10 robustness)
 
 The current release is a confident 7/10: CV-based model selection, log-target handling, outlier policies, time-aware CV, a 50-test suite running in CI. The items below are what flip the should-cost positioning from credible to compelling. None are huge — they're roughly half a day each.
 
@@ -50,15 +56,81 @@ Package layout moved to `src/p2predict/` (PEP 517 / 518 src-layout). CI installs
 
 ---
 
-## Next: agent-first deployment surface (v1.0 — MCP server)
+## Next — distribution + agent-first
 
-With v0.8 the Python API is stable. The MCP server wraps it as typed tools so AI agents (Claude, Cursor, custom procurement agents) can call P2Predict natively — `predict`, `explain`, `predict_interval`, `what_if`, `train`, `list_models` — without shelling out to the CLI. This is the surface that makes P2Predict appear as a first-class tool in agent platforms and procurement workflows where the human user never sees a terminal.
+### 1. JSON output mode (v0.9)
+
+**Why it matters.** Today every CLI command emits Rich-formatted tables — beautiful for humans, painful for agents and scripts that need to parse the output. `--json` on every command gives any downstream tool (or AI agent that shells out before the MCP server lands) a structured response it can ingest directly. This is the cheapest agent-readiness improvement we can ship, and it's a prerequisite for the agent-first thesis.
+
+**Scope**
+- `--json` flag on `p2predict` and `p2predict-train`.
+- A stable schema for each command's response (with a `schema_version` field so we can evolve it without surprising consumers).
+- Tests asserting the JSON shape doesn't drift across releases.
+
+**Acceptance**
+- `p2predict -m M -p "..." --explain --interval 90 --json | jq '.prediction'` returns the predicted price.
+- All command-line metadata (model version, calibration size, log-target flag, etc.) is reachable from the JSON without re-running.
+- Rich-table output unchanged when `--json` is absent — no back-compat break.
+- JSON schema documented in the README.
+
+### 2. MCP server (v1.0 — the agentic-first headliner)
+
+**Why it matters.** This is the agent-first deployment surface. Claude, Cursor, Zed, and custom procurement agents call P2Predict as typed MCP tools instead of shelling out to a CLI. The procurement user never sees a terminal — they talk to their existing agent, the agent calls P2Predict, the answer flows back in plain English. This is what makes P2Predict a first-class citizen in modern procurement workflows.
+
+**Scope**
+- New package `p2predict-mcp` (or an extra: `pip install p2predict[mcp]`).
+- Typed MCP tools wrapping the v0.8 Python API: `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `train`, `list_models`, `get_model_info`.
+- Trained models exposed as MCP resources with their metadata (target, features, training date, calibration size, log-target flag).
+- Local-by-default deployment — runs in the user's environment, calls the user's models, no data leaves the network.
+- Documentation for both self-hosted and (optional) hosted deployment.
+
+**Acceptance**
+- A Claude or Cursor agent can list, inspect, and invoke P2Predict tools without shelling out — the procurement user sees an answer, not a CLI.
+- An RFQ-shaped batch prediction through MCP returns structured results an agent can summarise back to the user.
+- Listed on the Anthropic MCP directory (or equivalent in other agent platforms).
+
+### 3. PyPI publish (v1.0.x)
+
+**Why it matters.** `pip install p2predict` works only against a local clone right now (`pip install -e .`). Publishing to PyPI removes the last install-friction step and makes the agent-platform listing requirements trivial — most MCP marketplaces want a published package, not a Git URL.
+
+**Scope**
+- A release workflow on tag push (`v1.0.0` and later).
+- `python -m build` + `twine upload` with [PyPI trusted publishers](https://docs.pypi.org/trusted-publishers/) so there's no long-lived token to manage.
+- A post-publish smoke test: pull the published package into a fresh venv, run `p2predict --help`, run one prediction.
+
+**Acceptance**
+- `pip install p2predict` works from anywhere on PyPI.
+- New releases publish automatically on tagged commits.
+- The README install snippet stops saying "or once published".
+
+### 4. Procurement-facing landing page (v1.1)
+
+**Why it matters.** The README sells to developers and to procurement readers who already found the repo. A landing page (probably `p2predict.com` or `p2predict.dev`) sells to procurement leaders who don't know what GitHub is. Different audience, different language, different decision criteria — the README is the product spec, the landing page is the elevator pitch. Without it, you're invisible to the actual buyer.
+
+**Scope**
+- Domain registered (one of `p2predict.com` / `.dev` / `.ai`).
+- Single-page static site focused on Part 1 of the README (the value scenarios) in a procurement-CFO voice — concrete numbers, named meetings, no ML jargon.
+- Clear path to "try the OSS" (developer track → GitHub) and "talk to us about deployment" (enterprise track → email).
+- Built with a minimal static-site setup. The site is not the focus of the project; the math is.
+
+**Acceptance**
+- Landing page live at the registered domain.
+- Three meetings booked with procurement leaders from the inbound link.
 
 ---
 
-## What I deliberately left out
+## Still deliberately left out
 
 - **LightGBM / CatBoost** — adds maintenance for a marginal accuracy gain. RF + XGBoost already cover the tree-ensemble space well.
-- **Drift detection / model monitoring** — that's 9/10 territory. Production-grade.
-- **Multi-format input (Parquet, Excel, DB)** — UX, not robustness. CSV covers 95% of procurement use today.
-- **Quantile regression for Ridge** — too involved relative to the bootstrap fallback.
+- **Quantile regression for Ridge** — too involved relative to the conformal interval already shipping.
+- **Multi-format input (Parquet, Excel, DB)** — UX, not robustness or distribution. CSV covers 95% of procurement use today.
+- **Web dashboard / JS UI** — wrong abstraction for a math-first tool. The agent-first thesis says presentation belongs in the user's existing agent / chat / spreadsheet, not in another dashboard.
+- **Pro-tier features** (multi-user model registry, audit log, SSO, drift monitoring, ERP connectors) — these are the *paid* layer in the open-core thesis. Don't build until 10+ companies are asking the same questions. Listen first.
+
+## Anti-goals
+
+These are things P2Predict deliberately is *not* trying to be, so contributions in these directions will be politely declined:
+
+- A replacement for bottom-up should-cost tooling (aPriori, Siemens Teamcenter PCM). P2Predict is the *parametric* counterpart, not a replacement.
+- A general-purpose AutoML library. The training pipeline is tuned for procurement-shaped data (tens of features, hundreds to low thousands of rows, mixed numerical and high-cardinality categorical).
+- A black-box "trust us" model. Every answer is auditable — explanation, interval, what-if decomposition — by design.
