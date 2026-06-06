@@ -380,8 +380,26 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 console.print("Tuned model did not improve; keeping original.", style="italic")
             print("")
 
+    # Persist a small sample of raw training rows alongside the model so
+    # SHAP's LinearExplainer can estimate E[x_i] at explain time without
+    # access to the original CSV. Capped at 100 rows — the variance of the
+    # mean is dominated long before that and the file-size cost stays
+    # negligible.
+    background_n = min(100, len(X_train))
+    background_sample = (
+        X_train.sample(n=background_n, random_state=0).reset_index(drop=True)
+        if background_n > 0
+        else None
+    )
+
     model_metadata = Serialize_Trained_Model(
-        algorithm, selected_columns, target_column, model, r2, log_target=log_target
+        algorithm,
+        selected_columns,
+        target_column,
+        model,
+        r2,
+        log_target=log_target,
+        background_sample=background_sample,
     )
 
     if interactive:
