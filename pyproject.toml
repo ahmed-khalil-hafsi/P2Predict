@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "p2predict"
-version = "0.8.0"
+version = "0.9.0"
 description = "Parametric price benchmarking for procurement and engineering — exact SHAP attribution, conformal likely-range intervals, what-if comparisons, all CLI- and agent-callable."
 readme = "README.md"
 license = "MIT"

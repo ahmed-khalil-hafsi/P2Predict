@@ -1,3 +1,5 @@
+import os
+import sys
 from typing import Optional
 
 import click
@@ -15,6 +17,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from p2predict.cmdline_io import print_logo
 from p2predict.explain import Explanation, explain_row, top_drivers
 from p2predict.intervals import coverage_health, predict_interval
+from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
 from p2predict.trained_model_io import LoadModel
 from p2predict.whatif import (
     WhatIfResult,
@@ -62,19 +65,130 @@ def _coerce_features(features_df, feature_types):
     return features_df
 
 
+# ---------------------------------------------------------------------------
+# Error path that respects --json. Use this instead of
+# ``console.print(...); raise SystemExit(1)`` so an agent piping stdout
+# still gets a parseable JSON error document on failure.
+# ---------------------------------------------------------------------------
+
+
+def _abort(json_mode: bool, console, code: str, message: str) -> None:
+    if json_mode:
+        emit_error("predict", code, message)
+    console.print(f"Aborted: {message}", style="bold red")
+    raise SystemExit(1)
+
+
+# ---------------------------------------------------------------------------
+# Building blocks for the JSON result document. Each helper takes an
+# in-memory object from the model stack and turns it into the schema
+# shape defined in p2predict.json_output.
+# ---------------------------------------------------------------------------
+
+
+def _model_block(model_path: str, loaded: dict, target_name: str) -> dict:
+    return {
+        "path": model_path,
+        "algorithm": loaded.get("model_name"),
+        "target": target_name,
+        "version": loaded.get("p2predict_version"),
+        "log_target": bool(loaded.get("log_target", False)),
+        "features": list(loaded.get("features", [])),
+    }
+
+
+def _interval_per_row(intervals) -> list[dict]:
+    return [
+        {"low": float(ir.low), "prediction": float(ir.prediction), "high": float(ir.high)}
+        for ir in intervals
+    ]
+
+
+def _explanation_to_dict(explanation: Explanation) -> dict:
+    out = {
+        "baseline": float(explanation.baseline),
+        "prediction": float(explanation.prediction),
+        "log_target": bool(explanation.log_target),
+        "contributions": [
+            {"feature": k, "value": float(v)}
+            for k, v in sorted(
+                explanation.contributions.items(), key=lambda kv: abs(kv[1]), reverse=True
+            )
+        ],
+        "residual": float(explanation.residual),
+    }
+    if explanation.log_target and explanation.multiplicative_factors is not None:
+        out["multiplicative_factors"] = [
+            {"feature": k, "factor": float(v)}
+            for k, v in sorted(
+                explanation.multiplicative_factors.items(),
+                key=lambda kv: abs(np.log(kv[1])) if kv[1] > 0 else 0.0,
+                reverse=True,
+            )
+        ]
+        out["dollar_attribution"] = (
+            [
+                {"feature": k, "value": float(v)}
+                for k, v in sorted(
+                    explanation.dollar_attribution.items(),
+                    key=lambda kv: abs(kv[1]),
+                    reverse=True,
+                )
+            ]
+            if explanation.dollar_attribution is not None
+            else None
+        )
+    else:
+        out["multiplicative_factors"] = None
+        out["dollar_attribution"] = None
+    return out
+
+
+def _whatif_to_dict(result: WhatIfResult) -> dict:
+    out = {
+        "changes": {
+            col: {"from": base_val, "to": cf_val}
+            for col, (base_val, cf_val) in result.changes.items()
+        },
+        "base_prediction": float(result.base_prediction),
+        "counterfactual_prediction": float(result.counterfactual_prediction),
+        "delta": float(result.delta),
+        "delta_pct": float(result.delta_pct),
+        "log_target": bool(result.log_target),
+        "multiplicative_factor": (
+            float(result.multiplicative_factor)
+            if result.multiplicative_factor is not None
+            else None
+        ),
+        "changed_contributions": [
+            {"feature": k, "value": float(v)}
+            for k, v in sorted(
+                result.changed_contributions.items(), key=lambda kv: abs(kv[1]), reverse=True
+            )
+        ],
+        "interaction_contribution": float(result.interaction_contribution),
+        "interaction_is_material": bool(interaction_is_material(result)),
+        "base_interval": (
+            {"low": float(result.base_interval.low), "high": float(result.base_interval.high)}
+            if result.base_interval is not None
+            else None
+        ),
+        "cf_interval": (
+            {"low": float(result.cf_interval.low), "high": float(result.cf_interval.high)}
+            if result.cf_interval is not None
+            else None
+        ),
+    }
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Rich rendering helpers. Unchanged from prior versions — they only run
+# when --json is absent.
+# ---------------------------------------------------------------------------
+
+
 def _print_explanation(console, explanation: Explanation, target_name: str) -> None:
-    """Render a SHAP attribution table for a single-row prediction.
-
-    Non-log models: standard additive decomposition in target units. The
-    baseline plus the sum of contributions exactly reproduces the
-    prediction (within floating-point) per SHAP's local-accuracy axiom.
-
-    Log-target models: per-feature *multiplicative factors* are the
-    axiomatically clean per-feature attribution in price space (their
-    product times the baseline reproduces the prediction). We additionally
-    show an approximate dollar attribution — clearly labelled as approximate
-    — for procurement readability.
-    """
     table = Table(
         title="Prediction Explanation (SHAP)",
         show_header=True,
@@ -89,7 +203,6 @@ def _print_explanation(console, explanation: Explanation, target_name: str) -> N
             "[dim]Baseline (model expected value)[/dim]",
             f"{explanation.baseline:+.2f}",
         )
-        # Show contributions in decreasing |magnitude| so the drivers are obvious.
         ordered = sorted(
             explanation.contributions.items(), key=lambda kv: abs(kv[1]), reverse=True
         )
@@ -102,8 +215,6 @@ def _print_explanation(console, explanation: Explanation, target_name: str) -> N
         )
         console.print(table)
     else:
-        # Log-target case: lead with the strict (multiplicative) attribution
-        # and follow with the approximate dollar attribution.
         table.add_column("Feature")
         table.add_column("× Factor", justify="right")
         table.add_column("Effect", justify="right")
@@ -166,11 +277,6 @@ def _print_explanation(console, explanation: Explanation, target_name: str) -> N
 
 
 def _print_interval(console, interval_result, target_name: str, coverage_pct: int) -> None:
-    """Render one likely-range result. Deliberate language choices:
-    'likely range', natural-frequency framing (n in 10), no
-    'confidence interval' or 'alpha' anywhere — the audience is
-    procurement and engineering, not statisticians.
-    """
     out_of_10 = round(coverage_pct / 10)
     table = Table(
         title=f"Likely range ({coverage_pct}%)",
@@ -196,11 +302,6 @@ def _print_interval(console, interval_result, target_name: str, coverage_pct: in
 
 
 def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
-    """Render a what-if comparison. Designed for design-review use: lead
-    with the headline delta, then the side-by-side, then where the
-    change came from (per-feature SHAP attribution).
-    """
-    # Headline delta.
     headline_table = Table(
         title="What-if Analysis", show_header=True, header_style="bold magenta",
         expand=False,
@@ -241,7 +342,6 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
     headline_table.add_row(delta_label, delta_value, *([""] if result.base_interval is not None else []))
     console.print(headline_table)
 
-    # What changed.
     changes_table = Table(
         title="Changes applied",
         show_header=True, header_style="bold magenta", expand=False,
@@ -253,10 +353,6 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
         changes_table.add_row(col, str(base_val), str(cf_val))
     console.print(changes_table)
 
-    # Per-feature attribution of the delta. For non-log models, contributions
-    # are in target units and sum to the total delta (modulo floating point).
-    # For log-target models, we show multiplicative factors per change and
-    # note that they multiply to the total ratio.
     attribution_table = Table(
         title=("Drivers of the change (SHAP × factor)" if result.log_target
                else "Drivers of the change (SHAP)"),
@@ -270,11 +366,6 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
         attribution_table.add_column("Contribution", justify="right")
         attribution_table.add_column("Share", justify="right")
 
-    # Share normalised against the sum of *absolute* contributions so the
-    # shares add to ~100% even when the changed and interaction terms
-    # partially cancel. Sharing against the net delta produced visually
-    # confusing values (e.g. one feature at +160% because another row was
-    # negative); the absolute-normalisation reads cleanly in a meeting.
     abs_total = sum(abs(v) for v in result.changed_contributions.values()) + abs(
         result.interaction_contribution
     )
@@ -303,8 +394,6 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
                 f"{share:.0f}%",
             )
 
-    # Interaction effects row — only when material (>5% of total) so we
-    # don't clutter the table with floating-point noise.
     if interaction_is_material(result):
         if result.log_target and result.interaction_multiplicative_factor is not None:
             factor = result.interaction_multiplicative_factor
@@ -358,54 +447,70 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
                    'CSV row 0 from -i) and compares it to a counterfactual '
                    'where one or more features change. Same format as -p, '
                    'e.g. --whatif "Region:EU,Supplier:B".')
+@click.option("--json", "json_mode", is_flag=True, default=False,
+              help="Emit machine-readable JSON to stdout instead of "
+                   "Rich-formatted tables. Useful for agents and scripts. "
+                   "See p2predict.json_output for the schema.")
 def main(model, predict_using, predict_file, explain_flag, interval_coverage,
-         whatif_spec):
-    console = Console()
+         whatif_spec, json_mode):
+    # Under --json, redirect Rich's console to /dev/null so any
+    # console.print() that escapes a guard does not corrupt the JSON
+    # document on stdout. The schema is the contract; this is the belt.
+    if json_mode:
+        console = Console(file=open(os.devnull, "w"))
+    else:
+        console = Console()
 
-    print("")
-    print_logo()
-    print("")
+    if not json_mode:
+        print("")
+        print_logo()
+        print("")
 
     if not model:
+        if json_mode:
+            _abort(json_mode, console, "missing_model",
+                   "--model (or -m) is required when using --json.")
         model = questionary.path("Enter model file path (.model)").ask()
         if not model:
-            console.print("Aborted: please enter the path to the trained model.", style="bold red")
-            raise SystemExit(1)
+            _abort(json_mode, console, "missing_model",
+                   "please enter the path to the trained model.")
 
     loaded = LoadModel(model)
     trained = loaded["model"]
     if not trained:
-        console.print("Aborted: the selected model is corrupt.", style="bold red")
-        raise SystemExit(1)
+        _abort(json_mode, console, "corrupt_model",
+               "the selected model is corrupt.")
 
-    console.print(f"'{model}' successfully loaded.", style="bold white")
-    if loaded.get("log_target"):
-        console.print("(log-target transform active)", style="italic")
-    print("")
+    if not json_mode:
+        console.print(f"'{model}' successfully loaded.", style="bold white")
+        if loaded.get("log_target"):
+            console.print("(log-target transform active)", style="italic")
+        print("")
 
     inner = _inner_pipeline(trained)
     feature_types, all_categories = _extract_feature_info(inner)
 
-    table = Table(title="Model Features", show_header=True, header_style="bold magenta")
-    table.add_column("Feature", style="dim", width=20)
-    table.add_column("Type", justify="right")
-    for feature, feature_type in feature_types.items():
-        table.add_row(feature, feature_type)
-    console.print(table)
+    if not json_mode:
+        table = Table(title="Model Features", show_header=True, header_style="bold magenta")
+        table.add_column("Feature", style="dim", width=20)
+        table.add_column("Type", justify="right")
+        for feature, feature_type in feature_types.items():
+            table.add_row(feature, feature_type)
+        console.print(table)
 
-    console.print(f"\nTarget feature: [bold blue]'{loaded['target_feature']}'[/bold blue]")
+        console.print(f"\nTarget feature: [bold blue]'{loaded['target_feature']}'[/bold blue]")
 
-    if all_categories:
-        console.print("\nCategorical Features:")
-        for feature, categories in all_categories.items():
-            console.print(f"[bold]{feature}[/bold]")
-            for category in categories:
-                console.print(f"  • {category}")
-            console.print("")
-    else:
-        console.print("No categorical features to display.", style="italic")
+        if all_categories:
+            console.print("\nCategorical Features:")
+            for feature, categories in all_categories.items():
+                console.print(f"[bold]{feature}[/bold]")
+                for category in categories:
+                    console.print(f"  • {category}")
+                console.print("")
+        else:
+            console.print("No categorical features to display.", style="italic")
 
-    console.print("\n" + "=" * 50 + "\n")
+        console.print("\n" + "=" * 50 + "\n")
 
     background = loaded.get("background_sample")
     target_name = loaded["target_feature"]
@@ -417,51 +522,70 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
     if interval_coverage is not None:
         warning = coverage_health(calibration)
         if warning and (calibration is None or calibration.get("n_calibration", 0) == 0):
-            console.print(
-                f"Likely range disabled: {warning}.", style="italic yellow"
-            )
+            if not json_mode:
+                console.print(
+                    f"Likely range disabled: {warning}.", style="italic yellow"
+                )
             interval_coverage = None
         elif warning:
             interval_soft_warning = warning
 
-    # --whatif is inline-only (needs a single base scenario). Reject it
-    # in batch mode now so the user gets a clear message rather than a
-    # cryptic failure later.
+    # --whatif is inline-only (needs a single base scenario).
     if whatif_spec is not None and predict_file:
-        console.print(
-            "Aborted: --whatif is not supported in batch mode (-i). "
-            "Use -p to specify a base scenario.",
-            style="bold red",
-        )
-        raise SystemExit(1)
+        _abort(json_mode, console, "whatif_in_batch",
+               "--whatif is not supported in batch mode (-i). "
+               "Use -p to specify a base scenario.")
+
+    # Build the JSON response throughout. Mode-dependent blocks get
+    # added as we go; we emit the whole thing at the end under --json.
+    response: dict = {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "command": "predict",
+        "model": _model_block(model, loaded, target_name),
+    }
 
     features_dict = {}
     if predict_using:
+        response["mode"] = "inline"
         features_dict = dict(item.split(":") for item in predict_using.split(","))
         features_df = _coerce_features(pd.DataFrame([features_dict]), feature_types)
         y = trained.predict(features_df)
         features_df["prediction"] = y
-        console.print(Panel(Pretty(features_df), title="Prediction"))
+        if not json_mode:
+            console.print(Panel(Pretty(features_df), title="Prediction"))
+
+        response["predictions"] = [
+            {"input": features_dict, "prediction": float(y[0])}
+        ]
+
         if interval_coverage is not None:
-            print("")
             [interval_result] = predict_interval(
                 trained, features_df[loaded["features"]],
                 calibration, coverage=interval_coverage / 100.0,
             )
-            _print_interval(console, interval_result, target_name, interval_coverage)
-            if interval_soft_warning:
-                console.print(f"Note: {interval_soft_warning}.", style="italic yellow")
+            if not json_mode:
+                print("")
+                _print_interval(console, interval_result, target_name, interval_coverage)
+                if interval_soft_warning:
+                    console.print(f"Note: {interval_soft_warning}.", style="italic yellow")
+            response["interval"] = {
+                "coverage": interval_coverage / 100.0,
+                "per_row": _interval_per_row([interval_result]),
+                "soft_warning": interval_soft_warning,
+            }
+
         if explain_flag:
-            print("")
             explanation = explain_row(trained, features_df[loaded["features"]], background)
-            _print_explanation(console, explanation, target_name)
+            if not json_mode:
+                print("")
+                _print_explanation(console, explanation, target_name)
+            response["explanation"] = [_explanation_to_dict(explanation)]
+
         if whatif_spec is not None:
-            print("")
             try:
                 changes = parse_changes(whatif_spec)
             except ValueError as exc:
-                console.print(f"Aborted: {exc}", style="bold red")
-                raise SystemExit(1)
+                _abort(json_mode, console, "bad_whatif", str(exc))
             try:
                 whatif_result = compute_whatif(
                     trained,
@@ -473,15 +597,26 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
                     coverage=(interval_coverage or 90) / 100.0,
                 )
             except ValueError as exc:
-                console.print(f"Aborted: {exc}", style="bold red")
-                raise SystemExit(1)
-            _print_whatif(console, whatif_result, target_name)
+                _abort(json_mode, console, "bad_whatif", str(exc))
+            if not json_mode:
+                print("")
+                _print_whatif(console, whatif_result, target_name)
+            response["whatif"] = _whatif_to_dict(whatif_result)
 
     elif predict_file:
+        response["mode"] = "batch"
         features_df = pd.read_csv(predict_file)
         features_df = _coerce_features(features_df, feature_types)
         y = trained.predict(features_df)
         features_df[target_name] = y
+
+        per_row = [
+            {"input": features_df[loaded["features"]].iloc[i].to_dict(),
+             "prediction": float(y[i])}
+            for i in range(len(features_df))
+        ]
+        response["predictions"] = per_row
+
         if interval_coverage is not None:
             intervals = predict_interval(
                 trained, features_df[loaded["features"]],
@@ -489,16 +624,19 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
             )
             features_df[f"{target_name}_low"] = [ir.low for ir in intervals]
             features_df[f"{target_name}_high"] = [ir.high for ir in intervals]
+            response["interval"] = {
+                "coverage": interval_coverage / 100.0,
+                "per_row": _interval_per_row(intervals),
+                "soft_warning": interval_soft_warning,
+            }
         if explain_flag:
-            # Add top-3 driver columns. We could batch-explain in one shot,
-            # but per-row keeps the API simple and the call count is tiny in
-            # the typical procurement RFQ batch (tens to low hundreds).
             top1, top2, top3 = [], [], []
+            per_row_explanations = []
             for i in range(len(features_df)):
                 row = features_df.iloc[[i]][loaded["features"]]
                 ex = explain_row(trained, row, background)
+                per_row_explanations.append(_explanation_to_dict(ex))
                 drivers = top_drivers(ex, n=3)
-                # Format: "Feature (factor)" for log-target, "Feature (±value)" otherwise.
                 formatted = []
                 for col, value in drivers:
                     if ex.log_target:
@@ -514,10 +652,22 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
             features_df["top1_driver"] = top1
             features_df["top2_driver"] = top2
             features_df["top3_driver"] = top3
+            response["explanation"] = per_row_explanations
+
         features_df.to_csv(predict_file, index=False)
-        console.print(Panel(Pretty(features_df), title="Prediction"))
+        response["batch"] = {
+            "csv_path": str(predict_file), "n_rows": int(len(features_df)),
+        }
+        if not json_mode:
+            console.print(Panel(Pretty(features_df), title="Prediction"))
 
     else:
+        # Interactive mode is incompatible with --json.
+        if json_mode:
+            _abort(json_mode, console, "missing_input",
+                   "interactive mode is not supported with --json. "
+                   "Use -p (inline) or -i (batch).")
+        response["mode"] = "interactive"
         for feature in loaded["features"]:
             if feature in all_categories:
                 value = questionary.select(
@@ -527,8 +677,8 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
             else:
                 value = questionary.text(f"Enter a numeric value for {feature}:").ask()
             if not value:
-                console.print(f"Aborted: please enter a value for {feature}.", style="bold red")
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_input",
+                       f"please enter a value for {feature}.")
             features_dict[feature] = value
 
         features_df = _coerce_features(pd.DataFrame([features_dict]), feature_types)
@@ -562,6 +712,8 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
             )
             _print_explanation(console, explanation, target_name)
 
+    if json_mode:
+        emit(response)
     return y
 
 

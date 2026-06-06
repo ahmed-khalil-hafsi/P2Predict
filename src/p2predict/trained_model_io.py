@@ -5,10 +5,10 @@ import sklearn
 
 from p2predict.input_checks import check_csv_sanity
 
-# v0.8 makes P2Predict pip-installable as the `p2predict` package and
-# exposes a public Python API surface. No persisted metadata schema
+# v0.9 adds `--json` to both CLIs, emitting a stable schema 1.0 response
+# instead of Rich-formatted tables when set. No persisted metadata schema
 # change; older models load unchanged.
-P2PREDICT_VERSION = "v0.8"
+P2PREDICT_VERSION = "v0.9"
 
 
 def SaveModel(model_metadata, model_name):

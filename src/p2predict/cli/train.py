@@ -1,9 +1,20 @@
 import datetime
+import os
+import sys
+
+# Check for --json *before* starting any module-level Halo spinner or
+# Rich output — under JSON mode stdout must be exclusively the response
+# document. Light-touch argv sniffing is fine here because Click won't
+# rewrite "--json" in any way that breaks this check.
+_JSON_MODE_FROM_ARGV = "--json" in sys.argv
 
 from halo import Halo
 
-spinner = Halo(text="Loading P2Predict", spinner="pong")
-spinner.start()
+if not _JSON_MODE_FROM_ARGV:
+    spinner = Halo(text="Loading P2Predict", spinner="pong")
+    spinner.start()
+else:
+    spinner = None
 
 import click
 import pandas as pd
@@ -14,6 +25,7 @@ from rich.prompt import Prompt
 from p2predict import plotting
 from p2predict.cmdline_io import print_feature_stats, print_feature_weights, print_logo
 from p2predict.hpo_training import hyper_parameter_tuning
+from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
 from p2predict.model_evals import evaluate_model
 from p2predict.intervals import compute_calibration_residuals
 from p2predict.outliers import (
@@ -36,9 +48,49 @@ from p2predict.training import (
 )
 from p2predict.ui_console import print_dataframe
 
-console = Console()
+if spinner is not None:
+    spinner.stop()
 
-spinner.stop()
+
+def _abort(json_mode: bool, console, code: str, message: str) -> None:
+    """Same shape as predict.py — emit JSON error or red Rich abort."""
+    if json_mode:
+        emit_error("train", code, message)
+    console.print(f"Aborted: {message}", style="bold red")
+    raise SystemExit(1)
+
+
+def _outlier_summary_block(summary: dict) -> dict:
+    """Coerce the target-side outlier summary into JSON-shaped values."""
+    return {
+        "policy": summary.get("policy"),
+        "applied": summary.get("applied"),
+        "n_outliers": int(summary.get("n_outliers", 0)),
+        "n_total": int(summary.get("n_total", 0)),
+        "lower": (None if pd.isna(summary.get("lower", float("nan")))
+                  else float(summary.get("lower"))),
+        "upper": (None if pd.isna(summary.get("upper", float("nan")))
+                  else float(summary.get("upper"))),
+    }
+
+
+def _feature_outlier_summary_block(summary: dict) -> dict:
+    return {
+        "policy": summary.get("policy"),
+        "applied": summary.get("applied"),
+        "n_outliers_total": int(summary.get("n_outliers_total", 0)),
+        "n_total": int(summary.get("n_total", 0)),
+        "per_column": {
+            col: {
+                "n_outliers": int(stats.get("n_outliers", 0)),
+                "lower": (None if pd.isna(stats.get("lower", float("nan")))
+                          else float(stats.get("lower"))),
+                "upper": (None if pd.isna(stats.get("upper", float("nan")))
+                          else float(stats.get("upper"))),
+            }
+            for col, stats in summary.get("per_column", {}).items()
+        },
+    }
 
 
 @click.command()
@@ -74,35 +126,53 @@ spinner.stop()
               help="Name of a date/time column. When given, the train/test split and CV "
                    "become chronological (TimeSeriesSplit), which prevents look-ahead bias "
                    "for time-ordered data. The column is excluded from features.")
+@click.option("--json", "json_mode", is_flag=True, default=False,
+              help="Emit machine-readable JSON to stdout instead of "
+                   "Rich-formatted output. Useful for agents and scripts. "
+                   "See p2predict.json_output for the schema.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
-          budget, tune, outliers, feature_outliers, time_column):
+          budget, tune, outliers, feature_outliers, time_column, json_mode):
 
-    print("")
-    print_logo()
-    print("")
+    # Redirect Rich to /dev/null under --json so any console.print that
+    # escapes a guard cannot corrupt the JSON document on stdout.
+    if json_mode:
+        console = Console(file=open(os.devnull, "w"))
+    else:
+        console = Console()
+
+    response: dict = {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "command": "train",
+    }
+
+    if not json_mode:
+        print("")
+        print_logo()
+        print("")
 
     mode_label = "Expert mode" if expert else "Auto mode"
-    console.print(f"Welcome to P2Predict! '{mode_label}' is active.", style="bold blue")
+    response["mode"] = "expert" if expert else "auto"
+    if not json_mode:
+        console.print(f"Welcome to P2Predict! '{mode_label}' is active.", style="bold blue")
+
+    # Interactive mode is incompatible with --json (it would prompt).
+    if json_mode and interactive:
+        _abort(json_mode, console, "interactive_with_json",
+               "interactive mode is not supported with --json.")
 
     if interactive:
         if not input:
             input = questionary.path("Enter CSV file path").ask()
             if not input:
-                console.print("Aborted: You must provide an input file.", style="bold red")
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_input",
+                       "You must provide an input file.")
     else:
         if not input:
-            console.print(
-                "Aborted: You must provide --input. Use -c for interactive mode.",
-                style="bold red",
-            )
-            raise SystemExit(1)
+            _abort(json_mode, console, "missing_input",
+                   "You must provide --input. Use -c for interactive mode.")
         if not target:
-            console.print(
-                "Aborted: You must provide --target. Use -c for interactive mode.",
-                style="bold red",
-            )
-            raise SystemExit(1)
+            _abort(json_mode, console, "missing_target",
+                   "You must provide --target. Use -c for interactive mode.")
 
     if expert:
         if interactive and not algorithm:
@@ -110,58 +180,51 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 "Please choose an ML algorithm:", choices=list(ALGORITHMS)
             ).ask()
             if not algorithm:
-                console.print("Aborted: You must select a training algorithm.", style="bold red")
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_algorithm",
+                       "You must select a training algorithm.")
         elif not interactive:
             if not algorithm:
-                console.print(
-                    "Aborted: You must pre-select --algorithm in expert mode (or use -c).",
-                    style="bold red",
-                )
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_algorithm",
+                       "You must pre-select --algorithm in expert mode (or use -c).")
             if not training_features:
-                console.print(
-                    "Aborted: You must provide --training_features in expert mode (or use -c).",
-                    style="bold red",
-                )
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_features",
+                       "You must provide --training_features in expert mode (or use -c).")
 
     data = load_csv_file(input)
-    print("")
-    console.print(
-        f"Training file '{input}' imported into P2Predict > "
-        f"{data.shape[0]} rows  x {data.shape[1]} columns loaded."
-    )
-    print("")
+    rows_loaded = int(data.shape[0])
+
+    if not json_mode:
+        print("")
+        console.print(
+            f"Training file '{input}' imported into P2Predict > "
+            f"{data.shape[0]} rows  x {data.shape[1]} columns loaded."
+        )
+        print("")
 
     if not target:
         target = questionary.select("Enter target column", choices=data.columns.tolist()).ask()
         if not target:
-            console.print("Aborted: A target feature is required.", style="bold red")
-            raise SystemExit(1)
+            _abort(json_mode, console, "missing_target",
+                   "A target feature is required.")
 
     if time_column is not None and time_column not in data.columns:
-        console.print(
-            f"Aborted: --time-column '{time_column}' not found in CSV.", style="bold red"
-        )
-        raise SystemExit(1)
+        _abort(json_mode, console, "bad_time_column",
+               f"--time-column '{time_column}' not found in CSV.")
     if time_column is not None:
         try:
             data[time_column] = pd.to_datetime(data[time_column])
-        except Exception as exc:  # noqa: BLE001 — surface parse failures verbatim
+        except Exception as exc:
+            _abort(json_mode, console, "bad_time_column",
+                   f"could not parse --time-column '{time_column}': {exc}")
+        if not json_mode:
             console.print(
-                f"Aborted: could not parse --time-column '{time_column}': {exc}",
-                style="bold red",
+                f"Time-aware mode: train/test split and CV will be chronological on "
+                f"'{time_column}'.",
+                style="bold blue",
             )
-            raise SystemExit(1)
-        console.print(
-            f"Time-aware mode: train/test split and CV will be chronological on "
-            f"'{time_column}'.",
-            style="bold blue",
-        )
 
     data, outlier_summary = apply_outlier_policy(data, target, policy=outliers)
-    if outlier_summary["n_outliers"] > 0:
+    if outlier_summary["n_outliers"] > 0 and not json_mode:
         pct = 100.0 * outlier_summary["n_outliers"] / max(outlier_summary["n_total"], 1)
         action_msg = {
             "keep": "kept as-is",
@@ -177,17 +240,13 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         )
         print("")
 
-    # Feature-side outlier check on numerical features only. We exclude the
-    # target (already handled above) and the time column (it's a date, not
-    # a model feature). Run before low-info detection so the IQR window
-    # there isn't biased by extreme inputs.
     feature_outlier_candidates = [
         c for c in data.columns if c != target and c != time_column
     ]
     data, feature_outlier_summary = apply_feature_outlier_policy(
         data, feature_outlier_candidates, policy=feature_outliers
     )
-    if feature_outlier_summary["n_outliers_total"] > 0:
+    if feature_outlier_summary["n_outliers_total"] > 0 and not json_mode:
         pct = (
             100.0 * feature_outlier_summary["n_outliers_total"]
             / max(feature_outlier_summary["n_total"], 1)
@@ -198,7 +257,6 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             "drop": "rows dropped",
             "winsorize": "values winsorized per column",
         }[feature_outliers]
-        # Show only columns that actually had outliers — the others are noise.
         affected = {
             col: stats for col, stats in feature_outlier_summary["per_column"].items()
             if stats["n_outliers"] > 0
@@ -214,17 +272,16 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         )
         print("")
 
-    # Exclude the time column from feature analysis — it isn't a training feature.
     feature_data = data.drop(columns=[time_column]) if time_column else data
-
     high_vars = find_high_variation_features(feature_data)
     low_vars = find_no_variation_features(feature_data)
 
-    print("")
-    console.print("Low-information features detected:")
-    console.print(f"No information content: {low_vars}")
-    console.print(f"High variation (potentially noisy): {high_vars}")
-    print("")
+    if not json_mode:
+        print("")
+        console.print("Low-information features detected:")
+        console.print(f"No information content: {low_vars}")
+        console.print(f"High variation (potentially noisy): {high_vars}")
+        print("")
 
     if interactive and (low_vars or high_vars):
         to_remove = questionary.checkbox(
@@ -233,43 +290,39 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         if to_remove:
             data = data.drop(to_remove, axis=1)
     elif low_vars:
-        # Non-interactive: always drop zero-variance features (they can't help).
         data = data.drop(low_vars, axis=1)
 
-    # Refresh after possible drops so downstream feature analysis matches.
     feature_data = data.drop(columns=[time_column]) if time_column else data
 
     if not training_features:
         if expert:
             best_features_ranked = get_most_predictable_features(feature_data, target)
-            console.print("Best features detected for prediction:", style="bold white")
-            print("")
-            print_dataframe(best_features_ranked)
+            if not json_mode:
+                console.print("Best features detected for prediction:", style="bold white")
+                print("")
+                print_dataframe(best_features_ranked)
 
             options_list = [c for c in feature_data.columns.tolist() if c != target]
             selected_columns = questionary.checkbox(
                 "Select the features for training: ", choices=options_list
             ).ask()
             if not selected_columns:
-                console.print("Aborted: You must select training features.", style="bold red")
-                raise SystemExit(1)
+                _abort(json_mode, console, "missing_features",
+                       "You must select training features.")
         else:
             ranked = get_most_predictable_features(feature_data, target, output_only_headers=True)
-            # In auto mode we let the model selector see more signal than just
-            # the top two — drop only the lowest-importance tail.
             selected_columns = ranked.head(max(2, min(len(ranked), 6))).tolist()
-            console.print(
-                f"Auto-selected features for training: {selected_columns}", style="bold blue"
-            )
-            print("")
+            if not json_mode:
+                console.print(
+                    f"Auto-selected features for training: {selected_columns}", style="bold blue"
+                )
+                print("")
     else:
         requested = [c.strip() for c in training_features.split(",")]
         missing = [c for c in requested if c not in data.columns]
         if missing:
-            console.print(
-                f"Aborted: requested features not in CSV: {missing}", style="bold red"
-            )
-            raise SystemExit(1)
+            _abort(json_mode, console, "unknown_features",
+                   f"requested features not in CSV: {missing}")
         selected_columns = requested
 
     target_column = target
@@ -285,102 +338,116 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     if expert and interactive:
         if questionary.confirm("Plot histograms of the selected features?").ask():
             plotting.plot_histograms(data[selected_columns])
-        print("")
+        if not json_mode:
+            print("")
 
-    if expert:
+    if expert and not json_mode:
         console.print("Numerical feature analysis:", style="bold white")
         print("")
         print_feature_stats(data[list(numerical_cols)])
         print("")
 
+    scores: dict = {}
     if expert:
-        # Decide HPO from flag or (in interactive) prompt.
         if tune is None and interactive:
             tune = questionary.confirm(
                 "Run hyperparameter tuning (slower, usually higher accuracy)?"
             ).ask()
         tune = bool(tune)
 
-        spinner = Halo(
-            text=f"Training {algorithm} (tune={tune}, budget={budget})...", spinner="pong"
-        )
-        spinner.start()
+        if not json_mode:
+            inner_spinner = Halo(
+                text=f"Training {algorithm} (tune={tune}, budget={budget})...", spinner="pong"
+            )
+            inner_spinner.start()
+        else:
+            inner_spinner = None
+
         model, feature_weights, log_target = start_training(
             X_train, y_train, numerical_cols, categorical_cols, algorithm,
             budget=budget, tune=tune, time_aware=time_aware,
         )
-        spinner.stop()
-
-        print_feature_weights(feature_weights)
-        print("")
-        if log_target:
-            console.print(
-                "Note: log-target transform applied (target is positive and skewed).",
-                style="italic",
-            )
+        if inner_spinner is not None:
+            inner_spinner.stop()
+            print_feature_weights(feature_weights)
+            print("")
+            if log_target:
+                console.print(
+                    "Note: log-target transform applied (target is positive and skewed).",
+                    style="italic",
+                )
     else:
-        spinner = Halo(
-            text=f"Auto-mode model selection (budget={budget})...", spinner="pong"
-        )
-        spinner.start()
+        if not json_mode:
+            inner_spinner = Halo(
+                text=f"Auto-mode model selection (budget={budget})...", spinner="pong"
+            )
+            inner_spinner.start()
+        else:
+            inner_spinner = None
+
         model, algorithm, scores, log_target = auto_train(
             X_train, y_train, numerical_cols, categorical_cols,
             budget=budget, time_aware=time_aware,
         )
-        spinner.stop()
-        console.print(f"Selected best algorithm: [bold]{algorithm}[/bold]")
-        for algo, score in scores.items():
-            console.print(f"  {algo}: CV R² = {round(score, 3)}")
-        if log_target:
-            console.print(
-                "Note: log-target transform applied (target is positive and skewed).",
-                style="italic",
-            )
+        if inner_spinner is not None:
+            inner_spinner.stop()
+            console.print(f"Selected best algorithm: [bold]{algorithm}[/bold]")
+            for algo, score in scores.items():
+                console.print(f"  {algo}: CV R² = {round(score, 3)}")
+            if log_target:
+                console.print(
+                    "Note: log-target transform applied (target is positive and skewed).",
+                    style="italic",
+                )
 
-    spinner.succeed("Training finished.")
-    print("")
+    if inner_spinner is not None:
+        inner_spinner.succeed("Training finished.")
+        print("")
 
     mae, r2, p_value, rmse = evaluate_model(X_test, y_test, model)
-    if expert:
-        console.print("Model Key Performance Metrics:", style="bold white")
-        console.print(f"Model R² Score: {round(r2, 2)}")
-        console.print(f"Mean Absolute Error: {round(mae, 2)}")
-        console.print(f"RMSE: {round(rmse, 2)}")
-        console.print(f"Residual bias p-value: {round(p_value, 4)}")
-        print("")
+
+    # Quality label, computed once and used in both the Rich and JSON paths.
+    r2_score_clamped = min(max(r2, 0.0), 1.0)
+    composite = r2_score_clamped * 100
+    if composite > 80:
+        quality_label = "Excellent"
+    elif composite > 60:
+        quality_label = "Good"
     else:
-        console.print("Model Performance Summary:", style="bold white")
-        r2_score_clamped = min(max(r2, 0.0), 1.0)
-        composite = r2_score_clamped * 100
+        quality_label = "Needs Improvement"
 
-        if composite > 80:
-            quality, style = "Excellent", "bold green"
-        elif composite > 60:
-            quality, style = "Good", "bold yellow"
+    if not json_mode:
+        if expert:
+            console.print("Model Key Performance Metrics:", style="bold white")
+            console.print(f"Model R² Score: {round(r2, 2)}")
+            console.print(f"Mean Absolute Error: {round(mae, 2)}")
+            console.print(f"RMSE: {round(rmse, 2)}")
+            console.print(f"Residual bias p-value: {round(p_value, 4)}")
+            print("")
         else:
-            quality, style = "Needs Improvement", "bold red"
-
-        console.print(f"Model Quality: {quality}", style=style)
-        console.print(f"R² Score: {round(r2 * 100, 1)}%")
-        console.print(f"Mean Absolute Error: {round(mae, 2)}")
-        console.print(f"RMSE: {round(rmse, 2)}")
-
-        if p_value < 0.05:
-            console.print(
-                "Residuals show systematic bias — consider expert mode for tuning.",
-                style="italic bold yellow",
-            )
-        if quality == "Needs Improvement":
-            console.print(
-                "Recommendation: try expert mode with --tune, or collect more data.",
-                style="bold",
-            )
-        print("")
+            console.print("Model Performance Summary:", style="bold white")
+            style = {"Excellent": "bold green",
+                     "Good": "bold yellow",
+                     "Needs Improvement": "bold red"}[quality_label]
+            console.print(f"Model Quality: {quality_label}", style=style)
+            console.print(f"R² Score: {round(r2 * 100, 1)}%")
+            console.print(f"Mean Absolute Error: {round(mae, 2)}")
+            console.print(f"RMSE: {round(rmse, 2)}")
+            if p_value < 0.05:
+                console.print(
+                    "Residuals show systematic bias — consider expert mode for tuning.",
+                    style="italic bold yellow",
+                )
+            if quality_label == "Needs Improvement":
+                console.print(
+                    "Recommendation: try expert mode with --tune, or collect more data.",
+                    style="bold",
+                )
+            print("")
 
     if expert and interactive:
         if questionary.confirm("Generate the model quality PDF report?").ask():
             file_name = Prompt.ask("Enter PDF name (e.g., report.pdf)")
-            # Use the true holdout so the report reflects genuine generalization.
             y_pred_test = model.predict(X_test)
             try:
                 feat_imp = extract_feature_importances(model, X_train)
@@ -396,15 +463,15 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 training_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
                 feature_importances=feat_imp,
             )
-            print("")
+            if not json_mode:
+                print("")
 
     if expert and interactive and not tune:
-        # Offer post-hoc HPO if the user skipped --tune up front.
         if questionary.confirm(
             "Run hyperparameter tuning now to try for a better model?"
         ).ask():
-            spinner = Halo("Tuning...", spinner="pong")
-            spinner.start()
+            tune_spinner = Halo("Tuning...", spinner="pong")
+            tune_spinner.start()
             tuned_model, tuned_score, log_target = hyper_parameter_tuning(
                 X_train=X_train,
                 y_train=y_train,
@@ -414,7 +481,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 budget=budget,
                 time_aware=time_aware,
             )
-            spinner.stop()
+            tune_spinner.stop()
             mae_t, r2_t, _, rmse_t = evaluate_model(X_test, y_test, tuned_model)
             console.print(
                 f"Tuned R²={round(r2_t, 3)} (was {round(r2, 3)}), "
@@ -428,23 +495,14 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 console.print("Tuned model did not improve; keeping original.", style="italic")
             print("")
 
-    # Persist a small sample of raw training rows alongside the model so
-    # SHAP's LinearExplainer can estimate E[x_i] at explain time without
-    # access to the original CSV. Capped at 100 rows — the variance of the
-    # mean is dominated long before that and the file-size cost stays
-    # negligible.
+    # Background sample for SHAP's LinearExplainer + conformal calibration
+    # for likely-range intervals are persisted alongside the model.
     background_n = min(100, len(X_train))
     background_sample = (
         X_train.sample(n=background_n, random_state=0).reset_index(drop=True)
         if background_n > 0
         else None
     )
-
-    # Calibrate the conformal interval on the test residuals. This is the
-    # same test set the R²/MAE/RMSE metrics above are computed on — using
-    # it twice is statistically sound (we never select the model based on
-    # these residuals; we just measure them) and avoids burning another
-    # split of the training data on a separate calibration set.
     calibration = compute_calibration_residuals(model, X_test, y_test)
 
     model_metadata = Serialize_Trained_Model(
@@ -458,16 +516,66 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         calibration=calibration,
     )
 
+    # Feature importances for the response payload. Don't fail the train
+    # CLI if extraction misbehaves — surface it as missing instead.
+    try:
+        importances = extract_feature_importances(model, X_train)
+        importances_block = [
+            {"feature": k, "importance": float(v)} for k, v in importances
+        ]
+    except Exception:
+        importances_block = []
+
+    saved_model_path: str | None = None
     if interactive:
         if questionary.confirm("Save the model?").ask():
             model_name = questionary.text("Enter model name (e.g., my_model.model)").ask()
             SaveModel(model_metadata, model_name)
+            saved_model_path = model_name
     else:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         model_name = f"models/{algorithm}_{target}_{timestamp}.model"
         SaveModel(model_metadata, model_name)
-        console.print(f"Model saved to {model_name}", style="bold green")
-    print("")
+        saved_model_path = model_name
+        if not json_mode:
+            console.print(f"Model saved to {model_name}", style="bold green")
+
+    if not json_mode:
+        print("")
+        return
+
+    # ---- JSON path ----
+    response.update({
+        "input": {
+            "csv_path": str(input),
+            "rows_loaded": rows_loaded,
+            "rows_after_outlier_handling": int(data.shape[0]),
+            "target": target,
+        },
+        "time_column": time_column,
+        "outliers": {
+            "target": _outlier_summary_block(outlier_summary),
+            "features": _feature_outlier_summary_block(feature_outlier_summary),
+        },
+        "low_info_features": {
+            "no_information": list(low_vars),
+            "high_variation": list(high_vars),
+        },
+        "features_selected": list(selected_columns),
+        "algorithm_selected": algorithm,
+        "log_target": bool(log_target),
+        "cv_scores": {k: float(v) for k, v in scores.items()} if scores else {},
+        "feature_importances": importances_block,
+        "evaluation": {
+            "r2": float(r2),
+            "mae": float(mae),
+            "rmse": float(rmse),
+            "residual_bias_p_value": float(p_value),
+            "quality_label": quality_label,
+        },
+        "model_path": saved_model_path,
+    })
+    emit(response)
 
 
 if __name__ == "__main__":
