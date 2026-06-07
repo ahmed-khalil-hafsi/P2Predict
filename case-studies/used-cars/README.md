@@ -24,10 +24,11 @@ Three reasons:
    identical to what you'd want on a procurement BOM; the *vocabulary* is
    one everyone already speaks.
 2. **You don't need a category-manager license to sanity-check it.** When
-   the model says a 2019 Civic with 45k miles is worth $17k, you have
-   intuition. When it says a 2008 F-150 with 180k miles is worth $10k, you
-   have intuition. When it confidently picks $55k for a 2021 Tesla, you
-   know to look harder — and the model's *own* uncertainty band agrees.
+   the model says a 2019 Civic with 45k miles is worth $16k, you have
+   intuition. When it says a 2008 F-150 with 180k miles is worth $9k, you
+   have intuition. When the model predicts $42k for a 2021 Tesla *and
+   gives it the tightest band of the three* — you know it's picking up
+   the premium-brand signal correctly.
 3. **It surfaces the methods that matter on harder datasets.** Conformal
    intervals, SHAP attribution in log space, what-if comparisons,
    outlier-policy choices — all of them earn their keep on this dataset
@@ -64,12 +65,13 @@ audit every claim, line by line.
 
 ### What we built (in one paragraph)
 
-We trained a P2Predict model on **80,000 used-vehicle listings** from
+We trained a P2Predict model on **78,398 used-vehicle listings** from
 the Craigslist Cars+Trucks dataset (CC0, 426k total rows in the
-source). The trainer chose **Ridge** as the best algorithm by
-cross-validation, activated the **log-target wrap automatically** (prices
-are right-skewed), and produced a model that scores **R² 0.634 / MAE
-$5,381** on held-out data — quality label "Good." The two charts and
+source). The trainer chose **Random Forest** as the best algorithm by
+cross-validation (CV R² 0.749, beating XGBoost 0.732 and Ridge 0.668),
+activated the **log-target wrap automatically** (prices are
+right-skewed), and produced a model that scores **R² 0.781 / MAE
+$3,658** on held-out data — quality label "Good." The two charts and
 three example listings below come straight off that model. Numbers,
 intervals, and SHAP attributions are reproducible by the commands in
 the [Reproducing](#reproducing-this-case-study) section. The
@@ -81,55 +83,56 @@ the [Reproducing](#reproducing-this-case-study) section. The
 
 ![Honest uncertainty across three listings](assets/intervals_comparison.png)
 
-| Listing | Predicted | 90% likely range |
-|---|---:|---|
-| 2019 Honda sedan, 45,000 mi, excellent, CA | **$17,341** | $9,001 – $33,409 |
-| 2008 Ford pickup, 180,000 mi, good, 4wd, TX | **$10,009** | $5,195 – $19,284 |
-| 2021 Tesla sedan, 22,000 mi, like new, WA | **$54,667** | $28,375 – $105,321 |
+| Listing | Predicted | 90% likely range | Band |
+|---|---:|---|---|
+| 2019 Honda sedan, 45,000 mi, excellent, CA | **$15,671** | $8,841 – $27,776 (×3.1) | mid |
+| 2008 Ford pickup, 180,000 mi, good, 4wd, TX | **$9,319** | $4,555 – $19,062 (×4.2) | low |
+| 2021 Tesla sedan, 22,000 mi, like new, WA | **$42,246** | $29,354 – $60,798 (×2.1) | top |
 
-The Tesla range is enormous on purpose — Craigslist has relatively few
-Tesla listings in this training sample, so the conformal interval gets
-wide. **That's the model honestly saying "I'm not sure."** The same
-model is much more confident about the Civic, because the training data
-is dense around its part of feature space. A point estimate alone hides
-this distinction; the interval surfaces it.
+The Tesla has the **tightest** band (×2.1) — the model is *most*
+confident here, because TargetEncoder maps the premium brand to its
+mean price and a single tree split cleanly separates it from commodity
+makes. The Ford pickup sits in the low band where prices are noisier
+(×4.2). Banded conformal calibration (Mondrian) sizes each band
+independently, so the intervals honestly reflect per-segment
+uncertainty rather than a single global width.
 
-### 2. Why $17,341 for the Civic? — SHAP multiplicative attribution
+### 2. Why $15,671 for the Civic? — SHAP multiplicative attribution
 
 > [!TIP]
 > **💡 What's "baseline" in SHAP?**
 >
 > The **baseline** is what the model would predict if it knew nothing
 > specific about this vehicle — essentially the average prediction
-> across the training data, which works out to $12,942 here. Then each
+> across the training data, which works out to $14,291 here. Then each
 > feature pushes the prediction up or down from that baseline. The
 > whole job of SHAP is to fairly assign credit for the gap from
-> baseline ($12,942) to prediction ($17,341) across the 10 features.
-> The "Net factor: ×1.340" line below is just saying $17,341 / $12,942
-> = 1.340 — the model thinks this specific Civic is worth 34% more
-> than the average vehicle in training data, and the per-feature
+> baseline ($14,291) to prediction ($15,671) across the 10 features.
+> The "Net factor: ×1.097" line below is just saying $15,671 / $14,291
+> = 1.097 — the model thinks this specific Civic is worth about 10%
+> more than the average vehicle in training data, and the per-feature
 > factors below show *why*.
 
 ![Per-feature attribution for the Civic](assets/civic_attribution.png)
 
 ```
-  Baseline:      $12,942  (the model's E[price] over the training data)
-  Prediction:    $17,341
-  Net factor:    ×1.340
+  Baseline:      $14,291  (the model's E[price] over the training data)
+  Prediction:    $15,671
+  Net factor:    ×1.097
 
   Per-feature multiplicative factor (rank by deviation from 1.0):
-    year            ×1.689   (+68.9%)   ← 2019 is much newer than the average
-    odometer        ×1.189   (+18.9%)   ← 45k mi is well below average
-    drive           ×0.847   (-15.3%)   ← fwd is cheaper than the rwd / 4wd mix
-    type            ×0.850   (-15.0%)   ← sedan is cheaper than the truck mix
-    fuel            ×0.940   (-6.0%)
-    state           ×1.035   (+3.5%)
-    manufacturer    ×0.971   (-2.9%)
-    transmission    ×0.973   (-2.7%)
-    condition       ×1.018   (+1.8%)
-    paint_color     ×0.989   (-1.1%)
+    year            ×1.655   (+65.5%)   ← 2019 is much newer than the average
+    drive           ×0.863   (-13.7%)   ← fwd is cheaper than the rwd / 4wd mix
+    type            ×0.875   (-12.5%)   ← sedan is cheaper than the truck mix
+    manufacturer    ×0.889   (-11.1%)   ← Honda is mid-pack, slightly below average
+    odometer        ×1.106   (+10.6%)   ← 45k mi is well below average
+    condition       ×0.908   ( -9.2%)
+    fuel            ×0.985   ( -1.5%)
+    state           ×1.012   ( +1.2%)
+    transmission    ×0.993   ( -0.7%)
+    paint_color     ×0.994   ( -0.6%)
 
-  Axiom check: product of factors = 1.340, pred/baseline = 1.340  ✓
+  Axiom check: product of factors = 1.097, pred/baseline = 1.097  ✓
 ```
 
 The **axiom check** is the line that separates SHAP from "another
@@ -146,12 +149,12 @@ The model predicts `log(price)`, not price directly — because the data
 is right-skewed and log-space behaves better. When SHAP attributes
 credit in log-space and we exponentiate back to dollars, each
 contribution becomes a **multiplier** instead of an add-on. So
-"year × 1.689" means: the model thinks this vehicle's year (2019,
-newer than average) makes it worth **68.9% more** than the baseline.
+"year × 1.655" means: the model thinks this vehicle's year (2019,
+newer than average) makes it worth **65.5% more** than the baseline.
 Multipliers compose by multiplication, so the 10 per-feature factors
-above multiply out to ×1.340 — and 1.340 × $12,942 = $17,341, exactly
+above multiply out to ×1.097 — and 1.097 × $14,291 = $15,671, exactly
 matching the prediction. That equality is the *multiplicative axiom*,
-and it's what makes "FWD pulls 15% off" the kind of statement you can
+and it's what makes "FWD pulls 14% off" the kind of statement you can
 take into a supplier negotiation, not a hand-wavy directional claim.
 
 For a procurement parallel: if your part's baseline cost is $40 and
@@ -165,18 +168,19 @@ and you can quote the rationale line-by-line.
 ![Mileage depreciation curve for the Civic](assets/mileage_curve.png)
 
 ```
-  Base prediction:        $17,341
-  Counterfactual:         $14,890
-  Delta:                  -$2,451  (-14.1%)
-  Multiplicative factor:  ×0.8586
+  Base prediction:        $15,671
+  Counterfactual:         $15,217
+  Delta:                  -$453  (-2.9%)
+  Multiplicative factor:  ×0.9711
 ```
 
-That `×0.86` is the **depreciation per doubling of mileage** in this
+That `×0.97` is the **depreciation per doubling of mileage** in this
 neighbourhood of the feature space, learned from hundreds of thousands
-of Craigslist listings — not from a rule of thumb. The log-target
-structure makes it scale-invariant: the same factor would apply going
-from 90k to 180k miles, in the limit where the model is locally linear
-in log-mileage.
+of Craigslist listings — not from a rule of thumb. Random Forest
+captures the nonlinear depreciation curve directly: depreciation per
+mile flattens as the car gets older, which is why doubling from 45k
+to 90k (still "low mileage") only costs 2.9%. The sweep in Finding #3
+below shows the full shape of this curve.
 
 ## So what? — five findings the analysis surfaces
 
@@ -198,9 +202,9 @@ this baseline and change exactly that one feature."
 
 Holding *everything else equal*, the same vehicle is worth **$21,837 as
 a Porsche** and **$8,028 as a Kia** — a 2.7× spread. The top end is
-Porsche → Tesla → Lexus → Audi → Mercedes-Benz. The bottom is Kia
-→ Chrysler → Nissan → Hyundai → Mazda. Honda is the median (that's
-why we picked it for the baseline).
+Porsche (×2.15) → Tesla (×1.57) → Lexus (×1.52) → Audi → Mercedes-Benz.
+The bottom is Kia → Chrysler → Nissan → Hyundai → Mazda. Honda is the
+median (that's why we picked it for the baseline).
 
 > [!TIP]
 > **🛒 Procurement parallel.** The same analysis on a parts dataset
@@ -307,21 +311,23 @@ it.
 > suggests — most of the value comes from picking the right supplier
 > and the right specs, not the right zip code.
 
-### Bonus finding: the model knows when it doesn't know
+### Bonus finding: banded intervals separate what the model knows from what it doesn't
 
-Look back at the **2021 Tesla** in the worked-examples section. The
-point estimate is $54,667, but the 90% likely range is
-**$28,375 – $105,321** — almost 4× span. The model is essentially
-saying *"I have no idea."* Tesla and high-end EVs are
-underrepresented in the Craigslist data; the conformal interval
-widens automatically to reflect that.
+Look back at the **three vehicles** in the worked-examples section.
+The Tesla has the **tightest** band (×2.1), the Honda is mid (×3.1),
+and the Ford pickup is widest (×4.2). Banded (Mondrian) conformal
+calibration sizes each band independently: the model is most confident
+on high-value vehicles where TargetEncoder cleanly separates premium
+brands, and least confident on the low-value segment where feature
+noise dominates. The old global interval would have given every vehicle
+the same width — hiding the fact that the model *knows more* about
+some segments than others.
 
 > [!TIP]
 > **🛒 Procurement parallel.** This is what you want a parametric
-> cost model to do on a new supplier, new material, or a part with
-> an unusual feature combination. A point estimate alone hides the
-> uncertainty; an interval surfaces it, and your buyer knows to ask
-> for a quote rather than benchmark off the model.
+> cost model to do: automatically tell you which parts of the price
+> range it's confident about and which need a quote. The banded
+> interval surfaces this per-segment, not just globally.
 
 ## The story
 
@@ -341,17 +347,17 @@ instead of "dollars." Details in
 *a lot*.** Our first training run used `--outliers drop` and the Tukey
 upper bound cut prices at $58,050, removing the right tail. That dropped
 the post-clean skew below 1.0, which turned the log-target wrap *off*,
-which collapsed Ridge from R² 0.52 (CV) to R² 0.34. The fix is to *let
-the log-target wrap absorb the heavy tail*, which is exactly what it's
-for. The "Reproducing" section uses `--outliers warn` for this
+which collapsed the model from R² 0.749 (CV) to much lower. The fix is
+to *let the log-target wrap absorb the heavy tail*, which is exactly
+what it's for. The "Reproducing" section uses `--outliers warn` for this
 reason. Worth documenting in your team's playbook.
 
 **3. The 90% likely range is real coverage, not a heuristic.** The
-intervals come from split-conformal calibration on the held-out test set;
-empirical coverage on the test set is ≈ 90% by construction. The Tesla's
-enormous range isn't a bug — it's the model accurately reporting
-uncertainty in a part of feature space it barely saw at training time.
-Details in [Methodology > Conformal intervals](#conformal-intervals--split-conformal-on-the-test-residuals).
+intervals come from banded (Mondrian) split-conformal calibration on the
+held-out test set; empirical coverage on the test set is ≈ 90% by
+construction. The Tesla's tight range (×2.1) and the Ford's wide range
+(×4.2) aren't noise — they reflect per-band uncertainty calibrated
+independently. Details in [Methodology > Conformal intervals](#conformal-intervals--split-conformal-on-the-test-residuals).
 
 **4. SHAP gives axiomatically grounded per-feature attribution, not a
 heuristic ranking.** Because the model is log-target, the contributions
@@ -566,28 +572,32 @@ want different inputs:
 | Family | Numerical | Categorical |
 |---|---|---|
 | Linear (Ridge, Lasso) | `StandardScaler` | `OneHotEncoder(handle_unknown="ignore")` |
-| Tree (RandomForest, XGBoost) | `passthrough` | `OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)` |
+| Tree (RandomForest, XGBoost) | `passthrough` (XGB) / `SimpleImputer(median)` (RF) | `TargetEncoder(smooth="auto")` |
 
 **Why the difference.** Linear models need scaled numerics (otherwise
 the coefficient magnitudes are uninterpretable and L2 regularisation
 becomes feature-scale-dependent) and one-hot encoded categoricals (so
-the linear combination is well-defined). Trees are scale-invariant and
-prefer compact integer codes for splits.
+the linear combination is well-defined). Trees get **target-encoded**
+categoricals: each category is replaced by its smoothed, cross-fitted
+mean target value — so the code *orders by price*, and a single tree
+split cleanly separates premium from commodity brands.
 
 <details>
-<summary>💡 <b>What's "one-hot encoding" and why do we need it?</b></summary>
+<summary>💡 <b>Why TargetEncoder instead of OrdinalEncoder for trees?</b></summary>
 
-A linear model needs numbers, not the word "honda." One-hot encoding
-replaces a categorical column with one yes/no (1/0) column per value: a
-row with `manufacturer="honda"` becomes a 1 in an "is-honda" column and
-a 0 in "is-ford", "is-tesla", and every other manufacturer column.
-That's how the linear model can have a separate coefficient (and
-therefore a separate price effect) per manufacturer.
+An ordinal encoder assigns arbitrary (alphabetical) integers to
+categories. That means "tesla" (say, code 35) ends up next to
+"toyota" (code 36), so a tree's threshold split groups them together —
+but a $42k EV has nothing in common with a $12k Corolla. The result:
+the model can't isolate premium brands from commodity ones, and point
+estimates for Tesla, Porsche, and similar outliers are badly wrong.
 
-Trees don't need this — they can split on integer-coded categories
-directly — which is why P2Predict gives trees an `OrdinalEncoder`
-(every category gets a number 0..N-1) and gives linear models a
-`OneHotEncoder` instead. Different math, different food.
+Target encoding replaces each category with its (smoothed, out-of-fold)
+mean target. Now "tesla" gets a high code (~$42k) and "kia" gets a low
+one (~$8k), and a single split on the encoded value cleanly separates
+premium from economy. The `smooth="auto"` setting applies an
+empirical-Bayes shrinkage toward the global mean, which protects against
+overfitting on rare categories.
 </details>
 
 **Source.** `src/p2predict/preprocessing.py::build_preprocessor`.
@@ -612,9 +622,9 @@ with hyperparameter search, then picks the winner by mean CV R². This
 case study's numbers:
 
 ```
-ridge          CV R² = 0.520    ◄── selected
-random_forest  CV R² = 0.393
-xgboost        CV R² = 0.411
+random_forest  CV R² = 0.749    ◄── selected
+xgboost        CV R² = 0.732
+ridge          CV R² = 0.668
 ```
 
 The model the trainer saves is **the winner only**. The losers are
@@ -719,8 +729,9 @@ interval is `pred ± q̂` (additive). Same conformal math, different scale.
 |---|---|
 | `n_calibration` (test rows used) | 15,680 |
 | `in_log_space` | `True` |
+| Banding | Mondrian — 3 bands by predicted value (low / mid / top) |
 | Coverage requested | 90% (`coverage=0.90`) |
-| Quantile method | `np.quantile(absolute_residuals, q, method="higher")` for finite-sample correctness |
+| Quantile method | `np.quantile(absolute_residuals, q, method="higher")` per band for finite-sample correctness |
 
 **Source.** `src/p2predict/intervals.py::compute_calibration_residuals`
 and `predict_interval`.
@@ -787,9 +798,9 @@ holds exactly.
 R² is the **fraction of variation in the data the model explains**.
 Predicting "the average price" for every vehicle would give R² = 0
 (you explain nothing); a perfect oracle that nails every price exactly
-would give R² = 1. Our holdout R² of 0.634 means the model explains
-about 63% of the variation in used-car prices using the 10 features we
-gave it. The remaining 37% is some mix of noise, missing features
+would give R² = 1. Our holdout R² of 0.781 means the model explains
+about 78% of the variation in used-car prices using the 10 features we
+gave it. The remaining 22% is some mix of noise, missing features
 (trim, options, regional supply, seasonality), and structure the model
 just isn't capturing — which is what the residual-bias test below
 quantifies.
@@ -803,7 +814,8 @@ Computed deterministically from R² for a one-glance summary:
 | > 60 | Good |
 | ≤ 60 | Needs Improvement |
 
-This case study: R² = 0.634 → composite 63.4 → **Good**.
+This case study: R² = 0.781 → composite 78.1 → **Good** (close to the
+Excellent threshold at 80).
 
 **Source.** `src/p2predict/cli/train.py` (search for `quality_label`).
 
@@ -815,10 +827,10 @@ This case study: R² = 0.634 → composite 63.4 → **Good**.
 A p-value is the probability of seeing data this extreme **if the
 thing you're testing for is actually *not* happening**. Here we're
 testing whether the model's average error is meaningfully different
-from zero. Our p-value of ≈ 6 × 10⁻⁷⁵ is effectively *impossibly small*
-— meaning there's essentially no chance the bias we're seeing is just
-noise from a fundamentally unbiased model. The model really is leaning
-in one direction.
+from zero. Our p-value of ≈ 7.5 × 10⁻¹⁰⁶ is effectively *impossibly
+small* — meaning there's essentially no chance the bias we're seeing is
+just noise from a fundamentally unbiased model. The model really is
+leaning in one direction.
 
 One important caveat: with enough data, even very tiny biases become
 "statistically significant." So the p-value tells you the **direction
@@ -837,11 +849,12 @@ than "noisy predictions."
 version that was in here in v0.2 was mathematically wrong (it compared
 two unpaired samples); we replaced it in v0.3.
 
-**This case study's p-value ≈ 6 × 10⁻⁷⁵** is extremely small, meaning
-Ridge in log space is leaving structured variance behind — most likely
-at the tails of the price distribution. That's why the Notes section
-flags XGBoost (holdout R² 0.696 vs Ridge 0.634) as the right model for
-production once the upstream SHAP-vs-XGBoost-3.x bug is resolved.
+**This case study's p-value ≈ 7.5 × 10⁻¹⁰⁶** is extremely small,
+meaning the Random Forest in log space is still leaving some structured
+variance behind — most likely at the tails of the price distribution.
+With 15,680 test rows even a small systematic lean becomes significant.
+The practical impact is modest: MAE is $3,658 (22% of median), a major
+improvement over the prior Ridge model's $5,381 (39% of median).
 
 **Source.** `src/p2predict/model_evals.py::evaluate_model`.
 
@@ -856,13 +869,14 @@ study, with their forward pointers:
 - **Quantile regression** for non-conformal intervals. Heavier-weight
   than split-conformal and only justified when the conformal guarantee
   isn't enough (rarely).
-- **Target encoding** for high-cardinality categoricals like the raw
-  `model` column we dropped. Could lift signal without the
-  high-cardinality OHE memory blow-up; future case-study iteration.
+- **The raw `model` column** (very high cardinality). TargetEncoder
+  handles it fine in principle, but `manufacturer` + `type` already
+  captures most of the signal, and adding thousands of model strings
+  would slow HPO without proportional lift on 10 features.
 
 ## Results
 
-Full path, 80k-row training sample. These are the trained-model
+Full path, 78k-row training sample. These are the trained-model
 quality metrics the [worked examples](#worked-examples) above were
 generated from.
 
@@ -870,51 +884,50 @@ generated from.
 
 | | |
 |---|---|
-| **Algorithm selected** (auto, CV) | `ridge` (CV R² 0.520, beat XGBoost 0.411 and RF 0.393) |
+| **Algorithm selected** (auto, CV) | `random_forest` (CV R² 0.749, beat XGBoost 0.732 and Ridge 0.668) |
 | **Log-target wrap** | **Active** — price skew 1.5 > 1.0 threshold |
 | **Rows after outlier handling** | 78,398 of 80,000 (1,602 dropped on `year` / `odometer` IQR bounds) |
 | **Target outliers** | Detected: 1,508 (Tukey upper bound $58,050). **Kept** — they're the right tail the log-target wrap is for. |
 | **Feature outliers (dropped)** | 1,191 rows with `year` outside [1997, 2029]; 458 with `odometer` > 284,069 mi |
 
-> **Why `ridge` won.** Used-car pricing in log space is close to additive
-> in the features we kept: log(price) ≈ year-coefficient · year + …. The
-> nonlinearity that would favor XGBoost (year × condition × mileage
-> interactions) is muted once log-target absorbs the heavy tail. XGBoost
-> still got a higher *holdout* R² in our experiments (0.696 vs 0.634),
-> but Ridge won the CV-driven model-selection step. Both are documented
-> in the JSON output if you re-run with `--json` and inspect `cv_scores`.
+> **Why Random Forest won.** With TargetEncoder mapping categoricals to
+> smoothed mean-target codes, the tree models can now isolate premium
+> brands from commodity brands in a single split — unlocking the
+> nonlinear interactions (year × manufacturer × condition) that Ridge
+> can't capture. XGBoost was a close second (CV 0.732 vs RF 0.749);
+> both comfortably outperformed Ridge (0.668) now that the categorical
+> encoding no longer handicaps trees.
 
 ### Holdout metrics
 
 | | |
 |---|---|
-| R² | **0.634** |
-| MAE | **$5,381** (≈ 39% of the cleaned-data median price of $13,950 — i.e. the model is in the right ballpark on average, but you would not bet a single procurement decision on a single point estimate; that's exactly why intervals and SHAP exist) |
-| RMSE | $8,847 |
-| Residual-bias p-value | ≈ 6 × 10⁻⁷⁵ — one-sample t-test of residuals against zero. Very low value means the model is systematically off in one direction, not just noisy. See [Methodology > Residual-bias test](#residual-bias-test--one-sample-t-test-against-zero). |
-| Quality label | **Good** (R² × 100 = 63.4, which sits in the (60, 80] "Good" bucket; > 80 would be "Excellent", ≤ 60 "Needs Improvement"). See [Methodology > Quality label](#quality-label). |
+| R² | **0.781** |
+| MAE | **$3,658** (≈ 22% of the cleaned-data median price of $16,419 — the model is in the right ballpark on average, improved from the prior Ridge model's 39%) |
+| RMSE | $6,841 |
+| Residual-bias p-value | ≈ 7.5 × 10⁻¹⁰⁶ — one-sample t-test of residuals against zero. Very low with 15,680 test rows; even a small systematic lean becomes detectable. See [Methodology > Residual-bias test](#residual-bias-test--one-sample-t-test-against-zero). |
+| Quality label | **Good** (R² × 100 = 78.1, which sits in the (60, 80] "Good" bucket, just shy of the 80 "Excellent" threshold). See [Methodology > Quality label](#quality-label). |
 
-### Feature importance (Ridge coefficient magnitudes in log space, after preprocessing)
+### Feature importance (Random Forest impurity-based)
 
-| Rank | Feature | Magnitude |
+| Rank | Feature | Importance |
 |---|---|---:|
-| 1 | manufacturer | 10.52 |
-| 2 | state | 2.75 |
-| 3 | condition | 2.53 |
-| 4 | type | 2.08 |
-| 5 | fuel | 1.04 |
-| 6 | drive | 0.53 |
-| 7 | paint_color | 0.47 |
-| 8 | year | 0.39 |
-| 9 | odometer | 0.21 |
-| 10 | transmission | 0.19 |
+| 1 | year | 0.460 |
+| 2 | odometer | 0.125 |
+| 3 | type | 0.116 |
+| 4 | manufacturer | 0.084 |
+| 5 | drive | 0.052 |
+| 6 | state | 0.046 |
+| 7 | fuel | 0.041 |
+| 8 | condition | 0.039 |
+| 9 | paint_color | 0.026 |
+| 10 | transmission | 0.011 |
 
-`year` and `odometer` look small only because they're already
-standard-scaled before Ridge sees them, so the *coefficient* shrinks even
-though the effect per unit is large. The SHAP attribution in the
-[Worked examples](#worked-examples) section (which is expressed in
-price-space factors) gives the more interpretable view of their actual
-impact.
+`year` dominates (46%) because it's the strongest single predictor of
+price in log space — newer cars are exponentially more valuable. The
+SHAP attribution in the [Worked examples](#worked-examples) section
+shows the per-row picture: for a specific listing, `manufacturer` or
+`type` can outweigh `year` depending on the combination.
 
 ## Model quality report (PDF)
 
@@ -933,13 +946,11 @@ Page previews inline:
 
 ![Model quality report — page 1](assets/model_quality_report_page_1.png)
 
-Headline: **median prediction error of 21.9%**, P90 error of 59.9%.
-On half the holdout the model lands within ~22% of the actual price;
-on 9 in 10 listings it lands within ~60%. The predicted-vs-actual
-scatter on the right shows the model is well-calibrated through the
-$10k–$30k band (most listings hug the perfect-prediction line) and
-diverges most on the cheap-car tail (the dust cloud near the origin)
-— exactly where the residual-bias test was pointing.
+Headline: the model is well-calibrated through the core $8k–$40k band
+(most listings hug the perfect-prediction line) and diverges on the
+cheap-car tail — exactly where the residual-bias test was pointing.
+The Random Forest's nonlinear splits capture the middle of the
+distribution much better than Ridge did.
 
 > [!TIP]
 > **🧮 Mean vs median for percentage error.** The MAPE on this page is
@@ -973,15 +984,13 @@ instead?"* — a directly actionable question.
 
 ![Model quality report — page 3](assets/model_quality_report_page_3.png)
 
-The procurement-shaped feature importance view: **manufacturer alone
-explains 50.8% of the model's decisions**; together with state
-(13.3%) and condition (12.2%), the top 3 features explain **76% of
-what the model is doing**. This is the visual confirmation of
-Finding #1 in [So what?](#1-brand-alone-moves-price-by-27) — the
-brand premium dominates everything else, including year and odometer
-(which sit near the bottom of the chart in importance-share terms
-because they're standard-scaled before Ridge sees them — see the
-note under [Results > Feature importance](#feature-importance-ridge-coefficient-magnitudes-in-log-space-after-preprocessing)).
+The procurement-shaped feature importance view: **year alone
+explains 46% of the model's decisions** (impurity-based); together
+with odometer (12.5%) and type (11.6%), the top 3 features explain
+**70% of what the model is doing**. This matches the SHAP story:
+year is the dominant lever for any individual listing, while
+manufacturer (8.4% impurity importance) has outsized *per-category*
+impact — as Finding #1 shows (2.7× spread from Porsche to Kia).
 
 > **How to generate this report yourself.** As of v0.9.2, pass
 > `--report PATH` to `p2predict-train` and the PDF is written in one
@@ -1071,14 +1080,12 @@ python predict_examples.py
   one-line notice when columns get dropped, so the loss is no longer
   silent). For a curated column list `-tf` is still the most direct
   expression of intent.
-- **The residual-bias p-value is microscopic** (≈ 10⁻⁷⁵). That tells you
-  the residuals aren't zero-mean across the price distribution — Ridge
-  is systematically off at the tails, even in log space. For procurement
-  use this would be a flag to (a) split the model by part family, or (b)
-  trust XGBoost's holdout numbers over Ridge's CV numbers and re-train
-  with `--expert --algorithm xgboost --tune`. We don't do that here
-  because XGBoost models hit a known SHAP-vs-XGBoost-3.x parsing bug
-  that breaks `--explain` and `--whatif`; see the open ticket.
+- **The residual-bias p-value is microscopic** (≈ 10⁻¹⁰⁶). That tells you
+  the residuals aren't perfectly zero-mean across the price distribution.
+  With 15,680 test rows even a small lean becomes detectable. The
+  practical impact is modest (MAE 22% of median), but for procurement use
+  this would be a flag to consider splitting the model by part family for
+  the tails where the bias concentrates.
 - **The 5,000-row sample in `data-sample/` is CC0** like the source
   dataset. Redistribute it freely.
 - **One real bug got found and fixed by this case study.** Before this
@@ -1101,7 +1108,7 @@ python predict_examples.py
   point of the case study is to demonstrate the toolkit on the columns
   a procurement / fleet user is most likely to have.
 - It doesn't tune for accuracy — the case study is about the *workflow*.
-  R² 0.634 on noisy Craigslist data is a perfectly defensible "ballpark
-  with honest uncertainty"; if you wanted a production-grade Civic
-  appraisal, you'd want richer features (trim, regional supply,
-  seasonality) and a model split per body type.
+  R² 0.781 on noisy Craigslist data is a solid "ballpark with honest
+  uncertainty"; if you wanted a production-grade Civic appraisal, you'd
+  want richer features (trim, regional supply, seasonality) and a model
+  split per body type.
