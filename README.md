@@ -12,7 +12,7 @@
 
 You feed it a CSV of past purchases (technical features → price). It trains a model and lets you ask, *"given these features, what have parts like this cost?"* — turning historical data into a reality check that engineering and procurement teams can actually use together.
 
-MIT-licensed. See [`LICENSE`](LICENSE).
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE) — free for internal and personal use; commercial use (including consulting deployments for clients or SaaS) requires a separate commercial license from the author.
 
 ### What it is (and isn't)
 
@@ -443,10 +443,20 @@ The same suite runs in CI on every push to `main` and on pull requests.
 
 ## Contributing
 
-I warmly welcome contributions to this project! If you have an exciting feature idea or have discovered a bug, I'd be delighted to hear from you. Please don't hesitate to open an issue or submit a pull request.
+Bug reports, feature requests, and dataset suggestions are welcome — please open an issue.
 
-I'm particularly keen on expanding my collection of datasets for various direct and indirect commodities. This includes, but is not limited to, Integrated Circuits (ICs), Passive Components, Plastic Parts, and Mechanical Parts. If you're aware of any open datasets in these areas, or if your organization would like to contribute a dataset, I'd be incredibly grateful. Please reach out to me - your input could be invaluable in enhancing the project's capabilities and benefiting the wider procurement community.
+I'm particularly keen on expanding the collection of datasets for direct and indirect commodities: ICs, passive components, plastic parts, mechanical parts, and more. If you're aware of open datasets in these areas, or your organization would like to contribute one, please reach out.
 
-## Become a sponsor!
+**Code contributions** require signing a Contributor License Agreement (CLA) before a pull request can be accepted. This is necessary because P2Predict is dual-licensed — noncommercial for the community, with commercial licenses available — and contributors need to explicitly grant rights that cover both. Reach out before investing time in a large patch.
 
-I work on open source projects during my free time. If you think this projects adds value to the procurement community, please consider sponsoring a donation!
+## Licensing
+
+P2Predict is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). This means:
+
+- **Free for internal use** — companies and individuals can use P2Predict within their own organization at no cost.
+- **Commercial use requires a license** — deploying P2Predict for clients, embedding it in a paid service, or offering it as part of a consulting engagement requires a separate commercial license.
+
+Commercial licenses are available. If you are a consulting firm, systems integrator, or software vendor interested in distributing or deploying P2Predict commercially, please reach out to discuss licensing terms:
+
+**Ahmed K. Hafsi** — open an issue or contact via the repository.
+
