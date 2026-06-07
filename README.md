@@ -447,7 +447,7 @@ Bug reports, feature requests, and dataset suggestions are welcome — please op
 
 I'm particularly keen on expanding the collection of datasets for direct and indirect commodities: ICs, passive components, plastic parts, mechanical parts, and more. If you're aware of open datasets in these areas, or your organization would like to contribute one, please reach out.
 
-**Code contributions** require signing a Contributor License Agreement (CLA) before a pull request can be accepted. This is necessary because P2Predict is dual-licensed — noncommercial for the community, with commercial licenses available — and contributors need to explicitly grant rights that cover both. Reach out before investing time in a large patch.
+**Code contributions** require signing a Contributor License Agreement (CLA) before a pull request can be accepted. This is necessary because P2Predict is dual-licensed — noncommercial for the community, with commercial licenses available — and contributors need to explicitly grant rights that cover both. [Reach out](https://ahmedhafsi.com/contact/) before investing time in a large patch.
 
 ## Licensing
 
@@ -458,5 +458,5 @@ P2Predict is source-available under the [PolyForm Noncommercial License 1.0.0](L
 
 Commercial licenses are available. If you are a consulting firm, systems integrator, or software vendor interested in distributing or deploying P2Predict commercially, please reach out to discuss licensing terms:
 
-**Ahmed K. Hafsi** — open an issue or contact via the repository.
+**Ahmed K. Hafsi** — [ahmedhafsi.com/contact](https://ahmedhafsi.com/contact/)
 
