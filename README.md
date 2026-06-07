@@ -128,7 +128,7 @@ Notes that matter in practice:
 - **Column types are auto-detected.** Numeric columns become numerical features; text and boolean columns become categorical. You don't have to one-hot encode by hand.
 - **The target column is whatever you pass with `--target`.** It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
 - **Identifier columns** (part numbers, SKUs, anything near-unique) are auto-detected as "high variation" and flagged for you to drop. You usually don't want them in the model.
-- **Missing values:** rows with any NA in selected columns are dropped with a warning. If you want to keep them, impute upstream.
+- **Missing values:** rows with a missing *target* are dropped (can't learn from a row without a label). Feature NAs are handled by the preprocessor: XGBoost passes them through natively; Random Forest and Ridge impute numerics with the median and categoricals with the most-frequent value.
 - **Outliers in the target or in numerical features:** flagged by default (Tukey IQR). Pass `--outliers drop` / `--outliers winsorize` to act on the target column, and `--feature-outliers drop` / `--feature-outliers winsorize` to act on the feature columns. Feature-side `drop` is row-level (any column outlier removes the row); feature-side `winsorize` caps each column at its own IQR bounds.
 - **Time-ordered data:** if the CSV has a date column, pass `--time-column DATE` so the train/test split and CV become chronological — random splitting on time-ordered data inflates measured accuracy.
 
@@ -152,7 +152,7 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 - **Time-aware cross-validation** via `--time-column` — chronological train/test split and `TimeSeriesSplit` for HPO, to prevent look-ahead bias on time-ordered data
 - Auto-detection of the most predictive features using a Random Forest baseline
 - Auto-detection of low/no information features that might bias the model
-- Tree models use `OrdinalEncoder` (fast, handles high-cardinality categoricals); linear models use `OneHotEncoder + StandardScaler`
+- Tree models use `TargetEncoder` (maps each category to its smoothed mean target — orders by price, not alphabet); linear models use `OneHotEncoder + StandardScaler`
 - Expert mode lets you pick the algorithm and optionally run hyperparameter tuning — the tuned model is what gets saved
 - Configurable HPO search budget via `--budget {fast,thorough}`
 - Models can be saved and loaded
