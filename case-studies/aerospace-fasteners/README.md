@@ -5,14 +5,13 @@
 > the Federal Logistics Information System (FLIS) — the master catalog the DoD,
 > NASA, and their contractors order fasteners from, by National Stock Number.
 >
-> This is the **noisy-data counterpart** to the [Battery Management ICs
-> study](../battery-management-ics/README.md). The BMICs were clean: a tight,
-> near-symmetric price target an ML model could nail (holdout R² ≈ 0.83). Bolt
-> catalog prices are the opposite — **heavily right-skewed and intrinsically
-> noisy**, with a measurable ceiling no model can beat. We ship it anyway,
-> because the more valuable lesson here isn't "look how accurate the model is" —
-> it's **how to tell, before you waste a week tuning, that the data itself is
-> the limit.** That diagnostic (`diagnose_noise.py`) is the centerpiece.
+> What makes it worth reading is the *honesty*. Bolt catalog prices are
+> **heavily right-skewed and intrinsically noisy** — the same spec is cataloged
+> across a wide price band, and there's a hard ceiling on how well *any* model can
+> predict them. We ship it anyway, because the valuable lesson here isn't "look how
+> accurate the model is." It's **how to tell, before you waste a week tuning, that
+> the data itself is the limit.** That diagnostic (`diagnose_noise.py`) is the
+> centerpiece.
 
 ## The procurement question
 
@@ -32,25 +31,23 @@ key, no ToS gray area. The twist this study documents is that "looks clean" and
 
 ## Why this case study
 
-Three reasons it complements the other studies rather than repeating them:
+Three reasons it's worth doing:
 
-1. **It's the multiplicative-target counterpart to the BMICs.** BMIC prices were
-   tight and near-symmetric (skew 0.12), so the model stayed *additive*. Fastener
-   prices span from a cent (a commodity steel bolt) to ~$2,000 (an aerospace
-   superalloy bolt) — **skew 5.36**, the textbook case for `--log-target on`.
-   SHAP comes back as **multiplicative factors** ("titanium × N") and the
-   likely-range stays **strictly positive**. The two studies together show both
-   faces of the tool.
+1. **It's a multiplicative-target showcase.** Fastener prices span from a cent (a
+   commodity steel bolt) to ~$2,000 (an aerospace superalloy bolt) — **skew
+   5.36**, the textbook case for `--log-target on`. SHAP comes back as
+   **multiplicative factors** ("titanium × N") and the likely-range stays
+   **strictly positive**, never dipping below zero on a cheap part.
 
 2. **Public-domain data we can fully commit.** PUB LOG is U.S. Government public
-   domain, so — unlike the gitignored DigiKey pull — we check a faithful cleaned
-   sample straight into `data-sample/`. Anyone can reproduce without credentials.
+   domain, so we check a faithful cleaned sample straight into `data-sample/`.
+   Anyone can reproduce without credentials, an API key, or a paid data feed.
 
-3. **It's the honest-limits study.** Every modeling toolkit has a glossy
-   case study where R² is 0.9 and everyone goes home happy. This is the other
-   one: the model caps at a modest R² and **the right move is to stop tuning and
-   prove it's the data, not the model.** That skill — diagnosing a noise floor —
-   is worth more than another point of R² on a clean dataset.
+3. **It's the honest-limits study.** Every modeling toolkit has a glossy case
+   study where R² is 0.9 and everyone goes home happy. This is the other one: the
+   model caps at a modest R² and **the right move is to stop tuning and prove it's
+   the data, not the model.** That skill — diagnosing a noise floor — is worth
+   more than another point of R² on an already-clean dataset.
 
 ---
 
@@ -87,10 +84,38 @@ to act on versus where it's only a directional hint.**
 
 | # | Finding | Read it here |
 |---|---|---|
-| 1 | **Material grade is the dominant *directional* lever.** Holding a 1/4-28 × 1.0″ bolt fixed and swapping only the material: CRES **+49%**, A286 superalloy **+59%**, titanium **+135%**, nickel alloy **+164%** over commodity alloy steel. The *order* is robust; the exact % is not. | `assets/material_premium.png` · `extract_insights.py` |
-| 2 | **Length is the cleanest cost ruler.** A commodity hex bolt runs $1.94 at 0.5″ → $6.75 at 3.0″ (**+248%**), smooth and monotonic — the one driver the model reads cleanly. | `assets/dimension_curve.png` · `extract_insights.py` |
-| 3 | **The catalog is intrinsically noisy — this is the headline.** 80% of bolts are one-off specs; identical specs are cataloged across a **4.5× price band**; the irreducible within-spec variance caps any model at **log R² ≈ 0.60**. | `assets/noise_floor.png` · `diagnose_noise.py` |
-| 4 | **The model is honest about it.** Holdout raw R² 0.043, median error 79.8%, MAE $53.32 — near the measured ceiling, not under-tuned. | `assets/model_quality_report.pdf` (page 1) |
+| 1 | **Material grade is the dominant *directional* lever.** Holding a 1/4-28 × 1.0″ bolt fixed and swapping only the material: CRES **+49%**, A286 superalloy **+59%**, titanium **+135%**, nickel alloy **+164%** over commodity alloy steel. The *order* is robust; the exact % is not. | chart below · `extract_insights.py` |
+| 2 | **Length is the cleanest cost ruler.** A commodity hex bolt runs $1.94 at 0.5″ → $6.75 at 3.0″ (**+248%**), smooth and monotonic — the one driver the model reads cleanly. | chart below · `extract_insights.py` |
+| 3 | **The catalog is intrinsically noisy — this is the headline.** 80% of bolts are one-off specs; identical specs are cataloged across a **4.5× price band**; the irreducible within-spec variance caps any model at **log R² ≈ 0.60**. | chart below · `diagnose_noise.py` |
+| 4 | **The model is honest about it.** Holdout raw R² 0.043, median error 79.8%, MAE $53.32 — near the measured ceiling, not under-tuned. | quality report below |
+
+#### Finding 1 — the material premium ladder
+
+![Material grade premium — same 1/4-28 × 1.0″ bolt, size and style held fixed](assets/material_premium.png)
+
+Swap only the material on an otherwise-identical bolt and the per-each price
+climbs a clean ladder: commodity alloy steel ($2.39) → CRES (+49%) → A286
+superalloy (+59%) → titanium (+135%) → nickel alloy (+164%). The **ordering** is
+the robust, quotable signal; treat the exact percentages as a band, not a point.
+
+#### Finding 2 — length is a clean cost ruler
+
+![Length is a clean cost ruler — commodity alloy-steel hex, 1/4-28](assets/dimension_curve.png)
+
+Length is the one driver the model reads cleanly: a commodity hex bolt runs $1.94
+at 0.5″ and rises smoothly and monotonically to $6.75 at 3.0″ (+248%). A quote
+that's flat across a 2× length jump, or far off this curve, is worth a second look.
+
+#### Finding 3 — the noise floor (the headline)
+
+![Why the ceiling is ~0.60: identical specs, very different prices](assets/noise_floor.png)
+
+Among bolts whose *full spec signature repeats*, this is the spread of cataloged
+prices within each signature — i.e. how differently the catalog prices parts that
+are, to the model, identical. The **median band is 4.5×** (max ÷ min), and the
+pile-up at the 20× clip shows a long tail of specs priced an order of magnitude
+apart. That scatter is irreducible: no model can predict a difference whose inputs
+are identical. It's why the achievable ceiling is ~0.60, not ~1.0.
 
 ### So what — the sourcing actions
 
@@ -132,8 +157,8 @@ Produced by `python predict_examples.py`:
 | CRES hex, 1/4-28 × 1.0″ | **$3.93** | $0.33 – $46.73 |
 
 Read those ranges as a feature, not a bug: the conformal interval is honestly
-reporting the catalog's own price scatter. On clean data (BMICs) these bands are
-tight; here they're wide, and that *is the finding.*
+reporting the catalog's own price scatter. The bands are wide because the catalog
+prices identical specs across a wide band — and that *is the finding.*
 
 ---
 
@@ -207,7 +232,7 @@ the row-level model. That's the confirmation — **the ceiling is the data, not 
 model.** When the strengthening move that *should* help doesn't, you've found a
 noise floor, and the right call is to stop tuning and either go find better
 features or accept the target is intrinsically noisy. (If a future feature pull
-adds e.g. manufacturer or lot-quantity, that becomes a genuine Part 3.)
+adds e.g. manufacturer or lot-quantity, that becomes a genuine follow-up study.)
 
 ---
 
@@ -233,10 +258,10 @@ Public domain; free; refreshed monthly. We use three segments:
 | **Quick** | Train on `data-sample/bolts_sample.csv` (checked into git) | Same workflow, rougher numbers |
 
 > **License note.** PUB LOG is **U.S. Government public domain** — fully
-> redistributable. This is the one case study where the cleaned sample in
-> `data-sample/` is a faithful slice rather than a redacted excerpt. The raw
-> multi-GB segments and the full `data/bolts_clean.csv` stay gitignored simply
-> because they're large, not because they're sensitive.
+> redistributable. The cleaned sample in `data-sample/` is a faithful slice of
+> the real catalog, not a redacted excerpt. The raw multi-GB segments and the
+> full `data/bolts_clean.csv` stay gitignored simply because they're large, not
+> because they're sensitive.
 
 ### Three data-hygiene steps that matter
 
@@ -279,18 +304,31 @@ Characteristics arrive **long** (one row per NIIN × characteristic);
 
 ## Methodology
 
-The full pipeline (outlier handling → split → preprocessor → CV model selection →
-conformal calibration → SHAP) is identical to the BMIC study; see [that README's
-Methodology](../battery-management-ics/README.md#methodology) for the deep dive.
+The pipeline runs in five stages, each handled by P2Predict:
+
+1. **Outlier handling.** `--outliers warn` and `--feature-outliers warn` flag
+   Tukey-fence outliers without deleting them — important here because some spec
+   columns are near-constant and silent dropping would gut them. The one removal
+   we *do* make is the $2,000 domain ceiling (above), which is defensible on
+   physical grounds.
+2. **Train/test split** with a held-out test set the model never sees during
+   fitting (n = 3,800).
+3. **Preprocessor** — one-hot encoding for the categorical specs, median
+   imputation for missing numerics.
+4. **CV model selection + hyperparameter tuning** across candidate algorithms;
+   the trainer chose **XGBoost**.
+5. **Conformal calibration** (for the 90% likely-range intervals) and **SHAP**
+   attribution (for the per-feature "why this price").
+
 The fastener-specific choices:
 
 - **`--log-target on` (not auto).** The 5.36 skew means `auto` would fire anyway,
   but we set it explicitly because for a positive, multiplicative price target the
   multiplicative attribution and strictly-positive intervals are the *property we
   want*, not a coincidence of this month's sample.
-- **`--outliers warn` / `--feature-outliers warn`.** Same lesson as the BMICs —
-  Tukey-fence dropping is destructive when a spec column is near-constant. Keep
-  every part; the $2,000 domain ceiling does the one removal that's defensible.
+- **`--outliers warn` / `--feature-outliers warn`.** Tukey-fence dropping is
+  destructive when a spec column is near-constant. Keep every part; the $2,000
+  domain ceiling does the one removal that's defensible.
 
 ### Feature importance (XGBoost gain, aggregated to original columns)
 
@@ -308,9 +346,9 @@ The fastener-specific choices:
 | `threads_per_inch` | 0.05 |
 
 Importance is spread broadly with no single dominating feature — itself a
-fingerprint of a weak signal. On the clean BMIC data one or two features carry
-most of the gain; here it's smeared, because no feature is strongly predictive of
-a target the catalog prices so loosely.
+fingerprint of a weak signal. When a dataset has a strong driver, one or two
+features carry most of the gain; here it's smeared, because no feature is strongly
+predictive of a target the catalog prices so loosely.
 
 ## Results
 
@@ -333,9 +371,41 @@ not far from, the best achievable. The story is the gap between the ceiling and
 
 ## Model quality report (PDF)
 
-`python generate_quality_report.py` produces `assets/model_quality_report.pdf`
-(predicted-vs-actual, residuals, and a price-band reliability page showing where
-the model is least-bad — the $5–$155 mid-tier — and worst — sub-$5 commodity).
+`python generate_quality_report.py` produces a three-page model-quality report.
+[**Download the full report (PDF)**](assets/model_quality_report.pdf)
+
+### Page 1 — Summary
+
+![Model quality report — page 1](assets/model_quality_report_page_1.png)
+
+Headline: **median prediction error 79.8%**, P90 error 487%. The
+predicted-vs-actual scatter is diffuse rather than hugging the perfect-prediction
+line — the visual signature of a target the features can only weakly explain. This
+is the page that tells you, honestly, not to use the point estimate for pricing.
+
+### Page 2 — Error distribution and calibration
+
+![Model quality report — page 2](assets/model_quality_report_page_2.png)
+
+Median % error **by price band**: the model is least-bad through the **$5–$155
+mid-tier** (where procurement dollars actually concentrate) and worst on **sub-$5
+commodity bolts**, where a few cents of absolute error is a huge *percentage* and
+the relative error is near-random. For procurement this answers *"where is the
+benchmark even roughly trustworthy?"* — the mid-tier, and only directionally.
+
+### Page 3 — Feature importance
+
+![Model quality report — page 3](assets/model_quality_report_page_3.png)
+
+The procurement-shaped importance view. Unlike a clean dataset where one driver
+dominates, here importance is **spread across thread diameter, thread series,
+material, and strength** with no single feature above ~0.18 — visual confirmation
+that the signal is weak and diffuse, consistent with the measured noise floor.
+
+> **How to generate this report yourself.** Run
+> `python generate_quality_report.py` after training (it re-derives the holdout
+> with the same split + outlier policy and writes the PDF + page PNGs into
+> `assets/`).
 
 ## Reproducing this case study
 
@@ -389,8 +459,8 @@ You can delete the downloaded segment zips after step 2 to reclaim disk.
   specs across a 4.5× band. Use it to spot a quote that's *wildly* off the
   directional rulers, not to set a price.
 - **One FSC, deep.** We model FSC 5306 (Bolts) only. Mixing in screws (5305) or
-  nuts (5310) would average across different parts — the same "one category,
-  deep" discipline as the BMIC study.
+  nuts (5310) would average across different parts — better to stay one category,
+  deep, than blur several into a weaker average.
 - **The headline is the method, not the metric.** R² 0.043 is not a model to
   deploy for point pricing. It's a case study in *measuring a noise floor and
   knowing when to stop tuning* — a skill that pays off most on the messy datasets
@@ -399,4 +469,4 @@ You can delete the downloaded segment zips after step 2 to reclaim disk.
   price, not a price-vs-quantity curve, and no clean single-supplier field — so
   the dominant legible driver is material grade, not volume leverage or brand.
   Adding either (if a future pull exposes it) is the most promising path to a
-  genuine Part 3 strengthening.
+  genuine follow-up strengthening study.
