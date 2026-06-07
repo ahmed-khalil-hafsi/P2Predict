@@ -94,34 +94,53 @@ attributions are reproducible by the commands in the
 
 ## For the category manager — the one-page brief
 
-If you only read one section, read this. It's the analysis turned into
-sourcing actions, plus the part most "AI pricing" decks skip: **where the
-model is trustworthy, where it's rubbish, and how to tell the two apart
-from the tool's own output.**
+If you only read one section, read this. It's structured like a
+consulting case: **the case** (what we set out to answer), **the
+findings** (the results, each with a pointer to the exact chart, report
+page, or command it comes from), and **the so-what** (what to do, and
+where the model is trustworthy vs. rubbish). Nothing here is asserted
+without telling you where to read it off the tool yourself.
 
-### The headline
+### The case
 
-**On battery-management ICs, who you buy from moves price more than what
-you buy.** Holding the exact same spec fixed, the supplier alone swings
-unit price **2.2×** — and that's the lever you control without touching
-the design. Manufacturer is also the model's single most important
-feature (40% of its decisions).
+A category manager owns a book of battery-management ICs across phones,
+power tools, e-bikes, and EV/datacenter packs. The recurring question:
+*"Is this quote fair, and where can we take cost out without touching the
+design?"* We trained a P2Predict model on **102 fully-specified BMICs**
+(13 manufacturers, eight specs) and asked it three things — what drives
+price, how much supplier choice alone is worth, and where the model is
+solid enough to negotiate against.
 
-### What to do with it (in priority order)
+> **Where to start reading:** the four charts in
+> [`assets/`](assets/) and the three-page
+> [model-quality report](assets/model_quality_report.pdf) are the
+> evidence base. Every finding below cites the one to look at.
 
-| # | Finding | Sourcing action |
+### The findings (and where each is read off the tool)
+
+| # | Finding | Read it here |
 |---|---|---|
-| 1 | **Supplier premium is large and spec-independent.** Same single-cell I2C chip: ADI **$4.98** (+84%) → TI $2.71 → Microchip **$2.29** (−15%). | For commodity parts with pin-compatible alternates, treat ADI as the premium tier and TI/Microchip as your value anchors. Use the model's per-supplier target price as your negotiation floor. |
-| 2 | **The biggest single win we found: −28.5% on the EV/datacenter BMS.** Same 16-cell spec, ADI/Maxim → Microchip = **−$1.50/unit**. | On high-volume programs, qualify a value-tier alternate for the pack monitor. The model finds the opportunity; your EE confirms the part meets spec. |
-| 3 | **Package complexity is a clean, near-linear cost ruler** (8-pin $2.71 → 48-pin $4.59, +70%). | Use it as a quote sanity-check: a high-pin part quoted at a low-pin price is a deal or a spec mismatch — either way, look closer. |
-| 4 | **The cost cliff is single-cell → multi-cell architecture (+$1.28 flat), not the cell count.** | If a design can stay single-cell, that's the cost step to defend — not "12 vs 16 cells." |
+| 1 | **Supplier alone swings price 2.2× on an identical spec.** Same single-cell I2C chip: ADI **$4.98** (+84%) → TI $2.71 → Microchip **$2.29** (−15%). And `manufacturer` is the model's #1 feature at **40% of importance**. | `assets/manufacturer_premium.png` (the bar chart) · importance ranking on PDF [page 3](#page-3--feature-importance) · regenerate with `extract_insights.py` |
+| 2 | **A concrete switch-cost: −28.5% on the EV/datacenter BMS.** Same 16-cell spec, ADI/Maxim → Microchip = **−$1.50/unit**. | What-if in [Worked example 3](#3-what-if-same-16-cell-bms-but-microchip-instead-of-adimaxim) · run `python predict_examples.py` |
+| 3 | **Package pin count is a clean, near-linear cost ruler:** 8-pin $2.71 → 48-pin $4.59 (**+70%**). | `assets/pin_count_curve.png` · SHAP line `package_pins +$1.41` in [Worked example 2](#2-why-525-for-the-16-cell-ev-bms--shap-dollar-attribution) |
+| 4 | **The cost cliff is single-cell → multi-cell *architecture* (+$1.28 flat), not the cell count.** | SHAP line `is_multi_cell +$0.85` on `ev_bms_attribution.png` · [Finding #3](#3-the-multi-cell-premium-lives-in-a-flag-not-the-cell-count) |
+| 5 | **The model is statistically unbiased and reasonably accurate:** R² **0.563**, MAE **$0.76** (~23% of the $3.31 median), residual-bias p = **0.57**. | PDF [page 1](#page-1--summary) (metrics) and [page 2](#page-2--error-distribution-and-calibration) (calibration) |
 
 **The quotable one-liner:** *"Supplier choice is the dominant cost lever
 on BMICs — up to 84% for the same spec — and we can put a per-part dollar
 figure on switching, like −28.5% moving a 16-cell pack monitor from ADI
 to Microchip."*
 
-### Where's the value, where's the rubbish
+### So what — the sourcing actions
+
+| # | From finding | Do this |
+|---|---|---|
+| 1 | Supplier premium is large and spec-independent | For commodity parts with pin-compatible alternates, treat ADI as the premium tier and TI/Microchip as value anchors. Use the model's per-supplier target as your negotiation floor. |
+| 2 | The −28.5% BMS switch-cost | On high-volume programs, qualify a value-tier alternate for the pack monitor. The model finds the opportunity; your EE confirms the part meets spec. |
+| 3 | Pin count is a clean cost ruler | Use it as a quote sanity-check: a high-pin part quoted at a low-pin price is a deal or a spec mismatch — either way, look closer. |
+| 4 | The cliff is the architecture flag | If a design can stay single-cell, that's the cost step to defend — not "12 vs 16 cells." |
+
+### So what — where's the value, where's the rubbish
 
 A model this small (102 parts) is **not** uniformly trustworthy, and
 pretending otherwise is how you lose credibility. Here's the honest map:
@@ -135,9 +154,11 @@ pretending otherwise is how you lose credibility. Here's the honest map:
 The two red items came out **the opposite of what an engineer expects**.
 That's not the tool failing quietly — it's the tool *showing you* a thin,
 confounded corner of the data so you don't price off it. **The value
-isn't a single number; it's knowing which numbers to trust.**
+isn't a single number; it's knowing which numbers to trust** — and the
+next subsection shows you how to read that distinction straight off the
+tool.
 
-### How to read trust vs. rubbish straight from the tool
+### So what — how to read trust vs. rubbish straight from the tool
 
 You don't have to take the table above on faith — the tool tells you all
 of it. Three tells:
@@ -151,19 +172,21 @@ of it. Three tells:
    **under-sampled**, not that the world is upside-down.
 
 2. **The 90% likely range → how sure is the model on *this* part?**
-   `p2predict ... --interval 90`. A tight band ($2.08–$8.43 on the EV
-   BMS) = confident; a band that **runs to $0** (the two cheap parts) =
-   "I'm genuinely unsure at this price — get a quote, don't benchmark."
-   The width *is* the trust signal, per part.
+   `p2predict ... --interval 90` (and `assets/intervals_comparison.png`).
+   A tight band ($2.08–$8.43 on the EV BMS) = confident; a band that
+   **runs to $0** (the two cheap parts) = "I'm genuinely unsure at this
+   price — get a quote, don't benchmark." The width *is* the trust
+   signal, per part.
 
 3. **SHAP `--explain` → does the per-spec story make engineering sense?**
    It breaks any prediction into dollar contributions that **add up
-   exactly** to the price. If the breakdown matches intuition
-   (`+$1.41 for a 48-pin package`, `+$0.71 supplier premium`) → trust it.
-   If a line item has the wrong sign (`−$0.51 for more cells`) → that's
-   your flag to treat that spec as noise and lean on the others. The
-   axiom check (`baseline + Σ = prediction`) guarantees the math is
-   sound; *your* job is to sanity-check the signs.
+   exactly** to the price (see `assets/ev_bms_attribution.png`). If the
+   breakdown matches intuition (`+$1.41 for a 48-pin package`, `+$0.71
+   supplier premium`) → trust it. If a line item has the wrong sign
+   (`−$0.51 for more cells`) → that's your flag to treat that spec as
+   noise and lean on the others. The axiom check
+   (`baseline + Σ = prediction`) guarantees the math is sound; *your* job
+   is to sanity-check the signs.
 
 **Bottom line for a category manager:** use this model to (a) rank
 suppliers and quantify brand premium, (b) sanity-check quotes against a
