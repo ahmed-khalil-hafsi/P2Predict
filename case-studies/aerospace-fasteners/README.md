@@ -57,12 +57,13 @@ Three reasons it's worth doing:
 
 We pulled **188,119** FSC-5306 NSNs from PUB LOG, joined decoded physical specs
 to a unit-of-issue-normalised per-each price, and after the price + core-spec
-coverage filter were left with **36,668 catalogued bolts** (≈19k — 18,997 — with
-every modeled spec populated; rows with any missing value are dropped at load,
-so this complete-case subset is the model's effective training pool). The trainer
+coverage filter were left with **36,668 catalogued bolts** — and the model now
+trains on **all 36,668** of them. (A prior NA-handling defect dropped any row with
+a single missing value at load, shrinking the pool to 18,997 complete cases; that
+fix is merged, so the effective training pool grew by ~93%.) The trainer
 selected **XGBoost** with **`--log-target on`** firing automatically on the 5.36
-skew. On a held-out 3,800-bolt test set the model lands at **raw R² 0.043 /
-log-price R² 0.343**, a **median error of 79.8%**, and **MAE $53.32**. Those are
+skew. On a held-out test set (n ≈ 7,334) the model lands at **raw R² 0.021 /
+log-price R² 0.322**, a **median error of 79.7%**, and **MAE $59.05**. Those are
 not good numbers — and the point of this study is that **no model gets far past
 them on this data** (an independent re-verification could not push log R² beyond
 0.375 in any configuration). We measured the ceiling (`diagnose_noise.py`)
@@ -86,27 +87,33 @@ to act on versus where it's only a directional hint.**
 
 | # | Finding | Read it here |
 |---|---|---|
-| 1 | **Material grade is the dominant *directional* lever.** Holding a 1/4-28 × 1.0″ bolt fixed and swapping only the material: CRES **+49%**, A286 superalloy **+59%**, titanium **+135%**, nickel alloy **+164%** over commodity alloy steel. The *order* is robust; the exact % is not. | chart below · `extract_insights.py` |
-| 2 | **Length is the cleanest cost ruler.** A commodity hex bolt runs $1.94 at 0.5″ → $6.75 at 3.0″ (**+248%**), smooth and monotonic — the one driver the model reads cleanly. | chart below · `extract_insights.py` |
+| 1 | **Material grade is a *directional* premium lever — but a loose one.** Holding a 1/4-28 × 1.0″ bolt fixed and swapping only the material: titanium **+174%** and nickel alloy **+213%** read as clear premiums over commodity alloy steel; CRES **+96%**. But A286 superalloy reads anomalously **+5%** — out of its expected position — and the exact ladder shuffles run-to-run. Trust the titanium/nickel *direction*, not the order or the %. | chart below · `extract_insights.py` |
+| 2 | **Length is the cleanest cost ruler.** A commodity hex bolt runs $2.75 at 0.5″ → $7.01 at 3.0″ (**+155%**), broadly increasing — the one driver the model reads most cleanly. | chart below · `extract_insights.py` |
 | 3 | **The catalog is intrinsically noisy — this is the headline.** 80% of bolts are one-off specs; identical specs are cataloged across a **4.5× price band**; the irreducible within-spec variance caps any model at **log R² ≈ 0.60**. | chart below · `diagnose_noise.py` |
-| 4 | **The model is honest about it.** Holdout raw R² 0.043, median error 79.8%, MAE $53.32 — at ~57% of the measured ceiling; some training headroom remains, but independent re-verification couldn't push log R² past 0.375 in any configuration. | quality report below |
+| 4 | **The model is honest about it.** Holdout raw R² 0.021, median error 79.7%, MAE $59.05 — at ~54% of the measured ceiling; some training headroom remains, but independent re-verification couldn't push log R² past 0.375 in any configuration. | quality report below |
 
 #### Finding 1 — the material premium ladder
 
 ![Material grade premium — same 1/4-28 × 1.0″ bolt, size and style held fixed](assets/material_premium.png)
 
-Swap only the material on an otherwise-identical bolt and the per-each price
-climbs a clean ladder: commodity alloy steel ($2.39) → CRES (+49%) → A286
-superalloy (+59%) → titanium (+135%) → nickel alloy (+164%). The **ordering** is
-the robust, quotable signal; treat the exact percentages as a band, not a point.
+Swap only the material on an otherwise-identical bolt and the premium materials do
+read dearer — but the ladder is **messy, not clean**. Off a commodity alloy-steel
+base ($2.64): CRES **+96%**, A286 superalloy **+5%**, titanium **+174%**, nickel
+alloy **+213%**. Titanium and nickel land clearly above the base — that *direction*
+is the robust, quotable signal. But A286 superalloy reading **below** CRES and
+barely above commodity steel is out of position, and the order shuffles run-to-run.
+That instability isn't a bug to paper over: it's this study's thesis showing up in
+the sweep — the catalog prices these material specs loosely enough that the exact
+ladder won't hold still. Quote the titanium/nickel premium as a direction; don't
+quote the order or the percentages.
 
 #### Finding 2 — length is a clean cost ruler
 
 ![Length is a clean cost ruler — commodity alloy-steel hex, 1/4-28](assets/dimension_curve.png)
 
-Length is the one driver the model reads cleanly: a commodity hex bolt runs $1.94
-at 0.5″ and rises smoothly and monotonically to $6.75 at 3.0″ (+248%). A quote
-that's flat across a 2× length jump, or far off this curve, is worth a second look.
+Length is the one driver the model reads most cleanly: a commodity hex bolt runs
+$2.75 at 0.5″ and rises broadly to $7.01 at 3.0″ (+155%). A quote that's flat
+across a 2× length jump, or far off this curve, is worth a second look.
 
 #### Finding 3 — the noise floor (the headline)
 
@@ -121,18 +128,20 @@ are identical. It's why the achievable ceiling is ~0.60, not ~1.0.
 
 ### So what — the sourcing actions
 
-- **Use the material premium as a negotiation anchor, not a price.** "An A286
-  bolt should run ~1.5–1.6× the alloy-steel equivalent" is defensible from the
-  data; "this exact NSN should be $3.81" is not. Quote the *ratio*, not the
-  point estimate.
+- **Use the material premium as a directional anchor, not a price.** "A titanium
+  bolt runs materially dearer than the alloy-steel equivalent — call it ~2–3×" is
+  defensible from the data; "this exact NSN should be $3.81" is not. And don't
+  over-trust the *order*: the A286 superalloy reading below CRES this run shows the
+  ladder shuffles. Quote the titanium/nickel *direction*, not a precise ratio.
 - **Sanity-check quotes against the length ruler.** A quote that's flat
-  across a 2× length jump, or wildly off the smooth length curve, is worth a
+  across a 2× length jump, or wildly off the broad length curve, is worth a
   second look. (The diameter sweep is U-shaped on this model — treat it as a
   directional hint, not a ruler.)
 - **Don't use the per-each point estimate to set a should-cost.** The 90% likely
-  range on a single bolt spans ~100× (e.g. the titanium archetype: $1.50–$212).
+  range on a single bolt spans ~100×+ (e.g. the titanium archetype: $2.92–$302).
   That width is the honest output here — it's telling you the catalog can't
-  pin the price, and neither can the model.
+  pin the price, and neither can the model. Note the range now narrows on the
+  expensive tier (see worked examples) — the one place it tightens.
 
 ### So what — where's the value, where's the rubbish
 
@@ -140,12 +149,12 @@ An honest trust map — what to lean on, what to treat as a hint, what to ignore
 
 | Signal | Trust | Why |
 |---|---|---|
-| 🟢 **Material premium, ordinal direction** | Lean on it | Robust across re-runs and well-sampled; alloy steel < CRES < A286 < Ti/Ni holds |
-| 🟢 **Length cost ruler** | Lean on it | Smooth, monotonic, physically sensible |
-| 🟡 **Diameter cost ruler** | Directional only | U-shaped on this model ($5.39 at 0.164″ → $2.39 at 0.25″ → $7.81 at 0.5″), not monotonic — use with judgment |
-| 🟡 **Exact premium %** | Directional only | Moves ±10–20pts on resampling; quote a band |
+| 🟡 **Material premium, Ti/Ni direction** | Directional only | Titanium (+174%) and nickel (+213%) read as clear premiums; but the *order* shuffles run-to-run (A286 read +5%, below CRES, this run) — trust the direction, not the ladder |
+| 🟢 **Length cost ruler** | Lean on it | Broadly increasing, physically sensible — the cleanest driver |
+| 🟡 **Diameter cost ruler** | Directional only | U-shaped on this model ($3.13 at 0.164″ → $2.64 at 0.25″ → $6.31 at 0.5″), not monotonic — use with judgment |
+| 🟡 **Exact premium %** | Directional only | Order and magnitude both move on resampling; don't quote a number |
 | 🟡 **Mid-tier point estimate ($5–$155)** | Rough benchmark | Where the model is *least bad* and procurement dollars concentrate |
-| 🔴 **Single-bolt point estimate, broadly** | Don't | Median 79.8% error; 4.5× catalog band on identical specs |
+| 🔴 **Single-bolt point estimate, broadly** | Don't | Median 79.7% error; 4.5× catalog band on identical specs |
 | 🔴 **Sub-$5 commodity bolts** | Don't | Noisiest tier; near-random relative error |
 
 ## Worked examples
@@ -154,15 +163,29 @@ Three bolt archetypes — commodity alloy-steel hex, aerospace titanium 12-point
 CRES hex — with point estimates, 90% ranges, SHAP, and the material what-if.
 Produced by `python predict_examples.py`:
 
-| Archetype | Point estimate | 90% likely range |
-|---|---|---|
-| Commodity alloy-steel hex, 1/4-28 × 1.0″ | **$2.39** | $0.20 – $28.46 |
-| Aerospace titanium 12-point, 1/4-28 × 1.0″ | **$17.85** | $1.50 – $212.52 |
-| CRES hex, 1/4-28 × 1.0″ | **$3.93** | $0.33 – $46.73 |
+| Archetype | Point estimate | 90% likely range | Range width |
+|---|---|---|---|
+| Commodity alloy-steel hex, 1/4-28 × 1.0″ | **$2.64** | $0.14 – $50.79 | ×369 |
+| Aerospace titanium 12-point, 1/4-28 × 1.0″ | **$29.73** | $2.92 – $302.36 | ×103 |
+| CRES hex, 1/4-28 × 1.0″ | **$3.88** | $0.20 – $74.58 | ×369 |
+
+The titanium point estimate rose substantially (from $17.85 to **$29.73**): the
+switch to **target encoding** for categoricals (see Methodology) prices the premium
+material more correctly than the old ordinal codes did.
 
 Read those ranges as a feature, not a bug: the conformal interval is honestly
 reporting the catalog's own price scatter. The bands are wide because the catalog
 prices identical specs across a wide band — and that *is the finding.*
+
+**New: the interval now narrows where the model is more consistent.** The 90%
+range is no longer one global width stamped on every part. It's now **banded
+(Mondrian) conformal** — calibrated *per predicted-price band*. The commodity and
+CRES bolts (predicted under ~$8.75) fall in a wide band and get a **×369** range;
+the expensive titanium (predicted over ~$22.12) falls in a tighter band and gets a
+**×103** range. The model is more self-consistent on the high-dollar tier, so the
+honest interval is correspondingly narrower exactly there — which is where the
+procurement dollars and the negotiation leverage are. That's a real gain over a
+single global width: a tighter, still-honest range on the parts that matter most.
 
 ---
 
@@ -219,12 +242,14 @@ by construction) mechanically drag the ceiling toward 1.0 — a falsely reassuri
 number. On this dataset that exact trap turned a fake **"0.93 ceiling"** into the
 honest **~0.60.** We hit it ourselves; that's why it's documented.
 
-Read the ceiling next to the model's actual log R² of 0.343. The model is at
-~57% of the achievable ceiling — further from it than this study first claimed,
-and part of that gap is training headroom (core training defects — an HPO
-resource floor, raw-space CV scoring, wholesale NA-row dropping — were found in
-independent re-verification and are being fixed separately; see PR #14). But the
-diagnosis stands, and re-verification strengthened it: no configuration tried
+Read the ceiling next to the model's actual log R² of 0.322. The model is at
+~54% of the achievable ceiling — further from it than this study first claimed,
+and part of that gap is training headroom. (The core training defects flagged in
+independent re-verification — an HPO resource floor, raw-space CV scoring,
+wholesale NA-row dropping — have since been fixed; this run already trains on all
+36,668 rows and scores CV in log space. The gap to the ceiling persists anyway,
+which is the point.) The diagnosis stands, and re-verification strengthened it:
+no configuration tried
 pushed log R² past 0.375, and a leave-one-out spec-twin test — predicting each
 bolt from the *other* bolts with the identical spec — scores log R² **−0.17**.
 A bolt's exact spec-twin barely predicts its price. The ceiling is noise the
@@ -323,15 +348,22 @@ The pipeline runs in five stages, each handled by P2Predict:
    we *do* make is the $2,000 domain ceiling (above), which is defensible on
    physical grounds.
 2. **Train/test split** with a held-out test set the model never sees during
-   fitting (n = 3,800).
-3. **Preprocessor** — ordinal encoding for the categorical specs (P2Predict
-   one-hot encodes only for linear models; the tree models in play here get
-   ordinal codes). There is no imputation: at the time of this study, any row
-   containing a missing value was dropped wholesale at CSV load
-   (36,668 → 18,997 complete cases — which is why the training set below is
-   15,197 rows: 80% of the 18,997).
+   fitting (n ≈ 7,334).
+3. **Preprocessor** — **target encoding** for the categorical specs. The tree
+   models in play here now use scikit-learn's `TargetEncoder`: each category
+   (material, head style, finish, …) is mapped to its smoothed, cross-fitted mean
+   price, so the encoder carries real price signal instead of an arbitrary integer
+   code. (The prior `OrdinalEncoder` assigned categories meaningless ranks — part
+   of why the old run under-priced premium materials like titanium; P2Predict still
+   one-hot encodes only for linear models.) On the data side, the NA-handling fix
+   means there is no longer wholesale row-dropping at load: this study now trains on
+   all **36,668** rows, not the old **18,997** complete cases.
 4. **CV model selection + hyperparameter tuning** across candidate algorithms;
-   the trainer chose **XGBoost**.
+   the trainer chose **XGBoost**. With the HPO-floor and log-space-scoring fixes
+   in place, the CV scores are now sane and ordered as you'd expect —
+   **ridge 0.116 < random_forest 0.286 < XGBoost 0.300** (the old run produced
+   broken sub-zero floor values). The model is now selected and tuned properly;
+   the data ceiling still caps the achievable quality.
 5. **Conformal calibration** (for the 90% likely-range intervals) and **SHAP**
    attribution (for the per-feature "why this price").
 
@@ -349,39 +381,40 @@ The fastener-specific choices:
 
 | Feature | Importance |
 |---|---|
-| `thread_diameter_in` | 0.18 |
-| `thread_series` | 0.18 |
-| `material` | 0.12 |
-| `tensile_strength_psi` | 0.10 |
-| `width_across_flats_in` | 0.09 |
-| `length_in` | 0.07 |
-| `thread_class` | 0.07 |
-| `head_style` | 0.07 |
-| `finish` | 0.07 |
-| `threads_per_inch` | 0.05 |
+| `thread_series` | 0.214 |
+| `width_across_flats_in` | 0.130 |
+| `thread_diameter_in` | 0.096 |
+| `tensile_strength_psi` | 0.089 |
+| `length_in` | 0.089 |
+| `finish` | 0.084 |
+| `thread_class` | 0.079 |
+| `head_style` | 0.075 |
+| `material` | 0.073 |
+| `threads_per_inch` | 0.070 |
 
 Importance is spread broadly with no single dominating feature — itself a
-fingerprint of a weak signal. When a dataset has a strong driver, one or two
-features carry most of the gain; here it's smeared, because no feature is strongly
-predictive of a target the catalog prices so loosely.
+fingerprint of a weak signal. `thread_series` is nominally top this run, but no
+feature carries the gain decisively. When a dataset has a strong driver, one or two
+features dominate; here it's smeared, because no feature is strongly predictive of a
+target the catalog prices so loosely.
 
 ## Results
 
-| Metric (holdout, n=3,800) | Value |
+| Metric (holdout, n≈7,334) | Value |
 |---|---|
 | Algorithm | XGBoost, `--log-target on` |
-| Training rows | 15,197 |
-| Raw R² | 0.043 |
-| Log-price R² | 0.343 |
-| Median % error | 79.8% |
-| MAPE | 258.1% |
-| P90 % error | 487.0% |
-| MAE | $53.32 |
-| RMSE | $159.21 |
+| Training rows | ~29,334 |
+| Raw R² | 0.021 |
+| Log-price R² | 0.322 |
+| Median % error | 79.7% |
+| MAPE | 363% |
+| P90 % error | 601% |
+| MAE | $59.05 |
+| RMSE | $174.29 |
 | **Measured ceiling (log R²)** | **≈ 0.60** |
 
-Read the actual log R² (0.343) next to the ceiling (≈0.60): the model captures
-~57% of the achievable signal. Some of the shortfall is training headroom (see
+Read the actual log R² (0.322) next to the ceiling (≈0.60): the model captures
+~54% of the achievable signal. Some of the shortfall is training headroom (see
 the re-verification note below), but most of the story is still the gap between
 the ceiling and 1.0 — that's the catalog's noise, not the model's shortcoming.
 
@@ -485,7 +518,7 @@ You can delete the downloaded segment zips after step 2 to reclaim disk.
 - **One FSC, deep.** We model FSC 5306 (Bolts) only. Mixing in screws (5305) or
   nuts (5310) would average across different parts — better to stay one category,
   deep, than blur several into a weaker average.
-- **The headline is the method, not the metric.** R² 0.043 is not a model to
+- **The headline is the method, not the metric.** R² 0.021 is not a model to
   deploy for point pricing. It's a case study in *measuring a noise floor and
   knowing when to stop tuning* — a skill that pays off most on the messy datasets
   that don't come with a glossy 0.9.

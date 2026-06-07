@@ -66,7 +66,11 @@ def _example_parts() -> list[dict]:
 
 
 def _latest_model() -> Path:
-    cands = sorted(MODELS_DIR.glob("*_unit_price_each_usd_*.model"))
+    # Sort by modification time, not filename: the timestamp is embedded
+    # after the algorithm prefix, so an alphabetical sort would rank
+    # "xgboost_...0607" above a newer "ridge_...0610". mtime = truly latest.
+    cands = sorted(MODELS_DIR.glob("*_unit_price_each_usd_*.model"),
+                   key=lambda p: p.stat().st_mtime)
     if not cands:
         sys.exit(f"No fastener price models in {MODELS_DIR}. Train first — "
                  "see case-studies/aerospace-fasteners/README.md.")
@@ -87,8 +91,10 @@ def main() -> None:
     print("1. POINT ESTIMATES + 90% LIKELY RANGES")
     print("=" * 72)
     for label, iv in zip(_LABELS, predict_interval(model, df, cal, coverage=0.90)):
+        band = f"   [band: {iv.band}]" if iv.band else ""
         print(f"  {label}\n    predicted: ${iv.prediction:>7.2f}   "
-              f"90% range: ${iv.low:>7.2f} to ${iv.high:>7.2f}\n")
+              f"90% range: ${iv.low:>7.2f} to ${iv.high:>7.2f}"
+              f"  (x{iv.high / iv.low:.0f}){band}\n")
 
     print("=" * 72)
     print("2. WHY THIS PRICE? — SHAP ATTRIBUTION (titanium bolt)")
