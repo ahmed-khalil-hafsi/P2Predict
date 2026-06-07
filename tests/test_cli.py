@@ -297,3 +297,119 @@ def test_log_target_auto_records_skew_in_decision(
     assert result.exit_code == 0, result.output
     doc = _parse_json(result.output)
     assert doc["log_target_decision"].startswith("auto:skew=")
+
+
+def _csv_with_feature_nas(tmp_path, seed=0):
+    """50 rows: clean target, NAs scattered across feature columns (including
+    one column that is NOT selected for training)."""
+    rng = np.random.default_rng(seed)
+    n = 50
+    df = pd.DataFrame({
+        "Weight": rng.uniform(1, 50, n),
+        "Region": rng.choice(["EU", "CN", "US"], n),
+        "Supplier": rng.choice(["A", "B", "C"], n),
+        "Size": rng.choice(["Small", "Standard", "Large"], n),
+        "Unused": rng.uniform(0, 1, n),  # never selected for training
+        "Price": rng.uniform(1, 100, n),
+    })
+    # NA in a *selected* feature column...
+    df.loc[0, "Weight"] = np.nan
+    df.loc[1, "Region"] = np.nan
+    # ...and NA in a column that is not a training feature at all.
+    df.loc[2, "Unused"] = np.nan
+    p = tmp_path / "feature_nas.csv"
+    df.to_csv(p, index=False)
+    return p
+
+
+def test_train_keeps_rows_with_feature_only_nas(tmp_path, monkeypatch):
+    """Rows whose only NA is in a feature column (selected or not) must be
+    kept — XGBoost handles NaN natively, ridge/RF impute. The old blanket
+    df.dropna() at load discarded these rows (and any with NA in unselected
+    columns), which is the data-loss bug this fix targets."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    csv_path = _csv_with_feature_nas(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path), "-t", "Price",
+         "-tf", "Weight,Region,Supplier,Size", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    # All 50 rows are used: no target NAs, feature NAs are not dropped.
+    assert doc["input"]["rows_loaded"] == 50
+    assert doc["input"]["rows_dropped_target_na"] == 0
+    assert doc["input"]["rows_used"] == 50
+
+
+def test_train_drops_only_target_na_rows(tmp_path, monkeypatch):
+    """NAs in the target column can't supervise training, so those rows (and
+    only those) are dropped — feature NAs are retained."""
+    rng = np.random.default_rng(1)
+    n = 40
+    df = pd.DataFrame({
+        "Weight": rng.uniform(1, 50, n),
+        "Region": rng.choice(["EU", "CN", "US"], n),
+        "Supplier": rng.choice(["A", "B", "C"], n),
+        "Size": rng.choice(["Small", "Standard", "Large"], n),
+        "Price": rng.uniform(1, 100, n),
+    })
+    df.loc[[0, 1, 2], "Price"] = np.nan       # 3 target NAs -> dropped
+    df.loc[3, "Weight"] = np.nan              # feature NA -> kept
+    csv_path = tmp_path / "target_nas.csv"
+    df.to_csv(csv_path, index=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path), "-t", "Price",
+         "-tf", "Weight,Region,Supplier,Size", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert doc["input"]["rows_loaded"] == 40
+    assert doc["input"]["rows_dropped_target_na"] == 3
+    assert doc["input"]["rows_used"] == 37
+
+
+def test_train_json_stdout_is_pure_json_with_nas(tmp_path, monkeypatch):
+    """The NA warning must go to stderr so `--json` stdout parses cleanly:
+    the document's first non-whitespace char on stdout is '{'."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    csv_path = _csv_with_feature_nas(tmp_path)
+    # Click 8.2+ CliRunner separates stdout/stderr by default (the old
+    # mix_stderr kwarg is gone); result.stdout is stdout only.
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path), "-t", "Price",
+         "-tf", "Weight,Region,Supplier,Size", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    # Pure JSON: stdout parses as a single document with no leading warning.
+    doc = json.loads(result.stdout.strip())
+    assert doc["command"] == "train"
+
+
+def test_train_auto_mode_handles_feature_nas_across_all_algorithms(
+    tmp_path, monkeypatch
+):
+    """Auto mode compares ridge/random_forest/xgboost on the SAME NaN-bearing
+    data. All three preprocessors must cope (impute or pass-through) so the
+    comparison completes without a NaN crash."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    csv_path = _csv_with_feature_nas(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path), "-t", "Price",
+         "-tf", "Weight,Region,Supplier,Size", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert set(doc["cv_scores"].keys()) == {"ridge", "random_forest", "xgboost"}
