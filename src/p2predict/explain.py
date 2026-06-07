@@ -147,25 +147,26 @@ def _detect_family(estimator) -> str:
     return "unknown"
 
 
-def _rollup_to_source(
-    preprocessor, source_cols: list[str], shap_row: np.ndarray
-) -> dict[str, float]:
-    """Sum transformed-feature SHAP values back to source columns.
+def _source_column_groups(
+    preprocessor, source_cols: list[str], n_values: int
+) -> dict[str, list[int]]:
+    """Map each source column to the transformed-feature indices it produced.
 
     Uses the longest-source-column-prefix match (the same logic used by
     extract_feature_importances), so source columns whose names share a
     prefix — e.g. 'weight' and 'weight_extra' — are kept separate rather
-    than collapsed.
+    than collapsed. Computed once per explain call so the per-row rollup
+    is a plain column-sum.
     """
     raw_names = list(preprocessor.get_feature_names_out())
-    if len(raw_names) != len(shap_row):
+    if len(raw_names) != n_values:
         raise ValueError(
             f"Transformed-feature/SHAP-value length mismatch: "
-            f"{len(raw_names)} names vs {len(shap_row)} values."
+            f"{len(raw_names)} names vs {n_values} values."
         )
 
-    by_source: dict[str, float] = {col: 0.0 for col in source_cols}
-    for raw_name, value in zip(raw_names, shap_row):
+    groups: dict[str, list[int]] = {col: [] for col in source_cols}
+    for i, raw_name in enumerate(raw_names):
         rest = raw_name.split("__", 1)[1] if "__" in raw_name else raw_name
         match = None
         for col in source_cols:
@@ -174,9 +175,9 @@ def _rollup_to_source(
                     match = col
         if match is None:
             match = rest
-            by_source.setdefault(match, 0.0)
-        by_source[match] += float(value)
-    return by_source
+            groups.setdefault(match, [])
+        groups[match].append(i)
+    return groups
 
 
 def _scalar_expected_value(explainer) -> float:
@@ -282,50 +283,14 @@ def _build_explainer(estimator, family: str, background_X_t):
     )
 
 
-def explain_row(
-    model,
-    x: pd.DataFrame,
-    background_X: Optional[pd.DataFrame] = None,
+def _finalize_explanation(
+    baseline: float,
+    inner_pred: float,
+    contributions: dict[str, float],
+    is_log_target: bool,
+    inverse_func,
 ) -> Explanation:
-    """Compute the SHAP explanation for a single-row DataFrame x.
-
-    Parameters
-    ----------
-    model
-        A fitted P2Predict pipeline — either a sklearn ``Pipeline`` or a
-        ``TransformedTargetRegressor`` wrapping one.
-    x
-        Single-row DataFrame with the same source columns the pipeline was
-        trained on. Passing more than one row is supported but each row gets
-        explained independently — see :func:`explain_batch`.
-    background_X
-        Optional background sample of raw (pre-preprocessor) feature rows.
-        Required for linear models, ignored for tree models.
-    """
-    if len(x) != 1:
-        raise ValueError("explain_row expects a single-row DataFrame.")
-
-    inner, is_log_target, inverse_func = _unwrap(model)
-    preprocessor = inner.named_steps["preprocessor"]
-    estimator = inner.named_steps["model"]
-    family = _detect_family(estimator)
-
-    x_t = _to_dense_2d(preprocessor.transform(x))
-    bg_t = (
-        _to_dense_2d(preprocessor.transform(background_X))
-        if background_X is not None
-        else None
-    )
-
-    explainer = _build_explainer(estimator, family, bg_t)
-    sv = _shap_values(explainer, x_t)[0]  # one row of SHAP values
-
-    baseline = _scalar_expected_value(explainer)
-    inner_pred = float(np.asarray(estimator.predict(x_t)).ravel()[0])
-
-    source_cols = list(x.columns)
-    contributions = _rollup_to_source(preprocessor, source_cols, sv)
-
+    """Assemble one row's Explanation from its rolled-up contributions."""
     # Local-accuracy check in *inner-model* output space. This catches issues
     # like a mis-extracted preprocessor or a wrong-family explainer pick.
     residual = float(inner_pred - (baseline + sum(contributions.values())))
@@ -387,6 +352,94 @@ def explain_row(
         residual=residual,
         strict_multiplicative=strict_multiplicative,
     )
+
+
+def explain_batch(
+    model,
+    X: pd.DataFrame,
+    background_X: Optional[pd.DataFrame] = None,
+) -> list[Explanation]:
+    """Compute SHAP explanations for every row of ``X``.
+
+    Builds the explainer *once* and computes all rows' SHAP values in a
+    single call. Explainer construction is the expensive part — for tree
+    ensembles SHAP parses the entire fitted forest — so this is the path
+    to use for more than one row. Each row's Explanation is identical to
+    what :func:`explain_row` returns for that row alone.
+
+    Parameters
+    ----------
+    model
+        A fitted P2Predict pipeline — either a sklearn ``Pipeline`` or a
+        ``TransformedTargetRegressor`` wrapping one.
+    X
+        DataFrame with the same source columns the pipeline was trained on.
+        One Explanation is returned per row.
+    background_X
+        Optional background sample of raw (pre-preprocessor) feature rows.
+        Required for linear models, ignored for tree models.
+    """
+    if len(X) == 0:
+        return []
+
+    inner, is_log_target, inverse_func = _unwrap(model)
+    preprocessor = inner.named_steps["preprocessor"]
+    estimator = inner.named_steps["model"]
+    family = _detect_family(estimator)
+
+    X_t = _to_dense_2d(preprocessor.transform(X))
+    bg_t = (
+        _to_dense_2d(preprocessor.transform(background_X))
+        if background_X is not None
+        else None
+    )
+
+    explainer = _build_explainer(estimator, family, bg_t)
+    sv = _shap_values(explainer, X_t)
+
+    baseline = _scalar_expected_value(explainer)
+    inner_preds = np.asarray(estimator.predict(X_t), dtype=float).ravel()
+
+    source_cols = list(X.columns)
+    groups = _source_column_groups(preprocessor, source_cols, sv.shape[1])
+    # One column-sum per source feature, vectorised across all rows.
+    rolled = {src: sv[:, idxs].sum(axis=1) for src, idxs in groups.items()}
+
+    return [
+        _finalize_explanation(
+            baseline,
+            float(inner_preds[i]),
+            {src: float(vals[i]) for src, vals in rolled.items()},
+            is_log_target,
+            inverse_func,
+        )
+        for i in range(len(X))
+    ]
+
+
+def explain_row(
+    model,
+    x: pd.DataFrame,
+    background_X: Optional[pd.DataFrame] = None,
+) -> Explanation:
+    """Compute the SHAP explanation for a single-row DataFrame x.
+
+    Parameters
+    ----------
+    model
+        A fitted P2Predict pipeline — either a sklearn ``Pipeline`` or a
+        ``TransformedTargetRegressor`` wrapping one.
+    x
+        Single-row DataFrame with the same source columns the pipeline was
+        trained on. To explain many rows, use :func:`explain_batch` — it
+        builds the (expensive) explainer once instead of per row.
+    background_X
+        Optional background sample of raw (pre-preprocessor) feature rows.
+        Required for linear models, ignored for tree models.
+    """
+    if len(x) != 1:
+        raise ValueError("explain_row expects a single-row DataFrame.")
+    return explain_batch(model, x, background_X=background_X)[0]
 
 
 def top_drivers(

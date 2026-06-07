@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from p2predict.cmdline_io import print_logo
-from p2predict.explain import Explanation, explain_row, top_drivers
+from p2predict.explain import Explanation, explain_batch, explain_row, top_drivers
 from p2predict.intervals import coverage_health, predict_interval
 from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
 from p2predict.trained_model_io import LoadModel
@@ -632,9 +632,10 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
         if explain_flag:
             top1, top2, top3 = [], [], []
             per_row_explanations = []
-            for i in range(len(features_df)):
-                row = features_df.iloc[[i]][loaded["features"]]
-                ex = explain_row(trained, row, background)
+            explanations = explain_batch(
+                trained, features_df[loaded["features"]], background
+            )
+            for ex in explanations:
                 per_row_explanations.append(_explanation_to_dict(ex))
                 drivers = top_drivers(ex, n=3)
                 formatted = []

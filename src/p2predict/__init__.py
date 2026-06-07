@@ -34,7 +34,12 @@ Typical Python usage::
     explanation = loaded.explain(new_part.iloc[[0]])
 """
 
-from p2predict.explain import Explanation, explain_row as explain, top_drivers
+from p2predict.explain import (
+    Explanation,
+    explain_batch,
+    explain_row as explain,
+    top_drivers,
+)
 from p2predict.intervals import IntervalResult, predict_interval
 from p2predict.outliers import (
     POLICIES as OUTLIER_POLICIES,
@@ -61,6 +66,7 @@ __all__ = [
     # the extras here).
     "predict_interval",
     "explain",
+    "explain_batch",
     "top_drivers",
     "what_if",
     # Persistence.
