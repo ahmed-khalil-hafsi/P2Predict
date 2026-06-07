@@ -74,6 +74,32 @@ def should_log_target(y):
     return float(skew(y_arr)) > LOG_TARGET_SKEW_THRESHOLD
 
 
+def resolve_log_target(y, mode="auto"):
+    """Decide whether to apply the log-target wrap and explain why.
+
+    Returns ``(log_target: bool, decision: str)`` where ``decision`` is one
+    of ``"auto:skew=<value>"``, ``"manual:on"``, or ``"manual:off"`` — the
+    string is what consumers (--json output, the case studies) record so the
+    choice is traceable. ``manual:on`` requires strictly positive y; raising
+    that case is the caller's responsibility (so the CLI can surface a
+    friendly --json error).
+    """
+    if mode == "off":
+        return False, "manual:off"
+    if mode == "on":
+        return True, "manual:on"
+    if mode != "auto":
+        raise ValueError(f"Unknown log_target mode: {mode!r}")
+    try:
+        y_arr = np.asarray(y, dtype=float)
+    except (TypeError, ValueError):
+        return False, "auto:skew=nan"
+    if y_arr.size == 0 or np.any(y_arr <= 0):
+        return False, "auto:skew=nan"
+    sk = float(skew(y_arr))
+    return sk > LOG_TARGET_SKEW_THRESHOLD, f"auto:skew={sk:.2f}"
+
+
 def build_pipeline(algorithm, numerical_cols, categorical_cols, log_target=False):
     preprocessor = build_preprocessor(
         numerical_cols, categorical_cols, model_family_for(algorithm)
@@ -114,9 +140,11 @@ def _tune(pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=
 
 
 def auto_train(
-    X_train, y_train, numerical_cols, categorical_cols, budget="fast", time_aware=False
+    X_train, y_train, numerical_cols, categorical_cols, budget="fast",
+    time_aware=False, log_target=None,
 ):
-    log_target = should_log_target(y_train)
+    if log_target is None:
+        log_target = should_log_target(y_train)
     best_score = -np.inf
     best_model = None
     best_algorithm = None
@@ -145,8 +173,10 @@ def start_training(
     budget="fast",
     tune=False,
     time_aware=False,
+    log_target=None,
 ):
-    log_target = should_log_target(y_train)
+    if log_target is None:
+        log_target = should_log_target(y_train)
     pipeline = build_pipeline(
         algorithm, numerical_cols, categorical_cols, log_target=log_target
     )

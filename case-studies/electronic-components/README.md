@@ -29,6 +29,12 @@ If P2Predict can demonstrate rigorous parametric pricing on a real catalog of co
 
 Pick **one** category for the case study. Don't try to mix capacitors and connectors in one model — they have different cost-driver structures and the case study reads cleaner with one focus.
 
+### Why `--log-target on`
+
+The reproduction command above forces the log-target transform with `--log-target on` rather than leaving it on the default `auto`. Component unit prices are a textbook *multiplicative* quantity: a 10% move feels the same on a $0.05 ceramic capacitor and on a $5 MOSFET, attribution should compose multiplicatively, and a likely-range interval that drops below zero is meaningless for a price.
+
+The BMIC pilot (150-part dataset, skew 0.12) made this concrete: under `auto` the skew rule kept the wrap off, and the conformal 90% interval for a $1.77 prediction came back as `-$1.40` to `$4.95`. Forcing `--log-target on` flipped that to a multiplicative interval that stays strictly positive at any price level. Use `on` for any positive-quantity target (prices, costs, weights, lead times) regardless of whether the sample happens to be skewed; reserve `auto` for one-off exploratory runs and `off` for targets that genuinely live on an additive scale.
+
 **Features the model should learn from:**
 - Manufacturer (categorical, high cardinality)
 - Package / case size (categorical)
@@ -55,7 +61,8 @@ p2predict-train \
   --target unit_price_1k \
   --budget thorough \
   --outliers warn \
-  --feature-outliers warn
+  --feature-outliers warn \
+  --log-target on
 
 # 4. Sample predictions with explanations and likely-range intervals.
 python case-studies/electronic-components/predict_examples.py

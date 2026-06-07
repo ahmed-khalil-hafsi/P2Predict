@@ -121,6 +121,7 @@ Train (``p2predict-train ... --json``)
       "features_selected": [str, ...],
       "algorithm_selected": str,
       "log_target": bool,
+      "log_target_decision": str,        # "auto:skew=<value>" | "manual:on" | "manual:off"
       "cv_scores": {algo: float, ...},   # auto-mode only
       "feature_importances": [
         {"feature": str, "importance": float},

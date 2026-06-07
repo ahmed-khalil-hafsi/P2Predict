@@ -228,3 +228,72 @@ def test_auto_mode_respects_max_features_override(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     doc = _parse_json(result.output)
     assert len(doc["features_selected"]) == 10
+
+
+def test_log_target_on_activates_wrap_on_low_skew_data(
+    tmp_path, monkeypatch, csv_path_clean
+):
+    """`--log-target on` must wrap the regressor even when skew is well below
+    the 1.0 auto threshold. This is the BMIC case-study scenario: a
+    multiplicative positive-quantity target (price) with a small,
+    near-symmetric sample. Auto would skip the wrap; manual override
+    forces it on so conformal intervals stay multiplicative."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path_clean), "-t", "Price", "-b", "fast",
+         "--log-target", "on", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert doc["log_target"] is True
+    assert doc["log_target_decision"] == "manual:on"
+
+    model_path = _saved_model(tmp_path, f"{doc['algorithm_selected']}_Price")
+    meta = joblib.load(model_path)
+    assert meta["log_target"] is True
+
+
+def test_log_target_off_disables_wrap_on_high_skew_data(
+    tmp_path, monkeypatch, synthetic_parts_skewed
+):
+    """`--log-target off` must skip the wrap even on data the auto rule
+    would have flagged (heavily skewed log-normal target). Keeps the
+    flag honest as an override in both directions."""
+    csv = tmp_path / "skewed.csv"
+    synthetic_parts_skewed.to_csv(csv, index=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv), "-t", "Price", "-b", "fast",
+         "--log-target", "off", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert doc["log_target"] is False
+    assert doc["log_target_decision"] == "manual:off"
+
+    model_path = _saved_model(tmp_path, f"{doc['algorithm_selected']}_Price")
+    meta = joblib.load(model_path)
+    assert meta["log_target"] is False
+
+
+def test_log_target_auto_records_skew_in_decision(
+    tmp_path, monkeypatch, csv_path_clean
+):
+    """The default `auto` mode should record the numeric skew it observed
+    so consumers can see *why* the wrap was (or wasn't) applied."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", str(csv_path_clean), "-t", "Price", "-b", "fast", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert doc["log_target_decision"].startswith("auto:skew=")
