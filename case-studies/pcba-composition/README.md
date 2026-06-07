@@ -32,20 +32,20 @@ This case study composes **three datasets**, not one. The honesty up front:
 
 | Stage | Data shape | Source | Difficulty |
 |---|---|---|---|
-| Components | Per-part technical specs + unit price | [Octopart / Mouser / DigiKey API](../electronic-components/) — already covered by case study #1 | Easy |
+| Components | Per-part technical specs + unit price | [Octopart / Mouser / DigiKey API](../battery-management-ics/) — already covered by case study #1 | Easy |
 | Bare PCB | Per-board specs (layer count, area, finish, copper weight, vias) + price | JLCPCB / OSH Park / Sierra Circuits published price calculators, or scraped quote responses | Medium |
 | Assembly (SMT/THT placement, solder, test) | Per-board operation specs (component count, placement type, double-sided, test coverage) + price | EMS provider published rates; or [Murphy's parametric assembly model](https://www.sciencedirect.com/topics/engineering/printed-circuit-board-assembly) as a calibration starting point | Hard |
 
-The component model can be reused directly from [case study #1](../electronic-components/) — train it once, save the `.model`, use it here.
+The component model can be reused directly from [case study #1](../battery-management-ics/) — train it once, save the `.model`, use it here.
 
 The PCB and assembly datasets are smaller (hundreds of records each is enough for a decent parametric model) and the work is mostly in collecting them. Suggested starting approach: scrape a few hundred quotes from a public PCB fab service across varying specs, and use a parametric assembly model calibrated against ~50 historical PCBA quotes you have access to.
 
 ## Reproducing this case study
 
 ```bash
-# 1. Train the component model from the electronic-components case study.
-#    (See case-studies/electronic-components/ for fetch + train.)
-p2predict-train -i case-studies/electronic-components/data/components.csv \
+# 1. Train the component model from the battery-management-ics case study.
+#    (See case-studies/battery-management-ics/ for fetch + train.)
+p2predict-train -i case-studies/battery-management-ics/data/components.csv \
                 -t unit_price_1k --budget thorough
 # Save the path of the resulting model — compose.py will need it.
 
