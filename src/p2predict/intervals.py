@@ -62,13 +62,31 @@ native units, giving constant-width additive intervals. That's the
 right behaviour when the target is something like profit margin
 (which can be negative and isn't bounded multiplicatively).
 
+Banded (Mondrian) calibration
+-----------------------------
+A single global q_hat gives every prediction the same width, which lets the
+noisiest segment of the data set the width for everyone: on a catalog whose
+sub-$5 parts are near-random, the $200 parts inherit that noise in their
+likely range. When the calibration set is large enough we therefore
+partition it into bands by *predicted* value (terciles of the calibration
+predictions) and compute a separate conformal quantile per band — Mondrian
+conformal prediction. The coverage guarantee then holds *within each band*,
+not just on average, because the banding rule depends only on the model's
+prediction (a function of X), never on the calibration labels.
+
+Fallbacks keep the old behaviour bit-for-bit:
+  * calibration dicts saved by older versions (no "predictions" key),
+  * calibration sets smaller than MIN_CALIBRATION_FOR_BANDING,
+both produce the single global quantile exactly as before.
+
 User-facing language
 --------------------
 The CLI and README deliberately avoid "confidence interval" (technically
 wrong for prediction intervals anyway), "alpha", "conformal", and
 "coverage". We use "likely range" and natural-frequency framing
-("9 in 10 similar parts fall in this range"). This module's docstrings
-keep the technical names because the audience here is developers.
+("9 in 10 similar parts fall in this range"). Bands surface to users as
+"calibrated on similar-priced parts". This module's docstrings keep the
+technical names because the audience here is developers.
 """
 
 from __future__ import annotations
@@ -80,6 +98,13 @@ import numpy as np
 from sklearn.compose import TransformedTargetRegressor
 
 
+# Banding thresholds. Three bands of >= 50 calibration points each keeps the
+# per-band conformal quantile stable; below 150 total we stay global. Chosen
+# so a standard 80/20 split bands from ~750 training rows upward.
+N_BANDS = 3
+MIN_CALIBRATION_FOR_BANDING = 150
+
+
 @dataclass
 class IntervalResult:
     """One prediction with its likely range.
@@ -87,12 +112,18 @@ class IntervalResult:
     Attributes are named for user-facing rendering: ``low`` and ``high``
     are in the same units as ``prediction``, regardless of whether the
     underlying model used a log-target transform.
+
+    ``band`` is a human-readable description of the calibration band the
+    width came from (e.g. ``"predicted 5.20 to 155.00"``), or ``None`` when
+    the global quantile was used (old calibration data, or a calibration
+    set too small to band).
     """
 
     low: float
     prediction: float
     high: float
     coverage: float  # the realised target coverage, e.g. 0.90 for 90%
+    band: Optional[str] = None
 
 
 def compute_calibration_residuals(model, X_test, y_test) -> dict:
@@ -121,13 +152,20 @@ def compute_calibration_residuals(model, X_test, y_test) -> dict:
         with np.errstate(invalid="ignore", divide="ignore"):
             valid = (preds > 0) & (y_test > 0)
             residuals = np.abs(np.log(y_test[valid]) - np.log(preds[valid]))
+        cal_preds = preds[valid]
         in_log_space = True
     else:
         residuals = np.abs(y_test - preds)
+        cal_preds = preds
         in_log_space = False
 
     return {
         "residuals": residuals.tolist(),
+        # Target-space predictions aligned 1:1 with `residuals`. New in the
+        # banded-calibration version; lets predict_interval() partition the
+        # calibration set by predicted value (Mondrian bands). Older models
+        # without this key keep the global-quantile behaviour.
+        "predictions": cal_preds.tolist(),
         "in_log_space": in_log_space,
         "n_calibration": int(len(residuals)),
     }
@@ -147,6 +185,45 @@ def _conformal_quantile(residuals: np.ndarray, alpha: float) -> float:
     # Clip to (0, 1] so np.quantile is well-defined for tiny n.
     q_level = min(1.0, np.ceil((n + 1) * (1.0 - alpha)) / n)
     return float(np.quantile(residuals, q_level, method="higher"))
+
+
+def _build_bands(cal_preds: np.ndarray, residuals: np.ndarray, alpha: float):
+    """Partition the calibration set into N_BANDS by predicted value and
+    return ``(edges, band_q_hats, band_labels)``, or ``None`` when banding
+    isn't justified (too few calibration points, or degenerate predictions
+    that collapse the band edges).
+
+    The banding rule uses only the model's predictions — a function of X —
+    so the split-conformal coverage guarantee holds within each band.
+    """
+    n = len(cal_preds)
+    if n < MIN_CALIBRATION_FOR_BANDING or len(residuals) != n:
+        return None
+
+    quantiles = np.linspace(0, 1, N_BANDS + 1)[1:-1]
+    edges = np.quantile(cal_preds, quantiles)
+    if len(np.unique(edges)) != len(edges):
+        # Predictions so concentrated that the terciles coincide — banding
+        # would create empty/degenerate bands. Stay global.
+        return None
+
+    band_of = np.searchsorted(edges, cal_preds, side="right")
+    q_hats = []
+    labels = []
+    bounds = np.concatenate(([-np.inf], edges, [np.inf]))
+    for b in range(N_BANDS):
+        r = residuals[band_of == b]
+        if len(r) == 0:
+            return None
+        q_hats.append(_conformal_quantile(r, alpha))
+        lo, hi = bounds[b], bounds[b + 1]
+        if np.isinf(lo):
+            labels.append(f"predicted under {hi:,.2f}")
+        elif np.isinf(hi):
+            labels.append(f"predicted over {lo:,.2f}")
+        else:
+            labels.append(f"predicted {lo:,.2f} to {hi:,.2f}")
+    return edges, q_hats, labels
 
 
 def predict_interval(
@@ -180,9 +257,29 @@ def predict_interval(
     residuals = np.asarray(calibration["residuals"], dtype=float)
     in_log_space = bool(calibration.get("in_log_space", False))
     alpha = 1.0 - coverage
-    q_hat = _conformal_quantile(residuals, alpha)
+    q_global = _conformal_quantile(residuals, alpha)
+
+    # Banded (Mondrian) calibration: a per-band quantile, keyed by predicted
+    # value, so the width tracks where the model is actually good instead of
+    # the noisiest segment setting one width for everyone. Falls back to the
+    # global quantile for old calibration dicts or small calibration sets.
+    bands = None
+    cal_preds = calibration.get("predictions")
+    if cal_preds is not None:
+        bands = _build_bands(
+            np.asarray(cal_preds, dtype=float), residuals, alpha
+        )
 
     preds = np.asarray(model.predict(x), dtype=float)
+    if bands is None:
+        q_hat = np.full(preds.shape, q_global)
+        band_labels = [None] * len(preds)
+    else:
+        edges, band_q_hats, labels = bands
+        band_of = np.searchsorted(edges, preds, side="right")
+        q_hat = np.asarray(band_q_hats, dtype=float)[band_of]
+        band_labels = [labels[b] for b in band_of]
+
     if in_log_space:
         # Multiplicative bounds in price space.
         low = preds * np.exp(-q_hat)
@@ -193,9 +290,10 @@ def predict_interval(
 
     return [
         IntervalResult(
-            low=float(lo), prediction=float(p), high=float(hi), coverage=coverage
+            low=float(lo), prediction=float(p), high=float(hi),
+            coverage=coverage, band=band,
         )
-        for lo, p, hi in zip(low, preds, high)
+        for lo, p, hi, band in zip(low, preds, high, band_labels)
     ]
 
 
