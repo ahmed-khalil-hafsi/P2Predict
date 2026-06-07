@@ -1,12 +1,11 @@
-# Case study: Battery-management IC pricing
+# Case study: Battery Management ICs
 
-> **The first procurement-shaped case study.** Real catalog data from
-> the DigiKey API, a deliberately small dataset (~100 parts — the size a
-> real BOM benchmarking exercise actually has), and a target that behaves
-> nothing like used-car prices. Where the [used-cars](../used-cars/) study
-> showed P2Predict on a big, heavy-tailed, log-friendly dataset, this one
-> shows it on a small, near-symmetric, *additive* one — and is honest
-> about where that costs you.
+> **A procurement-shaped case study.** Real catalog data from the DigiKey
+> API, a deliberately small dataset (~100 parts — the size a real BOM
+> benchmarking exercise actually has), and a price target that is small,
+> near-symmetric, and *additive*. It shows P2Predict working on exactly
+> the kind of thin, real-world parts slice a category manager faces — and
+> is honest about where that thinness costs you.
 
 ## The procurement question
 
@@ -32,15 +31,15 @@ Three reasons:
    tens to low-hundreds of comparable parts, not hundreds of thousands of
    rows. We deliberately kept this dataset to **~100 parts** so the case
    study demonstrates what P2Predict does on the data a procurement team
-   *actually has* — small, sparse, real. Everything that's easy on 80,000
-   used-car listings (stable CV, narrow intervals, a clean log-target
-   trigger) gets harder here, and that's the point.
-2. **It's the additive counter-example to used-cars.** BMIC prices in
-   this slice run $0.57 – $6.94 with a skew of **0.12** — nowhere near
-   the 1.0 threshold that flips on the log-target wrap. So this model is
-   **additive**: SHAP attribution comes back in **dollars**, not
-   multiplicative factors, and the conformal interval is additive too —
-   which means it can (and does) go *negative* on the cheapest parts. We
+   *actually has* — small, sparse, real. The things that are easy on a
+   large dataset (stable CV, narrow intervals, a clean log-target trigger)
+   get harder here, and that's the point.
+2. **It's an additive-target model, and that changes how you read it.**
+   BMIC prices in this slice run $0.57 – $6.94 with a skew of **0.12** —
+   nowhere near the 1.0 threshold that flips on the log-target wrap. So
+   this model is **additive**: SHAP attribution comes back in **dollars**,
+   not multiplicative factors, and the conformal interval is additive too
+   — which means it can (and does) go *negative* on the cheapest parts. We
    don't hide that; we show it, explain why, and point at the fix.
 3. **It surfaces a procurement lever you can quote in a negotiation.**
    Hold every spec fixed and swap only the supplier, and the model puts a
@@ -265,12 +264,12 @@ decimal places). P2Predict checks this on every explanation; if you ever
 see a failed axiom in the output, the explanation is unsound.
 
 <details>
-<summary>💡 <b>Why "dollars" here and "multiplicative factors" in the used-cars study?</b></summary>
+<summary>💡 <b>Why SHAP comes back in "dollars" here, and when it would come back as "multiplicative factors" instead</b></summary>
 
-It comes down to whether the log-target wrap fired. In used-cars, prices
-are heavily right-skewed (skew 1.5), the wrap activated, the model
+It comes down to whether the log-target wrap fired. When a price target
+is heavily right-skewed (skew above 1.0), the wrap activates, the model
 predicts `log(price)`, and SHAP credit exponentiates into **multipliers**
-("FWD × 0.85"). In this BMIC slice the skew is 0.12 — far below the 1.0
+("× 0.85"). In this BMIC slice the skew is 0.12 — far below the 1.0
 threshold — so the wrap stays off, the model predicts price directly, and
 SHAP credit lands in **dollars** ("48-pin package: +$1.41").
 
@@ -491,10 +490,10 @@ a big-data demo. The model lands at R² 0.563 — modest, and we label it
 unbiased** (residual-bias p-value 0.57), which on a small dataset is the
 property that actually matters: the model isn't systematically over- or
 under-pricing, so the intervals and SHAP attributions are trustworthy
-even where the point estimate is rough. Contrast this with used-cars,
-where R² was higher (0.634) but the residual-bias p-value was ≈10⁻⁷⁵ —
-*more* explained variance, *less* honest residuals. Different datasets,
-different failure modes.
+even where the point estimate is rough. That distinction matters more
+than R² alone: a model can explain *more* variance yet have biased
+residuals (a systematic lean high or low). Here the residuals are honest,
+which is what makes the intervals and attributions usable.
 
 **2. The log-target wrap correctly stays *off* here — and that has
 consequences you can see.** Skew 0.12 is far below the 1.0 threshold, so
@@ -527,8 +526,7 @@ Microchip part instead of ADI/Maxim" takes one
 `--whatif "manufacturer:Microchip Technology"` on the CLI (or
 `p2predict.what_if(...)` in Python) and returns −28.5% / −$1.50 per unit.
 For procurement that *is* the deliverable: a defensible, line-itemised
-supplier-premium number. Same workflow, same math as used-cars; a
-different lever.
+supplier-premium number you can take into a sourcing conversation.
 
 ---
 
@@ -564,9 +562,9 @@ the top of [`fetch_data.py`](fetch_data.py).
 > **💡 What does "skew" mean, and why does it matter here?**
 >
 > Skew measures how lopsided a distribution is. A big *positive* skew (a
-> long tail of expensive items) is what used-car prices have, and it's
-> what triggers P2Predict's log-target transform. This BMIC slice runs a
-> tight $0.57 – $6.94 with skew **0.12** — almost symmetric. So the
+> long tail of expensive items) is what triggers P2Predict's log-target
+> transform. This BMIC slice runs a tight $0.57 – $6.94 with skew
+> **0.12** — almost symmetric. So the
 > log-target wrap stays off and the model is *additive*. Skew isn't just
 > trivia: it's the single number that decides whether your SHAP
 > attribution comes back as dollars or as percentages, and whether your
@@ -609,9 +607,7 @@ the realistic tax of catalog data — not every part lists every spec.
 This section is the comprehensive walkthrough of what P2Predict actually
 does between the input CSV and the predictions, intervals, and
 explanations you see above. Every choice has a code reference; nothing
-is magic. (Much of the machinery is identical to the
-[used-cars study](../used-cars/README.md#methodology) — this section
-highlights what's *different* on a small, additive dataset.)
+is magic.
 
 ### Pipeline at a glance
 
@@ -654,11 +650,12 @@ distribution shape.
 | Target (`unit_price_at_1_usd`) | `--outliers` | `warn` |
 | Each numeric feature | `--feature-outliers` | `warn` |
 
-**Why `warn`, not `drop`, on a 102-part dataset.** On used-cars we
-dropped feature-side outliers because the dataset was huge and a few
-data-entry errors (a car with 9,999,999 miles) genuinely needed
-removing. Here, with only ~100 parts, **`--feature-outliers drop` is
-actively harmful**: the BMIC slice is mostly −40/85 °C industrial parts,
+**Why `warn`, not `drop`, on a 102-part dataset.** Dropping feature-side
+outliers makes sense on a large dataset, where a few data-entry errors
+(say a part with an absurd impossible value) genuinely need removing and
+losing a handful of rows costs nothing. Here, with only ~100 parts,
+**`--feature-outliers drop` is actively harmful**: the BMIC slice is
+mostly −40/85 °C industrial parts,
 so the Tukey fence on the temperature columns collapses to a near-constant
 and the drop policy removed **37 of 102 rows** in testing — after which
 P2Predict's no-variation pruner deleted the temperature columns entirely
@@ -878,8 +875,8 @@ A p-value is the probability of seeing data this extreme **if the thing
 you're testing for isn't actually happening**. Here we test whether the
 model's average error differs from zero. A **high** p-value (like our
 0.57) means we *can't* distinguish the average error from zero — the
-model is statistically unbiased. (Contrast used-cars: p ≈ 10⁻⁷⁵, a model
-that was clearly systematically off.)
+model is statistically unbiased. A **tiny** p-value (say 10⁻⁷⁵) would
+mean the opposite: a model that is clearly, systematically off.
 </details>
 
 **What's tested.** Whether residuals `y_test − ŷ_test` have a mean
