@@ -127,7 +127,7 @@ Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.
 **Scope**
 - Domain registered (one of `p2predict.com` / `.dev` / `.ai`).
 - Single-page static site focused on Part 1 of the README (the value scenarios) in a procurement-CFO voice — concrete numbers, named meetings, no ML jargon.
-- Clear path to "try the OSS" (developer track → GitHub) and "talk to us about deployment" (enterprise track → email).
+- Clear path to "try it" (developer track → GitHub) and "talk to us about deployment" (enterprise track → contact page).
 - Built with a minimal static-site setup. The site is not the focus of the project; the math is.
 
 **Acceptance**
@@ -142,7 +142,7 @@ Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.
 - **Quantile regression for Ridge** — too involved relative to the conformal interval already shipping.
 - **Multi-format input (Parquet, Excel, DB)** — UX, not robustness or distribution. CSV covers 95% of procurement use today.
 - **Web dashboard / JS UI** — wrong abstraction for a math-first tool. The agent-first thesis says presentation belongs in the user's existing agent / chat / spreadsheet, not in another dashboard.
-- **Pro-tier features** (multi-user model registry, audit log, SSO, drift monitoring, ERP connectors) — these are the *paid* layer in the open-core thesis. Don't build until 10+ companies are asking the same questions. Listen first.
+- **Pro-tier features** (multi-user model registry, audit log, SSO, drift monitoring, ERP connectors) — these are the *paid* layer in the dual-licensing model. Don't build until 10+ companies are asking the same questions. Listen first.
 
 ## Anti-goals
 
