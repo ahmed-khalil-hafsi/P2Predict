@@ -86,7 +86,7 @@ A P2Predict model trained on the historical buys captures the *pattern* — what
 
 Four reproducible case studies on public datasets, each targeting a different audience:
 
-- **[Electronic components](case-studies/electronic-components/)** — parametric pricing for EE procurement (Octopart / Mouser API).
+- **[Battery Management ICs](case-studies/battery-management-ics/)** — parametric pricing for EE procurement (Octopart / Mouser / DigiKey API).
 - **[Used vehicles](case-studies/used-cars/)** — the tutorial, on prices that span orders of magnitude (Kaggle, CC-licensed).
 - **[Aerospace contracts](case-studies/aerospace-contracts/)** — government / large-procurement parametric estimating (USAspending.gov, public domain).
 - **[PCBA composition](case-studies/pcba-composition/)** — composes three trained models (components + PCB + assembly) into BOM-level cost with per-stage attribution. The composability story for hardware-procurement cost engineering.

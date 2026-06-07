@@ -32,7 +32,7 @@ def _latest_model() -> Path:
     if not candidates:
         sys.exit(
             f"No price models in {MODELS_DIR}. Train first — see "
-            "case-studies/electronic-components/README.md."
+            "case-studies/battery-management-ics/README.md."
         )
     return candidates[-1]
 

@@ -21,9 +21,9 @@ Four figures carry the case study for a non-developer reader:
 
 Run after a model has been trained::
 
-    python case-studies/electronic-components/generate_charts.py
+    python case-studies/battery-management-ics/generate_charts.py
 
-Outputs go to ``case-studies/electronic-components/assets/``.
+Outputs go to ``case-studies/battery-management-ics/assets/``.
 """
 from __future__ import annotations
 

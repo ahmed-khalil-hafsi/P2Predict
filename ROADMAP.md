@@ -64,7 +64,7 @@ Two reproducibility paths in the README: full Kaggle (matches the numbers exactl
 
 Case studies earn their keep on day one: this one surfaced two real bugs (SHAP sparse-matrix breakage on Ridge/Lasso with high-cardinality categoricals; SHAP + XGBoost 3.x `base_score` parse error) and one UX wart (auto-mode's silent 6-feature cap). All three landed alongside the case study as fixes + regression tests + the `--max-features` flag.
 
-The three remaining case studies — electronic components (Octopart), aerospace contracts (USAspending.gov), and PCBA composition (compose three trained models) — are scaffolded in `case-studies/` and queued for v0.9.2+.
+The three remaining case studies — battery management ICs (Octopart / DigiKey), aerospace contracts (USAspending.gov), and PCBA composition (compose three trained models) — are scaffolded in `case-studies/` and queued for v0.9.2+.
 
 ---
 
@@ -72,7 +72,7 @@ The three remaining case studies — electronic components (Octopart), aerospace
 
 ### ~~0b. `--log-target {auto,on,off}` to override the skew rule~~ ✅ Shipped in v0.9.3
 
-The auto rule (`scipy.stats.skew(y_train) > 1.0`) only flips on log-target when the sample happens to be skewed, but every multiplicative positive-quantity target (prices, costs, weights, lead times) wants the wrap regardless of whether *this* sample looks skewed — multiplicative attribution and strictly-positive conformal intervals are the *property* the wrap defends, not a fix for a particular distribution shape. The electronic-components case study made this concrete: a 150-part dataset with skew 0.12 left log-target off and produced a 90% conformal interval of `-$1.40` to `$4.95` on a $1.77 prediction. `--log-target on` overrides the auto rule, with the same `y_train > 0` safety check. `off` is the symmetric override for additive-scale targets. Default stays `auto` so existing scripts and case studies are untouched, and `log_target_decision` lands in the `--json` payload so consumers can see which path was taken.
+The auto rule (`scipy.stats.skew(y_train) > 1.0`) only flips on log-target when the sample happens to be skewed, but every multiplicative positive-quantity target (prices, costs, weights, lead times) wants the wrap regardless of whether *this* sample looks skewed — multiplicative attribution and strictly-positive conformal intervals are the *property* the wrap defends, not a fix for a particular distribution shape. The Battery Management ICs case study made this concrete: a 150-part dataset with skew 0.12 left log-target off and produced a 90% conformal interval of `-$1.40` to `$4.95` on a $1.77 prediction. `--log-target on` overrides the auto rule, with the same `y_train > 0` safety check. `off` is the symmetric override for additive-scale targets. Default stays `auto` so existing scripts and case studies are untouched, and `log_target_decision` lands in the `--json` payload so consumers can see which path was taken.
 
 ### ~~0a. `--report PATH` for the PDF model-quality report~~ ✅ Shipped in v0.9.2
 

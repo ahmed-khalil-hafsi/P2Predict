@@ -12,7 +12,7 @@ directly — which is what this script does.
 
 Run after a model has been trained::
 
-    python case-studies/electronic-components/generate_quality_report.py
+    python case-studies/battery-management-ics/generate_quality_report.py
 
 Outputs:
 

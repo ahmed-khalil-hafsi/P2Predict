@@ -311,7 +311,7 @@ artifact.
 Lithium-Ion/Polymer BMIC with an I2C interface, 8-pin package, −40/85 °C
 industrial grade. Predicted price: **$2.71**. Every "Δ" below is "what
 happens if you keep this baseline and change exactly that one feature."
-[Reproduce with `python case-studies/electronic-components/extract_insights.py`.]
+[Reproduce with `python case-studies/battery-management-ics/extract_insights.py`.]
 
 ### 1. Brand alone moves price by 2.2× (the headline lever)
 
@@ -990,7 +990,7 @@ Finding #1 — the brand premium dominates, and it's the lever the
 ADI→Microchip what-if pulls.
 
 > **How to generate this report yourself.** Run
-> `python case-studies/electronic-components/generate_quality_report.py`
+> `python case-studies/battery-management-ics/generate_quality_report.py`
 > after training (it re-derives the holdout with the same split + outlier
 > policies, renders the PDF, and converts each page to a PNG preview). The
 > same report is produced interactively by `p2predict-train` in expert +
@@ -1009,7 +1009,7 @@ cat > ~/.digikey/credentials <<'EOF'
 EOF
 chmod 600 ~/.digikey/credentials
 
-cd case-studies/electronic-components
+cd case-studies/battery-management-ics
 
 # 1. Fetch the "battery management" slice (~150 parts, 3 API requests).
 #    Output is gitignored — DigiKey data isn't redistributable in bulk.
@@ -1047,7 +1047,7 @@ python generate_quality_report.py
 ### Quick path (no DigiKey account needed)
 
 ```bash
-cd case-studies/electronic-components
+cd case-studies/battery-management-ics
 p2predict-train \
   -i data-sample/bmics_sample.csv \
   -t unit_price_at_1_usd \

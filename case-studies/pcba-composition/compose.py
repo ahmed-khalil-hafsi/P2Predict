@@ -189,7 +189,7 @@ def main() -> None:
     parser.add_argument(
         "--component-model", type=Path, required=True,
         help="Path to a P2Predict component-cost model (train from "
-        "case-studies/electronic-components/).",
+        "case-studies/battery-management-ics/).",
     )
     parser.add_argument(
         "--pcb-model", type=Path, required=True,
