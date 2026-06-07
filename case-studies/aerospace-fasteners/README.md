@@ -57,13 +57,15 @@ Three reasons it's worth doing:
 
 We pulled **188,119** FSC-5306 NSNs from PUB LOG, joined decoded physical specs
 to a unit-of-issue-normalised per-each price, and after the price + core-spec
-coverage filter were left with **36,668 catalogued bolts** (≈19k with every
-numeric spec populated — the model's complete-case training set). The trainer
+coverage filter were left with **36,668 catalogued bolts** (≈19k — 18,997 — with
+every modeled spec populated; rows with any missing value are dropped at load,
+so this complete-case subset is the model's effective training pool). The trainer
 selected **XGBoost** with **`--log-target on`** firing automatically on the 5.36
 skew. On a held-out 3,800-bolt test set the model lands at **raw R² 0.043 /
-log-price R² ≈ 0.43**, a **median error of 79.8%**, and **MAE $53.32**. Those are
-not good numbers — and the point of this study is that **they're close to the
-best any model can do on this data.** We measured the ceiling (`diagnose_noise.py`)
+log-price R² 0.343**, a **median error of 79.8%**, and **MAE $53.32**. Those are
+not good numbers — and the point of this study is that **no model gets far past
+them on this data** (an independent re-verification could not push log R² beyond
+0.375 in any configuration). We measured the ceiling (`diagnose_noise.py`)
 at **log R² ≈ 0.60**, with **80% of bolts being one-off spec signatures** and
 identical specs cataloged across a **4.5× price band**. The directional signal —
 the material premium and the length ruler — survives the noise; the per-bolt
@@ -87,7 +89,7 @@ to act on versus where it's only a directional hint.**
 | 1 | **Material grade is the dominant *directional* lever.** Holding a 1/4-28 × 1.0″ bolt fixed and swapping only the material: CRES **+49%**, A286 superalloy **+59%**, titanium **+135%**, nickel alloy **+164%** over commodity alloy steel. The *order* is robust; the exact % is not. | chart below · `extract_insights.py` |
 | 2 | **Length is the cleanest cost ruler.** A commodity hex bolt runs $1.94 at 0.5″ → $6.75 at 3.0″ (**+248%**), smooth and monotonic — the one driver the model reads cleanly. | chart below · `extract_insights.py` |
 | 3 | **The catalog is intrinsically noisy — this is the headline.** 80% of bolts are one-off specs; identical specs are cataloged across a **4.5× price band**; the irreducible within-spec variance caps any model at **log R² ≈ 0.60**. | chart below · `diagnose_noise.py` |
-| 4 | **The model is honest about it.** Holdout raw R² 0.043, median error 79.8%, MAE $53.32 — near the measured ceiling, not under-tuned. | quality report below |
+| 4 | **The model is honest about it.** Holdout raw R² 0.043, median error 79.8%, MAE $53.32 — at ~57% of the measured ceiling; some training headroom remains, but independent re-verification couldn't push log R² past 0.375 in any configuration. | quality report below |
 
 #### Finding 1 — the material premium ladder
 
@@ -123,9 +125,10 @@ are identical. It's why the achievable ceiling is ~0.60, not ~1.0.
   bolt should run ~1.5–1.6× the alloy-steel equivalent" is defensible from the
   data; "this exact NSN should be $3.81" is not. Quote the *ratio*, not the
   point estimate.
-- **Sanity-check quotes against the length/diameter rulers.** A quote that's flat
+- **Sanity-check quotes against the length ruler.** A quote that's flat
   across a 2× length jump, or wildly off the smooth length curve, is worth a
-  second look.
+  second look. (The diameter sweep is U-shaped on this model — treat it as a
+  directional hint, not a ruler.)
 - **Don't use the per-each point estimate to set a should-cost.** The 90% likely
   range on a single bolt spans ~100× (e.g. the titanium archetype: $1.50–$212).
   That width is the honest output here — it's telling you the catalog can't
@@ -138,7 +141,8 @@ An honest trust map — what to lean on, what to treat as a hint, what to ignore
 | Signal | Trust | Why |
 |---|---|---|
 | 🟢 **Material premium, ordinal direction** | Lean on it | Robust across re-runs and well-sampled; alloy steel < CRES < A286 < Ti/Ni holds |
-| 🟢 **Length / diameter cost rulers** | Lean on it | Smooth, monotonic, physically sensible |
+| 🟢 **Length cost ruler** | Lean on it | Smooth, monotonic, physically sensible |
+| 🟡 **Diameter cost ruler** | Directional only | U-shaped on this model ($5.39 at 0.164″ → $2.39 at 0.25″ → $7.81 at 0.5″), not monotonic — use with judgment |
 | 🟡 **Exact premium %** | Directional only | Moves ±10–20pts on resampling; quote a band |
 | 🟡 **Mid-tier point estimate ($5–$155)** | Rough benchmark | Where the model is *least bad* and procurement dollars concentrate |
 | 🔴 **Single-bolt point estimate, broadly** | Don't | Median 79.8% error; 4.5× catalog band on identical specs |
@@ -215,9 +219,16 @@ by construction) mechanically drag the ceiling toward 1.0 — a falsely reassuri
 number. On this dataset that exact trap turned a fake **"0.93 ceiling"** into the
 honest **~0.60.** We hit it ourselves; that's why it's documented.
 
-Read the ceiling next to the model's actual log R² ≈ 0.43. The model is at ~70%
-of the achievable ceiling — it is **not** badly under-tuned. The remaining gap is
-small and the rest is noise the catalog itself carries.
+Read the ceiling next to the model's actual log R² of 0.343. The model is at
+~57% of the achievable ceiling — further from it than this study first claimed,
+and part of that gap is training headroom (core training defects — an HPO
+resource floor, raw-space CV scoring, wholesale NA-row dropping — were found in
+independent re-verification and are being fixed separately; see PR #14). But the
+diagnosis stands, and re-verification strengthened it: no configuration tried
+pushed log R² past 0.375, and a leave-one-out spec-twin test — predicting each
+bolt from the *other* bolts with the identical spec — scores log R² **−0.17**.
+A bolt's exact spec-twin barely predicts its price. The ceiling is noise the
+catalog itself carries.
 
 ### Part 2b — the strengthening attempt (it didn't move the needle)
 
@@ -313,8 +324,12 @@ The pipeline runs in five stages, each handled by P2Predict:
    physical grounds.
 2. **Train/test split** with a held-out test set the model never sees during
    fitting (n = 3,800).
-3. **Preprocessor** — one-hot encoding for the categorical specs, median
-   imputation for missing numerics.
+3. **Preprocessor** — ordinal encoding for the categorical specs (P2Predict
+   one-hot encodes only for linear models; the tree models in play here get
+   ordinal codes). There is no imputation: at the time of this study, any row
+   containing a missing value was dropped wholesale at CSV load
+   (36,668 → 18,997 complete cases — which is why the training set below is
+   15,197 rows: 80% of the 18,997).
 4. **CV model selection + hyperparameter tuning** across candidate algorithms;
    the trainer chose **XGBoost**.
 5. **Conformal calibration** (for the 90% likely-range intervals) and **SHAP**
@@ -357,7 +372,7 @@ predictive of a target the catalog prices so loosely.
 | Algorithm | XGBoost, `--log-target on` |
 | Training rows | 15,197 |
 | Raw R² | 0.043 |
-| Log-price R² | ≈ 0.43 |
+| Log-price R² | 0.343 |
 | Median % error | 79.8% |
 | MAPE | 258.1% |
 | P90 % error | 487.0% |
@@ -365,9 +380,18 @@ predictive of a target the catalog prices so loosely.
 | RMSE | $159.21 |
 | **Measured ceiling (log R²)** | **≈ 0.60** |
 
-Read the actual log R² (≈0.43) next to the ceiling (≈0.60): the model is near,
-not far from, the best achievable. The story is the gap between the ceiling and
-1.0 — that's the catalog's noise, not the model's shortcoming.
+Read the actual log R² (0.343) next to the ceiling (≈0.60): the model captures
+~57% of the achievable signal. Some of the shortfall is training headroom (see
+the re-verification note below), but most of the story is still the gap between
+the ceiling and 1.0 — that's the catalog's noise, not the model's shortcoming.
+
+> **Independently re-verified.** Every number in this table — and the worked
+> examples, the noise-floor ceiling, and the material/length sweeps — was
+> independently reproduced and stress-tested in
+> [`FINDINGS-verification.md`](FINDINGS-verification.md) /
+> [`verify_findings.py`](verify_findings.py) (PR #14). That re-verification also
+> measured a higher ceiling of **0.71** when 8 more catalog specs + ITEM_NAME
+> are added — part of the "irreducible" noise was unmeasured features.
 
 ## Model quality report (PDF)
 
