@@ -28,7 +28,11 @@ FEATURE_TYPES = {
 
 
 def _latest_model() -> Path:
-    candidates = sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"))
+    # Sort by mtime, not filename — the algorithm prefix precedes the
+    # timestamp, so an alphabetical sort can rank an older xgboost model
+    # above a newer ridge one. mtime = the model actually trained last.
+    candidates = sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         sys.exit(
             f"No price models in {MODELS_DIR}. Train first — see "
@@ -113,6 +117,7 @@ def main() -> None:
         print(f"  {label}")
         print(f"    predicted:    ${iv.prediction:>5.2f}")
         print(f"    90% range:    {_clip(iv.low)}  to  ${iv.high:>5.2f}")
+        print(f"    band:         {iv.band or 'global (calibration set too small to band)'}")
         print()
 
     # 2. SHAP for the EV BMS — the most procurement-interesting part.
