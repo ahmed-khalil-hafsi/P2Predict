@@ -44,6 +44,7 @@ from p2predict.training import (
     ALGORITHMS,
     auto_train,
     extract_feature_importances,
+    resolve_log_target,
     start_training,
 )
 from p2predict.ui_console import print_dataframe
@@ -132,6 +133,16 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
               help="Name of a date/time column. When given, the train/test split and CV "
                    "become chronological (TimeSeriesSplit), which prevents look-ahead bias "
                    "for time-ordered data. The column is excluded from features.")
+@click.option("--log-target", "log_target_mode",
+              type=click.Choice(["auto", "on", "off"]), default="auto",
+              show_default=True,
+              help="Override the automatic skew-based decision on whether to wrap "
+                   "the target with log/exp. 'auto' = wrap when scipy.stats.skew(y) > 1.0 "
+                   "(the prior behaviour). 'on' = always wrap (the right default for "
+                   "multiplicative quantities like prices/costs/weights, regardless of "
+                   "sample skew — keeps conformal intervals strictly positive and SHAP "
+                   "factors multiplicative). 'off' = never wrap. 'on' aborts cleanly "
+                   "if any training target is non-positive.")
 @click.option("--report", "report", type=click.Path(), default=None,
               help="Write the procurement-style PDF model-quality report to PATH "
                    "after training. Works in both auto and expert mode, and with "
@@ -143,7 +154,7 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
                    "See p2predict.json_output for the schema.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
           budget, max_features, tune, outliers, feature_outliers, time_column,
-          report, json_mode):
+          log_target_mode, report, json_mode):
 
     # Redirect Rich to /dev/null under --json so any console.print that
     # escapes a guard cannot corrupt the JSON document on stdout.
@@ -355,6 +366,23 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     )
     time_aware = time_column is not None
 
+    # Resolve --log-target up front so the same decision flows into auto,
+    # expert, and the late-arriving expert+interactive tuning branch. The
+    # 'on' safety check (y_train > 0) runs here rather than inside
+    # resolve_log_target() so the CLI surfaces a friendly --json abort.
+    if log_target_mode == "on":
+        try:
+            y_arr = y_train.to_numpy(dtype=float)
+        except Exception:
+            y_arr = None
+        if y_arr is None or y_arr.size == 0 or (y_arr <= 0).any():
+            _abort(json_mode, console, "log_target_non_positive",
+                   "--log-target on requires all training targets to be strictly "
+                   "positive; found non-positive values in y_train.")
+    log_target_override, log_target_decision = resolve_log_target(
+        y_train, mode=log_target_mode
+    )
+
     if expert and interactive:
         if questionary.confirm("Plot histograms of the selected features?").ask():
             plotting.plot_histograms(data[selected_columns])
@@ -386,6 +414,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         model, feature_weights, log_target = start_training(
             X_train, y_train, numerical_cols, categorical_cols, algorithm,
             budget=budget, tune=tune, time_aware=time_aware,
+            log_target=log_target_override,
         )
         if inner_spinner is not None:
             inner_spinner.stop()
@@ -408,6 +437,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         model, algorithm, scores, log_target = auto_train(
             X_train, y_train, numerical_cols, categorical_cols,
             budget=budget, time_aware=time_aware,
+            log_target=log_target_override,
         )
         if inner_spinner is not None:
             inner_spinner.stop()
@@ -486,6 +516,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 algorithm=algorithm,
                 budget=budget,
                 time_aware=time_aware,
+                log_target=log_target_override,
             )
             tune_spinner.stop()
             mae_t, r2_t, _, rmse_t = evaluate_model(X_test, y_test, tuned_model)
@@ -589,6 +620,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         "features_selected": list(selected_columns),
         "algorithm_selected": algorithm,
         "log_target": bool(log_target),
+        "log_target_decision": log_target_decision,
         "cv_scores": {k: float(v) for k, v in scores.items()} if scores else {},
         "feature_importances": importances_block,
         "evaluation": {
