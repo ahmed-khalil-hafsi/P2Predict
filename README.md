@@ -1,9 +1,4 @@
 # P2Predict
-     ____   ____   ____                   _  _        _   
-    |  _ \ |___ \ |  _ \  _ __   ___   __| |(_)  ___ | |_ 
-    | |_) |  __) || |_) || '__| / _ \ / _` || | / __|| __|
-    |  __/  / __/ |  __/ | |   |  __/| (_| || || (__ | |_ 
-    |_|    |_____||_|    |_|    \___| \__,_||_| \___| \__|
 
 
 [![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
