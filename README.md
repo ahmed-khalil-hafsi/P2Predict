@@ -88,7 +88,7 @@ Four reproducible case studies on public datasets, each targeting a different au
 
 - **[Battery Management ICs](case-studies/battery-management-ics/)** — parametric pricing for EE procurement (Octopart / Mouser / DigiKey API).
 - **[Used vehicles](case-studies/used-cars/)** — the tutorial, on prices that span orders of magnitude (Kaggle, CC-licensed).
-- **[Aerospace contracts](case-studies/aerospace-contracts/)** — government / large-procurement parametric estimating (USAspending.gov, public domain).
+- **[Aerospace fasteners](case-studies/aerospace-fasteners/)** — detecting noisy data: measuring a model's R² ceiling before tuning, on the public-domain DLA PUB LOG fastener catalog.
 - **[PCBA composition](case-studies/pcba-composition/)** — composes three trained models (components + PCB + assembly) into BOM-level cost with per-stage attribution. The composability story for hardware-procurement cost engineering.
 
 Each one ships with a `README` walking through the story, a `fetch_data.py` to pull the dataset, training command, and worked predictions with `--explain` / `--interval` / `--whatif`.

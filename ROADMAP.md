@@ -64,7 +64,7 @@ Two reproducibility paths in the README: full Kaggle (matches the numbers exactl
 
 Case studies earn their keep on day one: this one surfaced two real bugs (SHAP sparse-matrix breakage on Ridge/Lasso with high-cardinality categoricals; SHAP + XGBoost 3.x `base_score` parse error) and one UX wart (auto-mode's silent 6-feature cap). All three landed alongside the case study as fixes + regression tests + the `--max-features` flag.
 
-The three remaining case studies — battery management ICs (Octopart / DigiKey), aerospace contracts (USAspending.gov), and PCBA composition (compose three trained models) — are scaffolded in `case-studies/` and queued for v0.9.2+.
+Battery management ICs (Octopart / DigiKey) and aerospace fasteners (DLA PUB LOG, public domain) are now built out in `case-studies/`. PCBA composition (compose three trained models into BOM-level cost) remains scaffolded and queued for v0.9.2+.
 
 ---
 
