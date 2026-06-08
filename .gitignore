@@ -163,3 +163,7 @@ models/
 
 # Case study downloaded data — fetched on demand, never checked in.
 case-studies/*/data/
+
+# Local Claude Code config + skill eval scratch (the skill itself IS tracked).
+.claude/settings.local.json
+.claude/skills/*-workspace/
