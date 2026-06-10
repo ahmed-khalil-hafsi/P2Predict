@@ -127,6 +127,45 @@ def test_pipeline_handles_unseen_categories_at_predict_time(synthetic_parts):
     assert np.isfinite(pred[0])
 
 
+def test_tree_prices_sparse_premium_category_via_target_encoding():
+    """Regression for the categorical-encoding fix.
+
+    A high-cardinality nominal feature with a *sparse premium* category is
+    the case ordinal integer codes break: an alphabetical code puts the
+    premium category next to a commodity neighbour, and the tree's threshold
+    split lumps them into one leaf — so the premium part is priced like a
+    commodity one (the 'XGBoost prices a Tesla like a Toyota' failure).
+    Target encoding orders categories by mean price, so the premium category
+    must come out clearly above the commodity baseline.
+    """
+    rng = np.random.default_rng(0)
+    n = 3000
+    # 'brand_t' is the sparse premium brand; 'brand_s' sorts right next to it
+    # alphabetically (the ordinal-adjacency trap) but is a commodity brand.
+    brands = np.array(["brand_a", "brand_s", "brand_t", "brand_u", "brand_z"])
+    weights = np.array([0.34, 0.34, 0.01, 0.30, 0.01])  # brand_t is ~1% of rows
+    brand = rng.choice(brands, n, p=weights)
+    size = rng.uniform(1, 10, n)
+    premium = np.where(brand == "brand_t", 5.0, 1.0)  # 5x brand premium
+    price = premium * (1.0 + 0.1 * size) * np.exp(rng.normal(0, 0.1, n))
+    df = pd.DataFrame({"brand": brand, "size": size, "price": price})
+
+    X_train, _, y_train, _, num, cat = _split(df, target="price")
+    model, _, _ = start_training(
+        X_train, y_train, num, cat, algorithm="xgboost", tune=False,
+        log_target=True,
+    )
+    base = {"size": 5.0}
+    commodity = float(model.predict(pd.DataFrame([{**base, "brand": "brand_s"}]))[0])
+    premium_pred = float(model.predict(pd.DataFrame([{**base, "brand": "brand_t"}]))[0])
+    # The true premium is 5x; ordinal encoding collapses it toward ~1x. Assert
+    # the model recovers a clear premium (>2.5x) for the sparse brand.
+    assert premium_pred > 2.5 * commodity, (
+        f"sparse premium brand priced at {premium_pred:.2f} vs commodity "
+        f"{commodity:.2f} (ratio {premium_pred/commodity:.2f}; expected > 2.5)"
+    )
+
+
 def _synthetic_regression_frame(n=2000, seed=0):
     rng = np.random.default_rng(seed)
     weight = rng.uniform(1, 50, n)
