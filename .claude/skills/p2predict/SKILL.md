@@ -172,6 +172,70 @@ whatif     = what_if(m["model"], part, {"manufacturer": "Microchip Technology"},
 
 ---
 
+## Feature engineering before training
+
+The category manager doesn't know that multiplying two columns can improve a
+model. You do. Before calling `p2predict-train`, scan the columns and consider
+whether derived features would give the model a shortcut to a real cost driver.
+Add them as new columns to the DataFrame/CSV — the engine is general-purpose;
+the domain reasoning is your job.
+
+### When to try
+
+Only when you can state a **physical or business reason** why the derived
+quantity drives cost. "Material cost scales with volume" is a reason.
+"These are both numbers so I'll multiply them" is not. If you can't explain it
+to the category manager in one sentence, don't create it.
+
+### Patterns to look for
+
+| You see in the columns… | Create | Why it helps |
+|---|---|---|
+| Dimensions (width, height, length, diameter, thickness) | `area`, `volume`, `cross_section` | Material cost scales with size — one feature captures what takes a tree 2–3 sequential splits. |
+| Quantity / order-volume with a heavy right tail | `log_quantity` (keep the raw column too) | Volume discounts are proportional — doubling from 100→200 matters more than 10,000→10,100. The log lets the model learn the curve in one split. |
+| Material + dimensions | `weight_proxy` (density × volume, or a simpler mass estimate) | Shipping, raw-material cost, and handling all scale with weight. |
+| Electrical specs (voltage, current, capacitance, cells) | `power_watts`, `total_energy_Wh` | Power rating and energy capacity are the specs buyers actually price against. |
+| A count + a total (pins + area, cells + capacity) | `density` or `per_unit` ratio | Cost-per-pin or energy-per-cell normalises across form factors. |
+
+### How to validate
+
+Train twice — once without the derived feature, once with — and compare the
+CV R² scores from `--json`. If the derived feature doesn't improve CV, drop it.
+Don't keep features that only help on training and hurt generalisation.
+
+### How to communicate
+
+Always tell the user what you did and why:
+
+> *"I created a `volume_cm3` feature from your width, height, and depth columns
+> because material cost typically scales with volume. The model's cross-validated
+> R² improved from 0.61 to 0.78 with this feature — it's the second-most
+> important driver after supplier."*
+
+If the derived feature didn't help, say that too — it's useful signal:
+
+> *"I tried creating a volume feature but it didn't improve the model. Your
+> price variation is driven more by supplier and spec tier than by physical
+> size."*
+
+### Guardrails
+
+- **Don't create more derived features than you have rows.** On a 50-row
+  dataset, one or two derived features are fine. Five pairwise products will
+  overfit feature selection itself.
+- **Keep the raw columns alongside the derived one.** Let the model decide
+  whether `volume` subsumes `width` and `height` or whether they matter
+  independently. Don't delete inputs.
+- **Don't do this for categorical columns.** Multiplying `manufacturer` by
+  `package_type` is meaningless. Categorical interaction is what TargetEncoder
+  already captures implicitly (each category's encoding reflects the price
+  distribution it appears in).
+- **Log-transforming a feature is not the same as `--log-target`.** A
+  log-feature is an additional input column. `--log-target` changes the loss
+  function for the whole model. Both can coexist.
+
+---
+
 ## The interpretation rules (the actual expertise)
 
 These are the lessons that separate a usable answer from a confident-wrong one.
