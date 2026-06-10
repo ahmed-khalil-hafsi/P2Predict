@@ -1,0 +1,61 @@
+bolts_clean.csv: 36,668 rows
+
+==============================================================================
+E1 — saved README model on the reconstructed holdout
+==============================================================================
+  complete-case rows 18,997  (train 15,197 / test 3,800)  — full cleaned file has 36,668 rows; 48% dropped by the NA policy
+  random_forest_unit_price_each_usd_20260608_110013.model    logR2 0.282  rawR2 0.014  med%err 80.6  MAE $54.33
+  random_forest_unit_price_each_usd_20260610_101449.model    logR2 0.282  rawR2 0.014  med%err 80.6  MAE $54.33
+  xgboost_unit_price_each_usd_20260608_105450.model          logR2 0.407  rawR2 0.139  med%err 76.8  MAE $50.57
+  xgboost_unit_price_each_usd_20260608_110411.model          logR2 0.343  rawR2 0.043  med%err 79.8  MAE $53.32
+
+==============================================================================
+E2 — complete-case (current core behaviour) vs native-NaN, all rows
+==============================================================================
+  train rows: complete-case 15,211 vs all 29,334
+  trained on complete cases  -> complete-case test           logR2 0.310  rawR2 0.030  med%err 79.4  MAE $55.45
+  trained on ALL rows (NaN)  -> complete-case test           logR2 0.342  rawR2 0.045  med%err 78.3  MAE $54.21
+  trained on ALL rows (NaN)  -> all-rows test                logR2 0.316  rawR2 0.063  med%err 79.5  MAE $59.06
+  trained on ALL rows (NaN)  -> NA-only test (3,548 rows)    logR2 0.292  rawR2 0.076  med%err 81.3  MAE $64.23
+
+==============================================================================
+E3 — HPO scored in raw price space (current core) vs log space
+==============================================================================
+  scored in RAW price space (core behaviour)  [cv best -8.351, 8s] logR2 -0.254  rawR2 0.122  med%err 265.0  MAE $68.47
+  scored in LOG space  [cv best -0.258, 4s]                  logR2 0.337  rawR2 0.041  med%err 80.0  MAE $53.46
+
+==============================================================================
+E4 — extended features (8 extra PUB LOG specs + ITEM_NAME)
+==============================================================================
+  rows 36,668   features 20 (vs 10 in the study)
+  extended-signature diagnosis: singletons 93%  ceiling 0.71  band 3.3x  (dup rows 2,647)
+  XGB all-rows native-NaN, EXTENDED features -> all-rows test logR2 0.352  rawR2 0.065  med%err 77.4  MAE $58.46
+  XGB all-rows native-NaN, BASE features (same split)        logR2 0.319  rawR2 0.054  med%err 79.3  MAE $59.28
+  top gain importances: thread_class 0.12, ITEM_NAME 0.10, thread_diameter_in 0.10, material 0.06, width_across_flats_in 0.06, thread_series 0.06, tensile_strength_psi 0.05, hardness 0.05, finish 0.05, head_diameter_in 0.04, threads_per_inch 0.04, length_in 0.04
+
+==============================================================================
+E7 — combined best effort: all rows + native NaN + extended features + log-space HPO
+==============================================================================
+  tuned (cv logR2 0.342, 202s)                               logR2 0.375  rawR2 0.055  med%err 76.8  MAE $57.85
+  best params: {'colsample_bytree': 0.7, 'learning_rate': np.float64(0.0106), 'max_depth': 9, 'min_child_weight': 6, 'n_estimators': 850, 'reg_lambda': np.float64(0.3554), 'subsample': 0.85}
+
+==============================================================================
+E5 — per-signature median aggregation (README Part 2b)
+==============================================================================
+  32,256 signatures (from 36,668 rows)
+  XGB on per-signature median prices                         logR2 0.270  rawR2 0.043  med%err 79.5  MAE $63.03
+
+==============================================================================
+E6 — leave-one-out group-mean on duplicate-signature rows
+==============================================================================
+  duplicate rows 7,475: a pure lookup (mean of the OTHER rows with the
+  identical spec) achieves log R2 = -0.171 — the practical ceiling for
+  perfectly-known specs, vs the in-sample variance ceiling of ~0.60.
+
+==============================================================================
+E8 — likely-range width: one global q_hat vs banded calibration
+==============================================================================
+  global q_hat: every part gets a x225 wide 90% band (coverage on eval: 91.4%)
+  band < $5      (n_cal= 737): banded q_hat -> x  435 wide band  (vs global x225; coverage 92.2%)
+  band $5-$155   (n_cal=2859): banded q_hat -> x  200 wide band  (vs global x225; coverage 91.2%)
+  band > $155    (n_cal=  71): banded q_hat -> x   58 wide band  (vs global x225; coverage 89.8%)
