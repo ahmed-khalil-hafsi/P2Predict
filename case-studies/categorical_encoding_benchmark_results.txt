@@ -1,0 +1,11 @@
+============================================================================================
+Categorical encoding for tree models — ordinal codes vs target encoding
+============================================================================================
+used-cars   80,000 rows, 8 cat cols   logR2: ordinal 0.790 -> target 0.768   |  2021 like-new Tesla: ordinal $6,360 -> target $26,067
+fasteners   36,668 rows, 5 cat cols   logR2: ordinal 0.319 -> target 0.322
+BMIC           150 rows, 4 cat cols   R2: ordinal 0.261 -> target 0.300
+
+Takeaway: target encoding orders categories by price, so a single tree
+split separates premium from commodity. It recovers the sparse premium
+brand the ordinal code collapses, helps small data (BMIC) via smoothing,
+and keeps a single numeric column per feature (SHAP/intervals unaffected).
