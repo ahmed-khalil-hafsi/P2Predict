@@ -138,15 +138,17 @@ def test_coverage_is_monotone_in_coverage_level(big_holdout_setup):
 
 def test_log_target_intervals_are_multiplicative(log_target_setup):
     """When the model uses log/exp, the bounds in price space should be
-    multiplicative — i.e. the ratio high / low is the same constant for
-    every prediction. That constant is exp(2 * q_hat), which is what
-    makes the interval scale-natural for procurement prices."""
+    multiplicative — i.e. the ratio high / low is the constant exp(2 * q_hat)
+    for every prediction *within the same calibration band* (and globally
+    when banding is inactive). That's what makes the interval scale-natural
+    for procurement prices."""
     model, X_test, _, calibration = log_target_setup
     intervals = predict_interval(model, X_test.head(50), calibration, coverage=0.90)
-    ratios = [ir.high / ir.low for ir in intervals]
-    # All ratios should be equal (multiplicative interval) to within
-    # floating-point tolerance.
-    assert max(ratios) - min(ratios) < 1e-9
+    by_band: dict = {}
+    for ir in intervals:
+        by_band.setdefault(ir.band, []).append(ir.high / ir.low)
+    for ratios in by_band.values():
+        assert max(ratios) - min(ratios) < 1e-9
 
 
 def test_log_target_intervals_are_strictly_positive(log_target_setup):
@@ -234,6 +236,129 @@ def test_compute_calibration_residuals_log_target(log_target_setup):
     cal = compute_calibration_residuals(model, X_test, y_test)
     assert cal["in_log_space"] is True
     assert all(r >= 0 for r in cal["residuals"])
+
+
+# ---------------------------------------------------------------------------
+# Banded (Mondrian) calibration
+# ---------------------------------------------------------------------------
+
+
+def _generate_heteroscedastic(n=3000, seed=7):
+    """Multiplicative price with noise that *shrinks* as the price grows —
+    the fastener-catalog pattern (cheap commodity parts are near-random,
+    expensive parts are priced more consistently)."""
+    rng = np.random.default_rng(seed)
+    weight = rng.uniform(1, 50, n)
+    region = rng.choice(["EU", "CN", "SG", "US"], n)
+    base = weight ** 1.5
+    sigma = np.where(weight < 15, 0.9, np.where(weight < 30, 0.4, 0.1))
+    price = base * np.exp(rng.normal(0.0, sigma))
+    return pd.DataFrame({"Weight": weight, "Region": region, "Price": price})
+
+
+@pytest.fixture
+def banded_setup():
+    df = _generate_heteroscedastic()
+    X_train, X_test, y_train, y_test, num, cat = prepare_data(
+        df, ["Weight", "Region"], "Price"
+    )
+    model, _, log_target = start_training(
+        X_train, y_train, num, cat, algorithm="random_forest", tune=False,
+        log_target=True,  # force the multiplicative path (skew here is ~0.9)
+    )
+    assert log_target
+    # Split the holdout into calibration and evaluation halves so the
+    # coverage assertions are computed on points the calibration never saw.
+    half = len(X_test) // 2
+    X_cal, y_cal = X_test.iloc[:half], y_test.iloc[:half]
+    X_eval, y_eval = X_test.iloc[half:], y_test.iloc[half:]
+    calibration = compute_calibration_residuals(model, X_cal, y_cal)
+    return model, X_eval, y_eval, calibration
+
+
+def test_calibration_stores_predictions(big_holdout_setup):
+    model, X_test, y_test, cal = big_holdout_setup
+    assert "predictions" in cal
+    assert len(cal["predictions"]) == len(cal["residuals"]) == cal["n_calibration"]
+
+
+def test_banded_widths_track_heteroscedastic_noise(banded_setup):
+    """On data whose noise shrinks with price, the high-price band must get
+    a materially narrower multiplicative interval than the low-price band —
+    the business point of banding: the noisiest segment no longer sets the
+    width for everyone."""
+    model, X_eval, _, calibration = banded_setup
+    intervals = predict_interval(model, X_eval, calibration, coverage=0.90)
+    assert any(ir.band is not None for ir in intervals)
+    preds = np.array([ir.prediction for ir in intervals])
+    ratios = np.array([ir.high / ir.low for ir in intervals])
+    lo_band = ratios[preds <= np.quantile(preds, 0.2)].mean()
+    hi_band = ratios[preds >= np.quantile(preds, 0.8)].mean()
+    assert hi_band < lo_band / 2, (
+        f"expected the expensive band to be at least 2x narrower; "
+        f"got low-band ratio {lo_band:.1f} vs high-band {hi_band:.1f}"
+    )
+
+
+def test_banded_per_band_empirical_coverage(banded_setup):
+    """The Mondrian guarantee: ~90% coverage *within each band*, not just on
+    average. This is exactly what a single global quantile does NOT provide
+    on heteroscedastic data (it over-covers the quiet band and under-covers
+    the noisy one)."""
+    model, X_eval, y_eval, calibration = banded_setup
+    intervals = predict_interval(model, X_eval, calibration, coverage=0.90)
+    actuals = y_eval.to_numpy()
+    by_band: dict = {}
+    for ir, a in zip(intervals, actuals):
+        by_band.setdefault(ir.band, []).append(ir.low <= a <= ir.high)
+    for band, hits in by_band.items():
+        if len(hits) < 50:
+            continue  # too small for a stable empirical rate
+        assert np.mean(hits) == pytest.approx(0.90, abs=0.07), band
+
+
+def test_banded_intervals_stay_positive_under_log_target(banded_setup):
+    model, X_eval, _, calibration = banded_setup
+    for ir in predict_interval(model, X_eval, calibration, coverage=0.99):
+        assert 0 < ir.low < ir.high
+
+
+def test_old_calibration_dict_falls_back_to_global(banded_setup):
+    """Calibration dicts persisted by older model files carry no
+    'predictions' key. They must reproduce the pre-banding behaviour
+    exactly: one global q_hat, identical width everywhere, band=None."""
+    model, X_eval, _, calibration = banded_setup
+    legacy = {k: v for k, v in calibration.items() if k != "predictions"}
+    intervals = predict_interval(model, X_eval, legacy, coverage=0.90)
+    assert all(ir.band is None for ir in intervals)
+    ratios = [ir.high / ir.low for ir in intervals]
+    assert max(ratios) - min(ratios) < 1e-9
+    expected = float(
+        np.exp(2 * _conformal_quantile(np.asarray(legacy["residuals"]), 0.1))
+    )
+    assert ratios[0] == pytest.approx(expected)
+
+
+def test_small_calibration_falls_back_to_global(banded_setup):
+    """Below MIN_CALIBRATION_FOR_BANDING the per-band quantiles would be
+    too noisy to trust — stay global (BMIC-sized datasets hit this)."""
+    model, X_eval, _, calibration = banded_setup
+    small = dict(calibration)
+    small["residuals"] = calibration["residuals"][:100]
+    small["predictions"] = calibration["predictions"][:100]
+    small["n_calibration"] = 100
+    intervals = predict_interval(model, X_eval.head(10), small, coverage=0.90)
+    assert all(ir.band is None for ir in intervals)
+
+
+def test_degenerate_predictions_fall_back_to_global(banded_setup):
+    """If the calibration predictions are (near-)constant the tercile edges
+    collapse; banding must bow out instead of building empty bands."""
+    model, X_eval, _, calibration = banded_setup
+    degenerate = dict(calibration)
+    degenerate["predictions"] = [5.0] * len(calibration["residuals"])
+    intervals = predict_interval(model, X_eval.head(10), degenerate, coverage=0.90)
+    assert all(ir.band is None for ir in intervals)
 
 
 # ---------------------------------------------------------------------------

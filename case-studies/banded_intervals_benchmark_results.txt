@@ -1,0 +1,34 @@
+============================================================================
+BMIC — bmics_clean.csv
+============================================================================
+rows: train 90 / calibration 30 / evaluation 30   log-target: False (auto:skew=0.12)   trained in 96s
+
+band                                   n   global width    cov   banded width    cov
+(global fallback)                     30  $        3.7  86.7%  $        3.7  86.7%
+
+overall coverage: global 86.7%  banded 86.7%  (target 90%)
+
+============================================================================
+FASTENERS — bolts_clean.csv
+============================================================================
+rows: train 22,000 / calibration 7,334 / evaluation 7,334   log-target: True (manual:on)   trained in 103s
+
+band                                   n   global width    cov   banded width    cov
+predicted 9.02 to 20.85             2452  x      227.3  90.2%  x      232.5  90.3%
+predicted over 20.85                2470  x      227.3  93.2%  x      130.9  90.2%
+predicted under 9.02                2412  x      227.3  87.1%  x      364.5  89.7%
+
+overall coverage: global 90.2%  banded 90.1%  (target 90%)
+
+============================================================================
+CARS — vehicles_training.csv
+============================================================================
+rows: train 47,038 / calibration 15,680 / evaluation 15,680   log-target: True (auto:skew=1.47)   trained in 108s
+
+band                                   n   global width    cov   banded width    cov
+predicted 10,065.16 to 22,641.73    5378  x        3.2  90.2%  x        3.1  89.9%
+predicted over 22,641.73            5183  x        3.2  95.0%  x        2.4  90.5%
+predicted under 10,065.16           5119  x        3.2  85.3%  x        4.1  90.1%
+
+overall coverage: global 90.2%  banded 90.2%  (target 90%)
+

@@ -99,7 +99,14 @@ def _model_block(model_path: str, loaded: dict, target_name: str) -> dict:
 
 def _interval_per_row(intervals) -> list[dict]:
     return [
-        {"low": float(ir.low), "prediction": float(ir.prediction), "high": float(ir.high)}
+        {
+            "low": float(ir.low),
+            "prediction": float(ir.prediction),
+            "high": float(ir.high),
+            # Calibration band the width came from (None = global quantile:
+            # old model file or calibration set too small to band).
+            "band": ir.band,
+        }
         for ir in intervals
     ]
 
@@ -299,6 +306,11 @@ def _print_interval(console, interval_result, target_name: str, coverage_pct: in
         "and worth questioning.",
         style="italic dim",
     )
+    if interval_result.band:
+        console.print(
+            f"Range width calibrated on similar parts ({interval_result.band}).",
+            style="italic dim",
+        )
 
 
 def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
