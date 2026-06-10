@@ -9,9 +9,9 @@ gets from a P2Predict model in one place:
     3. A what-if counterfactual: hold everything fixed, change one thing,
        see the price re-priced.
 
-The script finds the most recent ``ridge_price_*.model`` in ../models/
-automatically, so you don't have to hand-edit a timestamp. Run after
-fetch_data.py + prepare_data.py + p2predict-train.
+The script finds the most recent ``*_price_*.model`` in ../models/
+automatically (by mtime), so you don't have to hand-edit a timestamp.
+Run after fetch_data.py + prepare_data.py + p2predict-train.
 """
 from __future__ import annotations
 
