@@ -221,6 +221,15 @@ lower bound hits/passes \$0 on an additive model — means "I'm genuinely unsure
 here; get a quote, don't benchmark." Always surface the interval, not just the
 point estimate, when the user is going to act on the number.
 
+On larger datasets the width is **calibrated per price band** (Mondrian
+conformal), so the noisy cheap end of the catalog no longer inflates the range
+on the expensive parts — the width genuinely tracks model quality in *that*
+part's price range, and the "9 in 10" coverage holds within each band. Each
+interval row in `--json` carries a `band` string (the price range its width was
+calibrated on) or `null` when one global width was used (small calibration set,
+or a pre-banding model file). When present, quote it: *"calibrated on
+similar-priced parts ($5–$155)"* is a stronger defense than a bare range.
+
 ### 5. Judge the model by bias, not just R²
 
 R² alone can mislead. The honesty check is the **residual-bias t-test** (on PDF
