@@ -16,6 +16,7 @@ import pytest
 from p2predict.explain import (
     Explanation,
     _detect_family,
+    explain_batch,
     explain_row,
     top_drivers,
 )
@@ -261,6 +262,60 @@ def test_top_drivers_log_target_returns_multiplicative_factors(log_target_rf_mod
     # |log(factor)|.
     for _, value in drivers:
         assert value > 0
+
+
+# ---------------------------------------------------------------------------
+# explain_batch — must be row-for-row identical to explain_row, just with a
+# single (expensive) explainer build instead of one per row.
+# ---------------------------------------------------------------------------
+
+
+def test_explain_batch_matches_explain_row_tree(rf_model):
+    model, _, X_test, _ = rf_model
+    rows = X_test.iloc[:5]
+    batch = explain_batch(model, rows, background_X=None)
+    assert len(batch) == len(rows)
+    for i, ex_b in enumerate(batch):
+        ex_r = explain_row(model, rows.iloc[[i]], background_X=None)
+        assert ex_b.baseline == pytest.approx(ex_r.baseline)
+        assert ex_b.prediction == pytest.approx(ex_r.prediction)
+        assert set(ex_b.contributions) == set(ex_r.contributions)
+        for col in ex_r.contributions:
+            assert ex_b.contributions[col] == pytest.approx(
+                ex_r.contributions[col], abs=1e-9
+            )
+
+
+def test_explain_batch_matches_explain_row_linear(ridge_model):
+    model, X_train, X_test, _ = ridge_model
+    bg = X_train.sample(50, random_state=0)
+    rows = X_test.iloc[:5]
+    batch = explain_batch(model, rows, background_X=bg)
+    assert len(batch) == len(rows)
+    for i, ex_b in enumerate(batch):
+        ex_r = explain_row(model, rows.iloc[[i]], background_X=bg)
+        assert ex_b.baseline == pytest.approx(ex_r.baseline)
+        assert ex_b.prediction == pytest.approx(ex_r.prediction)
+        for col in ex_r.contributions:
+            assert ex_b.contributions[col] == pytest.approx(
+                ex_r.contributions[col], abs=1e-9
+            )
+
+
+def test_explain_batch_log_target_per_row_fields(log_target_rf_model):
+    model, _, X_test, _ = log_target_rf_model
+    rows = X_test.iloc[:3]
+    batch = explain_batch(model, rows, background_X=None)
+    for ex in batch:
+        assert ex.log_target is True
+        product = float(np.prod(list(ex.multiplicative_factors.values())))
+        ratio = ex.predicted_price / ex.baseline_price
+        assert product == pytest.approx(ratio, rel=1e-4, abs=1e-4)
+
+
+def test_explain_batch_empty_input_returns_empty_list(rf_model):
+    model, _, X_test, _ = rf_model
+    assert explain_batch(model, X_test.iloc[:0], background_X=None) == []
 
 
 # ---------------------------------------------------------------------------

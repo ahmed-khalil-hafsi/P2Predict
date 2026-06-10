@@ -58,7 +58,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from p2predict.explain import Explanation, explain_row
+from p2predict.explain import Explanation, explain_batch
 from p2predict.intervals import IntervalResult, predict_interval
 
 # A SHAP delta below this absolute fraction of the total delta is rolled
@@ -188,8 +188,13 @@ def compute_whatif(
     delta = cf_pred - base_pred
     delta_pct = 100.0 * delta / base_pred if base_pred != 0 else float("nan")
 
-    base_explanation = explain_row(model, base_features, background_X=background_X)
-    cf_explanation = explain_row(model, cf_features, background_X=background_X)
+    # One batch call so the (expensive) SHAP explainer is built once for
+    # both the base and the counterfactual row.
+    base_explanation, cf_explanation = explain_batch(
+        model,
+        pd.concat([base_features, cf_features], ignore_index=True),
+        background_X=background_X,
+    )
 
     # Per-feature delta in SHAP attribution. For non-log models this lives
     # in target units; for log-target models it lives in log space and is
