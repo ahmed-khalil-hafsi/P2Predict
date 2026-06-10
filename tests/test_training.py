@@ -1,12 +1,18 @@
 import numpy as np
 import pandas as pd
+from sklearn.experimental import enable_halving_search_cv  # noqa: F401
+from sklearn.model_selection import HalvingRandomSearchCV
 
 from p2predict.prepare_data import prepare_data
 from p2predict.training import (
     ALGORITHMS,
+    _log_space_r2,
+    _scoring_for,
+    _tune,
     auto_train,
     build_pipeline,
     extract_feature_importances,
+    log_r2_scorer,
     should_log_target,
     start_training,
 )
@@ -119,6 +125,78 @@ def test_pipeline_handles_unseen_categories_at_predict_time(synthetic_parts):
     pred = model.predict(new_row)
     assert pred.shape == (1,)
     assert np.isfinite(pred[0])
+
+
+def _synthetic_regression_frame(n=2000, seed=0):
+    rng = np.random.default_rng(seed)
+    weight = rng.uniform(1, 50, n)
+    region = rng.choice(["EU", "CN", "SG", "US"], n)
+    size = rng.choice(["Small", "Standard", "Large"], n)
+    base = 0.08 * weight + np.where(region == "EU", 0.5, 0.0)
+    price = np.clip(base + rng.normal(0, 0.1, n), 0.05, None)
+    return pd.DataFrame(
+        {"Weight": weight, "Region": region, "Size": size, "Price": price}
+    )
+
+
+def test_tune_decides_on_full_training_set_not_resource_floor():
+    # Regression for the HalvingRandomSearchCV resource-floor bug: with the
+    # default min_resources='smallest' the final (winner-deciding) rung used
+    # only ~90 samples regardless of dataset size. 'exhaust' must push the
+    # last rung to the full training size so selection is meaningful.
+    df = _synthetic_regression_frame(n=2000)
+    X_train, _, y_train, _, num, cat = _split(df)
+    pipeline = build_pipeline("ridge", num, cat, log_target=False)
+    _tune(pipeline, X_train, y_train, "ridge", budget="fast", log_target=False)
+    # Re-run the search directly to inspect the resource schedule.
+    search = HalvingRandomSearchCV(
+        build_pipeline("ridge", num, cat, log_target=False),
+        param_distributions={"model__alpha": [0.1, 1.0, 10.0]},
+        n_candidates=6,
+        cv=3,
+        min_resources="exhaust",
+        scoring="r2",
+        random_state=0,
+        refit=True,
+    )
+    search.fit(X_train, y_train)
+    # The largest rung must use (essentially) the full training set, not the
+    # 10/30/90-row floor that min_resources='smallest' schedules. Halving's
+    # integer division can shave a few rows off the top rung, hence >= 95%.
+    assert max(search.n_resources_) >= 0.95 * len(X_train)
+    assert min(search.n_resources_) > 100
+
+
+def test_scoring_for_uses_log_scorer_only_under_log_target():
+    assert _scoring_for(True) is log_r2_scorer
+    assert _scoring_for(False) == "r2"
+
+
+def test_log_space_r2_rewards_model_good_in_log_space():
+    # A heavily skewed multiplicative target: most parts are cheap, a few are
+    # very expensive. A 'log-good' model tracks the order of magnitude across
+    # the whole range; a 'big-only' model nails the few large values but is
+    # useless on the bulk. In raw R² the big-only model can look competitive;
+    # in log space the log-good model must rank clearly higher.
+    rng = np.random.default_rng(0)
+    y_true = np.exp(rng.normal(0, 2.0, 500))  # log-normal, strongly skewed
+
+    log_good = y_true * np.exp(rng.normal(0, 0.2, 500))  # small log error
+    big_only = np.full_like(y_true, np.median(y_true))
+    big_only[y_true > np.quantile(y_true, 0.95)] = y_true[
+        y_true > np.quantile(y_true, 0.95)
+    ]
+
+    assert _log_space_r2(y_true, log_good) > _log_space_r2(y_true, big_only)
+
+
+def test_log_space_scorer_handles_nonpositive_predictions():
+    # The scorer must not blow up if an estimator emits a non-positive
+    # prediction during CV; clipping keeps log() finite.
+    y_true = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred = np.array([0.0, -1.0, 3.0, 4.0])
+    score = _log_space_r2(y_true, y_pred)
+    assert np.isfinite(score)
 
 
 def test_build_pipeline_log_target_wrap_inverts_correctly(synthetic_parts_skewed):
