@@ -54,9 +54,11 @@ def _find_latest_model() -> Path:
             f"No models/ directory at {MODELS_DIR}. "
             "Train a model first with `p2predict-train ...`."
         )
-    candidates = sorted(MODELS_DIR.glob("ridge_price_*.model"))
-    if not candidates:
-        candidates = sorted(MODELS_DIR.glob("*_price_*.model"))
+    # Latest by mtime across all price-target models — the algorithm prefix
+    # precedes the timestamp in the filename, so an alphabetical sort would
+    # not give the most-recently-trained model.
+    candidates = sorted(MODELS_DIR.glob("*_price_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         sys.exit(
             f"No price-target models found in {MODELS_DIR}. "
@@ -133,7 +135,10 @@ def main() -> None:
     for vehicle, interval in zip(examples, intervals):
         print(f"  {_describe(vehicle)}")
         print(f"    predicted:    ${interval.prediction:>8,.0f}")
-        print(f"    likely range: ${interval.low:>8,.0f}  to  ${interval.high:>8,.0f}")
+        print(f"    likely range: ${interval.low:>8,.0f}  to  ${interval.high:>8,.0f}"
+              f"   (x{interval.high / interval.low:.1f} wide)")
+        if interval.band:
+            print(f"    width calibrated on: {interval.band}")
         print()
 
     # 2. SHAP attribution for the first listing (the Honda Civic).
