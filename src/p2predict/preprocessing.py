@@ -1,6 +1,5 @@
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
 
@@ -24,15 +23,19 @@ class _AdaptiveTargetEncoder(TargetEncoder):
     """TargetEncoder whose internal cross-fitting fold count shrinks to the
     sample size.
 
-    Plain ``TargetEncoder`` hard-codes a 5-fold split for the leakage-free
-    training encoding and raises ``n_splits > n_samples`` when handed fewer
-    than 5 rows. That happens routinely: ``HalvingRandomSearchCV`` trains
-    early rungs on tiny sub-samples, and real procurement datasets can be a
-    few dozen parts. We clamp the folds to the data at fit time (and skip
+    Plain ``TargetEncoder`` uses a 5-fold split for the leakage-free training
+    encoding and raises ``n_splits > n_samples`` when handed fewer than 5
+    rows. That happens routinely: ``HalvingRandomSearchCV`` trains early rungs
+    on tiny sub-samples, and real procurement datasets can be a few dozen
+    parts. We clamp the fold count to the data at fit time (and skip
     cross-fitting entirely below 2 rows, where there is nothing to hold out),
     so the encoder is robust on small data instead of crashing model
     selection. ``transform`` is unaffected — it always uses the full-data
     category means computed by ``fit``.
+
+    ``cv`` is set as a plain int (not a CV splitter): scikit-learn 1.5–1.8
+    constrain ``TargetEncoder.cv`` to an int, and the fold shuffle is seeded
+    via the encoder's own ``random_state`` for cross-version reproducibility.
     """
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -40,11 +43,7 @@ class _AdaptiveTargetEncoder(TargetEncoder):
         if n < 2:
             # Nothing to cross-fit; fall back to the plain fit+transform.
             return self.fit(X, y).transform(X)
-        self.cv = KFold(
-            n_splits=min(_TARGET_ENCODER_FOLDS, n),
-            shuffle=True,
-            random_state=_TARGET_ENCODER_SEED,
-        )
+        self.cv = min(_TARGET_ENCODER_FOLDS, n)
         return super().fit_transform(X, y, **fit_params)
 
 
@@ -73,7 +72,8 @@ def _target_encoder():
         steps=[
             ("impute", SimpleImputer(strategy="most_frequent")),
             ("target", _AdaptiveTargetEncoder(
-                target_type="continuous", smooth="auto")),
+                target_type="continuous", smooth="auto",
+                random_state=_TARGET_ENCODER_SEED)),
         ]
     )
 
