@@ -139,7 +139,7 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 #### Benchmarking / prediction
 - Predict the benchmark price (or any other numerical target) for a part given its technical features
 - Batch-predict an entire CSV of candidate parts in one call
-- **Likely-range intervals** via `--interval` — a "9 in 10" range around each prediction, calibrated on the training holdout. Quotes outside the range are unusual and worth questioning. Coverage is mathematically guaranteed under the same distribution assumption as the model's accuracy metrics
+- **Likely-range intervals** via `--interval` — a "9 in 10" range around each prediction, calibrated on the training holdout. On larger datasets the calibration is **banded by predicted price** (Mondrian conformal): a cheap part and an expensive one get widths matched to how well the model actually does in *their* price range, instead of one global width set by the noisiest segment — so the "9 in 10" promise holds within each band, not just on average. Quotes outside the range are unusual and worth questioning. Coverage is mathematically guaranteed under the same distribution assumption as the model's accuracy metrics
 - **Per-prediction explanations** via `--explain` — uses exact SHAP (TreeExplainer for tree models, LinearExplainer for linear models). Shows the additive decomposition `baseline + Σ contributions = prediction`, or for log-target models the strict multiplicative factors in price space
 - **What-if analysis** via `--whatif "Region:EU,Supplier:B"` — compare a base scenario against a counterfactual where one or more features change. Shows base and counterfactual predictions side-by-side (with likely ranges), the delta in dollars and percent, and a SHAP-attributed decomposition of where the change came from. The design-review tool for cross-functional cost discussions
 - Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
@@ -324,7 +324,8 @@ p2predict -m my_model.model \
   ],
   "interval": {
     "coverage": 0.90,
-    "per_row": [{"low": 1.04, "prediction": 1.318, "high": 1.59}],
+    "per_row": [{"low": 1.04, "prediction": 1.318, "high": 1.59,
+                 "band": "predicted 0.80 to 2.10"}],
     "soft_warning": null
   },
   "explanation": [
@@ -363,6 +364,7 @@ Key points for agents and downstream tools:
 - **stdout is exclusively the JSON document.** No banner, no logo, no spinner. `jq` and other parsers work on the raw output without preprocessing.
 - **Errors emit JSON too.** Failure paths produce `{"schema_version": "1.0", "command": ..., "error": {"code": "...", "message": "..."}}` on stdout with exit code 1.
 - **`--json` composes with `--interval`, `--explain`, and `--whatif`.** Each adds its block to the response without changing the others.
+- **Each interval row carries a `band`** — a human-readable description of the price band its width was calibrated on (e.g. `"predicted 0.80 to 2.10"`), or `null` when a single global width was used (small calibration set, or a model file trained before banded calibration shipped).
 - **Interactive mode is incompatible with `--json`** — `p2predict --json` without `-p` or `-i` errors cleanly instead of prompting.
 
 The train CLI's JSON shape (with `cv_scores`, `evaluation`, `feature_importances`, `model_path`, etc.) is documented at the top of [`src/p2predict/json_output.py`](src/p2predict/json_output.py).
