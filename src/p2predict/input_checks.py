@@ -1,14 +1,21 @@
 import pandas as pd
 from rich.console import Console
 
-console = Console()
+# Route warnings to stderr so that `--json` callers get a pure-JSON stdout.
+# A module-level Console() on stdout used to print the NA warning *before*
+# the JSON document, making `p2predict-train --json` output unparseable.
+console = Console(stderr=True)
 
 
 def check_csv_sanity(file):
-    """Load and sanity-check a CSV. Returns the cleaned DataFrame.
+    """Load and sanity-check a CSV. Returns the loaded DataFrame unchanged.
 
-    Aborts on empty files, malformed CSV, or missing files. Drops rows
-    with NA values (with a warning) rather than refusing to proceed.
+    Aborts on empty files, malformed CSV, or missing files. Missing values
+    are *reported* (to stderr) but no longer dropped here: dropping rows over
+    all columns at load time silently discarded data — including NAs in
+    columns that aren't even selected as training features. Row dropping /
+    imputation is now decided downstream (in the train CLI), once the target
+    and feature columns are known, so only the relevant NAs matter.
     """
     try:
         df = pd.read_csv(file)
@@ -43,15 +50,10 @@ def check_csv_sanity(file):
         details = ", ".join(f"{col} ({n})" for col, n in columns_with_na.items())
         console.print(
             f"Warning: CSV contains missing values in: {details}. "
-            "Rows with NA will be dropped.",
+            "Rows are not dropped at load time — NAs in the target column are "
+            "dropped at training, and NAs in feature columns are handled by "
+            "the model (XGBoost natively; imputed for random_forest/ridge).",
             style="yellow",
         )
-        df = df.dropna()
-        if df.empty:
-            console.print(
-                "Aborted: dropping rows with missing values leaves no data.",
-                style="red",
-            )
-            raise SystemExit(1)
 
     return df

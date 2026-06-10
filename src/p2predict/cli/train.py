@@ -246,6 +246,28 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 style="bold blue",
             )
 
+    if target not in data.columns:
+        _abort(json_mode, console, "unknown_target",
+               f"--target '{target}' not found in CSV.")
+
+    # Drop only rows whose TARGET is NA — those rows can't supervise training
+    # and can't be scored. Rows with NAs only in *feature* columns are kept:
+    # XGBoost handles them natively and the random_forest/ridge preprocessors
+    # impute (see build_preprocessor). This replaces the old blanket
+    # df.dropna() at CSV load, which silently discarded ~half the catalogue.
+    rows_before_target_drop = int(data.shape[0])
+    data = data[data[target].notna()]
+    rows_dropped_target_na = rows_before_target_drop - int(data.shape[0])
+    if data.empty:
+        _abort(json_mode, console, "all_target_na",
+               f"every row has a missing value in target column '{target}'.")
+    if rows_dropped_target_na > 0 and not json_mode:
+        console.print(
+            f"Dropped {rows_dropped_target_na} row(s) with a missing "
+            f"'{target}' value; {data.shape[0]} rows remain.",
+            style="yellow",
+        )
+
     data, outlier_summary = apply_outlier_policy(data, target, policy=outliers)
     if outlier_summary["n_outliers"] > 0 and not json_mode:
         pct = 100.0 * outlier_summary["n_outliers"] / max(outlier_summary["n_total"], 1)
@@ -605,6 +627,8 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         "input": {
             "csv_path": str(input),
             "rows_loaded": rows_loaded,
+            "rows_dropped_target_na": rows_dropped_target_na,
+            "rows_used": int(data.shape[0]),
             "rows_after_outlier_handling": int(data.shape[0]),
             "target": target,
         },

@@ -2,6 +2,21 @@
 
 All notable changes to P2Predict are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **HPO and algorithm selection no longer decided on a 90-row resource floor.** `_tune()` in `p2predict.training` ran `HalvingRandomSearchCV` with the default `min_resources='smallest'`, which for cv=5 regression scheduled candidate resources `10 → 30 → 90` samples *regardless of dataset size*. On the 15,197-row aerospace-fasteners training set the winner-deciding rung saw only 90 rows (`search.n_resources_ == [10, 30, 90]`, best CV score −1.18), so CV scores were meaningless and the selected algorithm flipped between identical runs (XGBoost vs random_forest, ~0.06 log-R² apart). Now passes `min_resources='exhaust'` so the final rung uses the full training set and selection is reproducible. Regression test `test_tune_decides_on_full_training_set_not_resource_floor` asserts the largest rung equals the full training size. (Found by the independent verification in PR #14.)
+- **CV is now scored in log space when the log-target wrap is active.** `_tune()` hard-coded `scoring="r2"` on a `TransformedTargetRegressor`, so candidate selection happened in raw price space even when the model was trained on `log(price)`. On a 5.36-skew target this selected a model scoring log-R² −0.25 / 265% median error, where scoring in log space yields log-R² 0.337 / 80% median error. A new `log_r2_scorer` (`make_scorer` of R² on `log(y_true)` vs `log(clip(y_pred))`) is used whenever `log_target` is true, plain `"r2"` otherwise, selected via `_scoring_for(log_target)`. Regression tests `test_log_space_r2_rewards_model_good_in_log_space` and `test_scoring_for_uses_log_scorer_only_under_log_target`. (PR #14.)
+- **All-NA-row dropping at CSV load no longer discards data or corrupts `--json` output.** `check_csv_sanity()` ran `df.dropna()` over *all* columns at load, silently discarding rows with NAs in columns that were not even selected as features — 48% of the fasteners catalogue (36,668 → 18,997 rows), and the dropped half became scoreable at predict time. NA handling is now surgical:
+  - `check_csv_sanity()` keeps every row and only *reports* NA counts (routed to **stderr** so `p2predict-train --json` stdout stays pure JSON — the warning previously printed to stdout before the `{`, making the document unparseable).
+  - The train CLI drops only rows with NA in the **target** column (after feature selection), and aborts cleanly (`all_target_na`) if that empties the data.
+  - `build_preprocessor` now handles feature NAs per family so auto mode (which compares all three algorithms on the same data) works end to end: XGBoost receives NaNs natively (passthrough), while random_forest and ridge/lasso get `SimpleImputer` (median for numerics, most-frequent for categoricals) ahead of the encoder/scaler.
+  - The train `--json` `input` block gains `rows_dropped_target_na` and `rows_used` fields (additive; `rows_loaded` and `rows_after_outlier_handling` keep their meaning).
+  - Regression tests in `tests/test_cli.py` (`test_train_keeps_rows_with_feature_only_nas`, `test_train_drops_only_target_na_rows`, `test_train_json_stdout_is_pure_json_with_nas`, `test_train_auto_mode_handles_feature_nas_across_all_algorithms`), `tests/test_input_checks.py`, and `tests/test_preprocessing.py`. (PR #14.)
+
+### Compatibility
+- No model-format change; `p2predict_version` unchanged. The `--json` train schema only gains fields (`rows_dropped_target_na`, `rows_used`); existing fields are unchanged. Python-API default behaviour is preserved except that the log-target CV scorer and full-resource HPO now produce better, reproducible selections.
+
 ## [v0.9.3] — 2026-06
 
 ### Added

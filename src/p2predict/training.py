@@ -4,6 +4,7 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_halving_search_cv  # noqa: F401
 from sklearn.linear_model import Ridge
+from sklearn.metrics import make_scorer, r2_score
 from sklearn.model_selection import HalvingRandomSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
@@ -12,6 +13,42 @@ from p2predict.preprocessing import build_preprocessor, model_family_for
 
 ALGORITHMS = ("ridge", "random_forest", "xgboost")
 LOG_TARGET_SKEW_THRESHOLD = 1.0
+
+# Smallest strictly-positive value used to clip raw-space predictions before
+# taking their log in the log-space scorer. Guards against log(0)/log(<0) when
+# an estimator emits a non-positive prediction during CV on the log target.
+_LOG_SCORE_TINY = 1e-9
+
+
+def _log_space_r2(y_true, y_pred):
+    """R² computed in log space.
+
+    The estimator's ``predict`` returns raw (price-space) values even when the
+    target is log-wrapped (``TransformedTargetRegressor`` inverts the log).
+    Scoring those in raw space lets a model that only nails the few large
+    values win on a heavily-skewed target while being useless on the bulk of
+    cheap parts. Comparing ``log(y_true)`` against ``log(y_pred)`` scores the
+    candidate in the space the model is actually optimised in, which is what
+    selection should reward.
+    """
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    return r2_score(
+        np.log(np.clip(y_true, _LOG_SCORE_TINY, None)),
+        np.log(np.clip(y_pred, _LOG_SCORE_TINY, None)),
+    )
+
+
+# Greater-is-better scorer wrapping :func:`_log_space_r2`. Reused by both
+# ``_tune`` and any other place that selects candidates under the log wrap.
+log_r2_scorer = make_scorer(_log_space_r2, greater_is_better=True)
+
+
+def _scoring_for(log_target):
+    """Pick the CV scorer so candidate selection happens in the space the
+    model is trained in: log-space R² when the target is log-wrapped, plain
+    R² otherwise."""
+    return log_r2_scorer if log_target else "r2"
 
 
 def _make_estimator(algorithm):
@@ -130,7 +167,14 @@ def _tune(pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=
         param_distributions=params,
         n_candidates=bp["n_candidates"],
         cv=bp["cv"],
-        scoring="r2",
+        # 'exhaust' makes the final (winner-deciding) rung use the full
+        # training set. The default 'smallest' schedules resources from a
+        # tiny floor (10 -> 30 -> 90 samples for cv=5 regression) regardless
+        # of dataset size, so on a 15k-row dataset the algorithm/HP winner was
+        # being chosen on 90 rows — scores were meaningless and the winning
+        # algorithm flipped between identical runs.
+        min_resources="exhaust",
+        scoring=_scoring_for(log_target),
         random_state=0,
         n_jobs=-1,
         refit=True,
