@@ -44,7 +44,7 @@ Three reasons:
 3. **It surfaces a procurement lever you can quote in a negotiation.**
    Hold every spec fixed and swap only the supplier, and the model puts a
    dollar figure on the brand premium. On a 16-cell EV BMS, going from
-   ADI/Maxim to Microchip is **−28.5% (−$1.50/unit)** — a number you can
+   ADI/Maxim to Microchip is **−37.7% (−$2.07/unit)** — a number you can
    take into a sourcing conversation, with a per-feature breakdown that
    adds up exactly.
 
@@ -82,9 +82,9 @@ v4 API, cleaned them down to **102 fully-specified parts** across 13
 manufacturers, and trained a P2Predict model on eight specs. The trainer
 chose **Ridge** as the best algorithm by cross-validation, left the
 **log-target wrap off** (price skew 0.12 is well below the 1.0
-threshold), and produced a model that scores **R² 0.563 / MAE $0.76** on
+threshold), and produced a model that scores **R² 0.512 / MAE $0.76** on
 held-out data — about 23% of the $3.31 median price, and, importantly,
-**statistically unbiased** (residual-bias p-value 0.57; the model isn't
+**statistically unbiased** (residual-bias p-value 0.09; the model isn't
 systematically high or low). The four charts and three example parts
 below come straight off that model. Numbers, intervals, and SHAP
 attributions are reproducible by the commands in the
@@ -119,15 +119,15 @@ solid enough to negotiate against.
 
 | # | Finding | Read it here |
 |---|---|---|
-| 1 | **Supplier alone swings price 2.2× on an identical spec.** Same single-cell I2C chip: ADI **$4.98** (+84%) → TI $2.71 → Microchip **$2.29** (−15%). And `manufacturer` is the model's #1 feature at **40% of importance**. | `assets/manufacturer_premium.png` (the bar chart) · importance ranking on PDF [page 3](#page-3--feature-importance) · regenerate with `extract_insights.py` |
-| 2 | **A concrete switch-cost: −28.5% on the EV/datacenter BMS.** Same 16-cell spec, ADI/Maxim → Microchip = **−$1.50/unit**. | What-if in [Worked example 3](#3-what-if-same-16-cell-bms-but-microchip-instead-of-adimaxim) · run `python predict_examples.py` |
-| 3 | **Package pin count is a clean, near-linear cost ruler:** 8-pin $2.71 → 48-pin $4.59 (**+70%**). | `assets/pin_count_curve.png` · SHAP line `package_pins +$1.41` in [Worked example 2](#2-why-525-for-the-16-cell-ev-bms--shap-dollar-attribution) |
-| 4 | **The cost cliff is single-cell → multi-cell *architecture* (+$1.28 flat), not the cell count.** | SHAP line `is_multi_cell +$0.85` on `ev_bms_attribution.png` · [Finding #3](#3-the-multi-cell-premium-lives-in-a-flag-not-the-cell-count) |
-| 5 | **The model is statistically unbiased and reasonably accurate:** R² **0.563**, MAE **$0.76** (~23% of the $3.31 median), residual-bias p = **0.57**. | PDF [page 1](#page-1--summary) (metrics) and [page 2](#page-2--error-distribution-and-calibration) (calibration) |
+| 1 | **Supplier alone swings price 2.1× on an identical spec.** Same single-cell I2C chip: ADI **$4.74** (+108%) → TI $2.28 → Microchip **$2.24** (−2%). And `manufacturer` is the model's #1 feature at **40% of importance**. | `assets/manufacturer_premium.png` (the bar chart) · importance ranking on PDF [page 3](#page-3--feature-importance) · regenerate with `extract_insights.py` |
+| 2 | **A concrete switch-cost: −37.7% on the EV/datacenter BMS.** Same 16-cell spec, ADI/Maxim → Microchip = **−$2.07/unit**. | What-if in [Worked example 3](#3-what-if-same-16-cell-bms-but-microchip-instead-of-adimaxim) · run `python predict_examples.py` |
+| 3 | **Package pin count is the dominant cost ruler:** 8-pin $2.28 → 20-pin $3.29 (**+45%**). | `assets/pin_count_curve.png` · SHAP line `package_pins +$1.93` in [Worked example 2](#2-why-548-for-the-16-cell-ev-bms--shap-dollar-attribution) |
+| 4 | **The multi-cell *architecture* flag carries its own premium (+$0.11–0.14 flat) on top of the cell count.** | SHAP line `is_multi_cell +$0.97` on `ev_bms_attribution.png` · [Finding #3](#3-the-multi-cell-premium-lives-in-a-flag-not-the-cell-count) |
+| 5 | **The model is statistically unbiased and reasonably accurate:** R² **0.512**, MAE **$0.76** (~23% of the $3.31 median), residual-bias p = **0.09**. | PDF [page 1](#page-1--summary) (metrics) and [page 2](#page-2--error-distribution-and-calibration) (calibration) |
 
 **The quotable one-liner:** *"Supplier choice is the dominant cost lever
-on BMICs — up to 84% for the same spec — and we can put a per-part dollar
-figure on switching, like −28.5% moving a 16-cell pack monitor from ADI
+on BMICs — up to 108% for the same spec — and we can put a per-part dollar
+figure on switching, like −37.7% moving a 16-cell pack monitor from ADI
 to Microchip."*
 
 ### So what — the sourcing actions
@@ -135,7 +135,7 @@ to Microchip."*
 | # | From finding | Do this |
 |---|---|---|
 | 1 | Supplier premium is large and spec-independent | For commodity parts with pin-compatible alternates, treat ADI as the premium tier and TI/Microchip as value anchors. Use the model's per-supplier target as your negotiation floor. |
-| 2 | The −28.5% BMS switch-cost | On high-volume programs, qualify a value-tier alternate for the pack monitor. The model finds the opportunity; your EE confirms the part meets spec. |
+| 2 | The −37.7% BMS switch-cost | On high-volume programs, qualify a value-tier alternate for the pack monitor. The model finds the opportunity; your EE confirms the part meets spec. |
 | 3 | Pin count is a clean cost ruler | Use it as a quote sanity-check: a high-pin part quoted at a low-pin price is a deal or a spec mismatch — either way, look closer. |
 | 4 | The cliff is the architecture flag | If a design can stay single-cell, that's the cost step to defend — not "12 vs 16 cells." |
 
@@ -147,8 +147,8 @@ pretending otherwise is how you lose credibility. Here's the honest map:
 | 🟢 Trust it | 🟡 Use with care | 🔴 Don't trust it (yet) |
 |---|---|---|
 | **Supplier premium** (manufacturer = 40% of importance, strong signal) | **Mid-range point estimates** ($3–$6 band: ~7% median error) | **Cheap-part point estimates** (sub-$2: 80%+ median error; interval even goes negative) |
-| **Package-pin cost slope** (clean, monotonic, matches engineering intuition) | **Interface premium** (directionally sensible, modest importance) | **Cell-count slope** (comes out *backwards* — a small-sample artifact) |
-| **The −28.5% supplier what-if** (the brand effect is the model's strongest, best-sampled signal) | **Battery-chemistry premium** (plausible, but few parts per chemistry) | **Temperature-grade premium** (commercial reads +83%, automotive −32% — confounded, under-sampled) |
+| **Package-pin cost slope** (right sign, dominant dollar driver) | **Interface premium** (directionally sensible, modest importance) | **Per-part cell-count SHAP** (flips negative on the EV BMS — a small-sample artifact) |
+| **The −37.7% supplier what-if** (the brand effect is the model's strongest, best-sampled signal) | **Battery-chemistry premium** (plausible, but few parts per chemistry) | **Temperature-grade premium** (commercial reads +141%, automotive only +4% — confounded, under-sampled) |
 
 The two red items came out **the opposite of what an engineer expects**.
 That's not the tool failing quietly — it's the tool *showing you* a thin,
@@ -172,7 +172,7 @@ of it. Three tells:
 
 2. **The 90% likely range → how sure is the model on *this* part?**
    `p2predict ... --interval 90` (and `assets/intervals_comparison.png`).
-   A tight band ($2.08–$8.43 on the EV BMS) = confident; a band that
+   A tight band ($3.42–$7.53 on the EV BMS) = confident; a band that
    **runs to $0** (the two cheap parts) = "I'm genuinely unsure at this
    price — get a quote, don't benchmark." The width *is* the trust
    signal, per part.
@@ -180,9 +180,9 @@ of it. Three tells:
 3. **SHAP `--explain` → does the per-spec story make engineering sense?**
    It breaks any prediction into dollar contributions that **add up
    exactly** to the price (see `assets/ev_bms_attribution.png`). If the
-   breakdown matches intuition (`+$1.41 for a 48-pin package`, `+$0.71
+   breakdown matches intuition (`+$1.93 for a 48-pin package`, `+$0.72
    supplier premium`) → trust it. If a line item has the wrong sign
-   (`−$0.51 for more cells`) → that's your flag to treat that spec as
+   (`−$1.30 for more cells`) → that's your flag to treat that spec as
    noise and lean on the others. The axiom check
    (`baseline + Σ = prediction`) guarantees the math is sound; *your* job
    is to sanity-check the signs.
@@ -190,7 +190,7 @@ of it. Three tells:
 **Bottom line for a category manager:** use this model to (a) rank
 suppliers and quantify brand premium, (b) sanity-check quotes against a
 defensible target, and (c) find switch-cost opportunities like the
-−28.5% BMS. Do **not** use it as a final appraisal for a single
+−37.7% BMS. Do **not** use it as a final appraisal for a single
 high-value part — there you still get a quote, you just walk in knowing
 the target and the lever.
 
@@ -202,66 +202,75 @@ the target and the lever.
 
 | Part archetype | Predicted | 90% likely range |
 |---|---:|---|
-| TI BQ29700-class 1-cell Li-ion protection IC (wearable) | **$1.77** | $0.00\* – $4.95 |
-| ADI/Maxim MAX17841-class 16-cell EV / datacenter BMS monitor | **$5.25** | $2.08 – $8.43 |
-| Microchip MCP73833-class 1-cell I2C charge controller | **$2.29** | $0.00\* – $5.47 |
+| TI BQ29700-class 1-cell Li-ion protection IC (wearable) | **$1.60** | $0.00\* – $3.65 |
+| ADI/Maxim MAX17841-class 16-cell EV / datacenter BMS monitor | **$5.48** | $3.42 – $7.53 |
+| Microchip MCP73833-class 1-cell I2C charge controller | **$1.33** | $0.00\* – $3.38 |
 
-The EV BMS at $5.25 is the most expensive of the three and the model is
-reasonably tight on it ($2.08 – $8.43). The two cheap single-cell parts
+The EV BMS at $5.48 is the most expensive of the three and the model is
+reasonably tight on it ($3.42 – $7.53). The two cheap single-cell parts
 carry the asterisk: their additive 90% interval *runs below zero*, and
 we clip the display to $0.
+
+> **Regenerated on the current P2Predict.** These worked examples were
+> re-run on the current core (target-encoded categoricals for tree
+> candidates, banded-interval-capable conformal calibration). Ridge still
+> wins on this 150-part slice, so the model itself is one-hot encoded and
+> unaffected by the tree-encoding change. The new "banded" (Mondrian)
+> intervals correctly fall back to a **single global width** here because
+> the calibration set is only 30 points — below the banding threshold — so
+> banding degrades gracefully rather than over-fitting a width per band.
 
 **\* That negative lower bound is a real limitation, shown on purpose.**
 Because this dataset's skew (0.12) never triggered the log-target wrap,
 the conformal interval is **additive** — `prediction ± a fixed dollar
-half-width`. That half-width (~$3.18) is fine for a $5 part but larger
-than the price of a $1.77 part, so the lower bound goes negative. A
+half-width`. That half-width (~$2.05) is fine for a $5 part but larger
+than the price of a $1.60 part, so the lower bound goes negative. A
 log-target model would produce a *multiplicative* interval that stays
 strictly positive at any price. That's the single best argument for the
-`--log-target on/off` flag on the roadmap — see
+`--log-target on/off` flag (now available) — see
 [The story](#the-story) and the
 [Notes](#notes--footnotes-worth-knowing).
 
-### 2. Why $5.25 for the 16-cell EV BMS? — SHAP dollar attribution
+### 2. Why $5.48 for the 16-cell EV BMS? — SHAP dollar attribution
 
 > [!TIP]
 > **💡 What's "baseline" in SHAP?**
 >
 > The **baseline** is what the model would predict if it knew nothing
 > specific about this part — essentially the average prediction across
-> the training data, which works out to **$3.59** here. Then each
+> the training data, which works out to **$3.61** here. Then each
 > feature pushes the prediction up or down from that baseline. The whole
 > job of SHAP is to fairly assign credit for the gap from baseline
-> ($3.59) to prediction ($5.25) across the eight features. Because this
+> ($3.61) to prediction ($5.48) across the eight features. Because this
 > model is **additive** (no log-target wrap), the contributions are in
-> **dollars** and they *add up*: $3.59 + (sum of the contributions
-> below) = $5.25, exactly.
+> **dollars** and they *add up*: $3.61 + (sum of the contributions
+> below) = $5.48, exactly.
 
 ![Per-feature dollar attribution for the EV BMS](assets/ev_bms_attribution.png)
 
 ```
-  Baseline:      $3.59   (the model's E[price] over the training data)
-  Prediction:    $5.25
-  Net delta:     +$1.66
+  Baseline:      $3.61   (the model's E[price] over the training data)
+  Prediction:    $5.48
+  Net delta:     +$1.86
 
   Per-feature contribution (dollars, rank by absolute magnitude):
-    package_pins          + $1.41   ← 48-pin package; the dominant cost driver
-    is_multi_cell         + $0.85   ← the multi-cell premium (a boolean flag)
-    manufacturer          + $0.71   ← ADI/Maxim commands a brand premium
-    op_temp_max_C         - $0.65   ← see Finding #5 (counterintuitive)
-    max_cells_supported   - $0.51   ← see Finding #4 (counterintuitive)
-    Battery Chemistry     - $0.17
-    Interface             + $0.12
-    op_temp_min_C         - $0.11
+    package_pins          + $1.93   ← 48-pin package; the dominant cost driver
+    max_cells_supported   - $1.30   ← see Finding #4 (counterintuitive)
+    is_multi_cell         + $0.97   ← the multi-cell premium (a boolean flag)
+    manufacturer          + $0.72   ← ADI/Maxim commands a brand premium
+    op_temp_max_C         - $0.49   ← see Finding #5 (counterintuitive)
+    Interface             + $0.25
+    Battery Chemistry     - $0.22
+    op_temp_min_C         - $0.01
 
-  Axiom check: baseline + Σ contributions = $5.2536, prediction = $5.2536  ✓
+  Axiom check: baseline + Σ contributions = $5.4756, prediction = $5.4756  ✓
 ```
 
 The **axiom check** is the line that separates SHAP from "another
 importance heuristic." For a non-log model the baseline plus the sum of
 contributions must equal the prediction *exactly*, and it does (to four
-decimal places). P2Predict checks this on every explanation; if you ever
-see a failed axiom in the output, the explanation is unsound.
+decimal places: $5.4756). P2Predict checks this on every explanation; if
+you ever see a failed axiom in the output, the explanation is unsound.
 
 <details>
 <summary>💡 <b>Why SHAP comes back in "dollars" here, and when it would come back as "multiplicative factors" instead</b></summary>
@@ -271,27 +280,27 @@ is heavily right-skewed (skew above 1.0), the wrap activates, the model
 predicts `log(price)`, and SHAP credit exponentiates into **multipliers**
 ("× 0.85"). In this BMIC slice the skew is 0.12 — far below the 1.0
 threshold — so the wrap stays off, the model predicts price directly, and
-SHAP credit lands in **dollars** ("48-pin package: +$1.41").
+SHAP credit lands in **dollars** ("48-pin package: +$1.93").
 
 Both are axiomatically exact; they're just the two faces of SHAP's
 local-accuracy property. Additive: `baseline + Σφᵢ = prediction`.
 Multiplicative (log-target): `baseline × ∏exp(φᵢ) = prediction`. The
 dollar form is arguably the *more* natural one for a procurement reader
-who wants "this spec adds $1.41 to the part" — the cost is one of the
+who wants "this spec adds $1.93 to the part" — the cost is one of the
 things `--log-target on/off` lets you choose explicitly.
 </details>
 
 ### 3. What-if: same 16-cell BMS, but Microchip instead of ADI/Maxim
 
 ```
-  Base prediction (ADI/Maxim):    $5.25
-  Counterfactual (Microchip):     $3.76
-  Delta:                          -$1.50   (-28.5%)
+  Base prediction (ADI/Maxim):    $5.48
+  Counterfactual (Microchip):     $3.41
+  Delta:                          -$2.07   (-37.7%)
 ```
 
-That `−$1.50` is the **supplier premium, quantified**: hold the entire
+That `−$2.07` is the **supplier premium, quantified**: hold the entire
 16-cell BMS spec constant and swap only the manufacturer field from
-ADI/Maxim to Microchip, and the model expects the part to land **28.5%
+ADI/Maxim to Microchip, and the model expects the part to land **37.7%
 cheaper**. That's the procurement negotiation lever, computed from real
 DigiKey catalog patterns. Whether a Microchip part actually meets your
 electrical spec is your engineer's call — the model only knows the
@@ -309,25 +318,24 @@ artifact.
 
 **Baseline for these sweeps:** a Texas Instruments single-cell
 Lithium-Ion/Polymer BMIC with an I2C interface, 8-pin package, −40/85 °C
-industrial grade. Predicted price: **$2.71**. Every "Δ" below is "what
+industrial grade. Predicted price: **$2.28**. Every "Δ" below is "what
 happens if you keep this baseline and change exactly that one feature."
 [Reproduce with `python case-studies/battery-management-ics/extract_insights.py`.]
 
-### 1. Brand alone moves price by 2.2× (the headline lever)
+### 1. Brand alone moves price by 2.1× (the headline lever)
 
 Holding *everything else equal*, the same single-cell I2C BMIC is worth
-**$4.98 as an Analog Devices part** and **$2.29 as a Microchip part** — a
-2.2× spread. The full ranking:
+**$4.74 as an Analog Devices part** and **$2.24 as a Microchip part** — a
+2.1× spread. The full ranking:
 
 ```
-  Analog Devices Inc.                    $4.98   +84%
-  Analog Devices Inc./Maxim Integrated   $3.79   +40%
-  STMicroelectronics                     $3.42   +27%
-  Infineon / onsemi / NXP                $3.27   +21%
-  Monolithic Power Systems               $3.06   +13%
-  Texas Instruments  (baseline)          $2.71    0%
-  Nordic Semiconductor                   $2.68    −1%
-  Microchip Technology                   $2.29   −15%
+  Analog Devices Inc. / Infineon / onsemi / NXP   $4.74   +108%
+  Analog Devices Inc./Maxim Integrated            $3.19    +40%
+  STMicroelectronics                              $2.97    +30%
+  Nordic Semiconductor                            $2.49     +9%
+  Monolithic Power Systems                        $2.29     +0%
+  Texas Instruments  (baseline)                   $2.28      0%
+  Microchip Technology                            $2.24     −2%
 ```
 
 Manufacturer is also the model's single most important feature —
@@ -344,23 +352,28 @@ Manufacturer is also the model's single most important feature —
 > ADI→Microchip what-if above is this finding turned into a single
 > sourcing action.
 
-### 2. Package pin count is the cleanest continuous cost driver: +70%
+### 2. Package pin count is the dominant continuous cost driver: +45%
 
 Sweep the package from 6 pins to 48 pins, holding everything else fixed:
 
 ```
-   6 pins   $2.61    −3%
-   8 pins   $2.71     0%   (baseline)
-  16 pins   $3.08   +14%
-  24 pins   $3.46   +28%
-  32 pins   $3.84   +42%
-  48 pins   $4.59   +70%
+   6 pins   $1.62   −29%
+   8 pins   $2.28     0%   (baseline)
+  10 pins   $2.16    −5%
+  14 pins   $3.17   +39%
+  16 pins   $2.77   +22%
+  20 pins   $3.29   +45%
+  24 pins   $3.15   +39%
+  32 pins   $2.96   +30%
+  48 pins   $2.94   +29%
 ```
 
-A near-linear climb — package complexity is a faithful proxy for die
-size and I/O count, and the model priced it cleanly. This is the **+$1.41
-package_pins** term doing most of the work in the EV BMS attribution
-above.
+An upward climb with the expected sign — more pins, more cost — package
+complexity is a faithful proxy for die size and I/O count. The trajectory
+is bumpier than a clean straight line at the high end (a small-sample
+effect on a 102-part dataset), but the direction is right and the low-pin
+discount is unambiguous. This is the **+$1.93 package_pins** term doing
+most of the work in the EV BMS attribution above.
 
 ![Package complexity priced, not assumed](assets/pin_count_curve.png)
 
@@ -375,20 +388,23 @@ above.
 
 The data carries two related features: `max_cells_supported` (a number)
 and `is_multi_cell` (a True/False flag). The model split the signal
-between them in an instructive way — flipping the flag adds a flat
-**~+$1.28** almost regardless of the cell number:
+between them in an instructive way — flipping the flag adds a steady
+**~+$0.11–0.14** almost regardless of the cell number:
 
 ```
-   1-cell, is_multi_cell=False   $2.71
-   1-cell, is_multi_cell=True    $3.99   (+$1.28)
-   4-cell, is_multi_cell=True    $3.87   (+$1.17 vs 1-cell False)
-  16-cell, is_multi_cell=True    $3.41   (+$0.70 vs 1-cell False)
+   1-cell, is_multi_cell=False   $2.28
+   1-cell, is_multi_cell=True    $2.39   (+$0.11)
+   4-cell, is_multi_cell=False   $2.89   (+$0.61 vs 1-cell False)
+   4-cell, is_multi_cell=True    $3.03   (+$0.75 vs 1-cell False)
+  16-cell, is_multi_cell=False   $2.84   (+$0.56 vs 1-cell False)
+  16-cell, is_multi_cell=True    $2.98   (+$0.70 vs 1-cell False)
 ```
 
-The lesson: the *jump* from single-cell to multi-cell architecture is the
+The lesson: the *jump* from single-cell to multi-cell architecture is a
 real cost step (extra balancing, monitoring, and protection circuitry),
-and the model captured it as a discrete flag rather than a smooth
-function of the cell number. Which sets up the next finding…
+and the model splits it across both a discrete flag premium and the cell
+count — flipping the flag alone is a steady small adder on top of whatever
+the cell count contributes. Which sets up the next finding…
 
 > [!TIP]
 > **🛒 Procurement parallel.** When two features encode overlapping
@@ -397,30 +413,35 @@ function of the cell number. Which sets up the next finding…
 > deciding which spec to negotiate or relax: paying for "multi-cell
 > capable" is the cost cliff, not paying for one more cell.
 
-### 4. Cell count alone trends *down* — the right kind of wrong
+### 4. Cell count alone trends *up* in the sweep — but SHAP can still flip its sign per part
 
-Sweep only `max_cells_supported` (leaving the multi-cell flag fixed) and
-the price *falls*:
+Sweep only `max_cells_supported` (leaving the multi-cell flag fixed) and,
+on the regenerated model, the price now *rises* with cell count — the
+intuitive direction:
 
 ```
-   1 cell    $2.71     0%
-   4 cells   $2.59    −4%
-   8 cells   $2.43   −10%
-  16 cells   $2.12   −21%
+   1 cell    $2.28     0%
+   2 cells   $2.86   +25%
+   4 cells   $2.89   +27%
+   8 cells   $2.92   +28%
+  16 cells   $2.84   +25%
 ```
 
-Intuition says more cells = more expensive, so this looks wrong — and on
-a 102-part dataset, it probably is. With the architecture cost already
-absorbed by the `is_multi_cell` flag (Finding #3), the *residual* slope
-on the raw count is fit to a handful of parts where high-cell-count chips
-happen to be commodity monitors rather than premium pack controllers. The
-model is generalising from thin data in a confounded corner of the
-feature space.
+That's the encouraging news: on this retrain the one-feature sweep points
+the right way (more cells, more cost), with the jump landing almost
+entirely at the 1→2 step and then plateauing. But the per-part SHAP tells
+a subtler story: on the specific 16-cell ADI BMS above,
+`max_cells_supported` comes back at **−$1.30** — a *negative* local
+contribution against that part's already-high baseline. The slope and the
+local attribution can disagree because SHAP credits the feature *relative
+to the background* for that exact part, and on a 102-part dataset the
+high-cell-count corner is thin and confounded (high-cell chips that happen
+to be commodity monitors rather than premium controllers).
 
-This is the **right *kind* of wrong**: a sign you can *see* because SHAP
-exposed it, and explain (it's a feature-interaction artifact between
-`is_multi_cell` and `max_cells_supported`), rather than a black-box number
-you'd have taken at face value.
+This is the **right *kind* of subtlety**: a sign you can *see* because
+SHAP exposed it and explain (a feature-interaction effect between
+`is_multi_cell` and `max_cells_supported` in a thin corner of the data),
+rather than a black-box number you'd have taken at face value.
 
 > [!TIP]
 > **🛒 Procurement parallel.** This is exactly how *correlated-spec
@@ -431,23 +452,24 @@ you'd have taken at face value.
 > engineer a single "architecture tier" feature; on 102 parts, you note
 > it honestly and lean on the flag.
 
-### 5. Operating-temperature grade is confounded too: commercial reads +83%
+### 5. Operating-temperature grade is confounded too: commercial reads +141%
 
 Sweep the temperature grade and the ranking is upside-down from what an
 EE would expect:
 
 ```
-  automotive AEC-Q100  (−40/125 °C)   $1.85   −32%
-  extended industrial  (−40/105 °C)   $2.28   −16%
-  industrial           (−40/85 °C)    $2.71     0%   (baseline)
-  commercial           (0/70 °C)      $4.94   +83%
+  industrial           (−40/85 °C)    $2.28     0%   (baseline)
+  extended industrial  (−40/105 °C)   $2.28     0%
+  automotive AEC-Q100  (−40/125 °C)   $2.38    +4%
+  commercial           (0/70 °C)      $5.49  +141%
 ```
 
-Automotive-grade parts *should* cost more, not less. The same diagnosis
-as Finding #4 applies: in this small slice, the handful of parts that
-carry a narrow `0/70 °C` commercial rating happen to be pricier specialty
-ICs, and the model — with only ~100 parts to learn from — fit that
-coincidence rather than the true temperature-grade premium. The
+Automotive-grade parts *should* command the clear premium; instead the
+narrow `0/70 °C` commercial grade reads +141% while automotive barely
+moves. The same diagnosis as Finding #4 applies: in this small slice, the
+handful of parts that carry a commercial rating happen to be pricier
+specialty ICs, and the model — with only ~100 parts to learn from — fit
+that coincidence rather than the true temperature-grade premium. The
 `op_temp` features together carry only ~7% of the model's importance, so
 this is a weak, noisy signal the model is over-reading.
 
@@ -464,18 +486,18 @@ this is a weak, noisy signal the model is over-reading.
 Look back at the **two single-cell parts** in the worked-examples
 section. Both have a 90% lower bound that the model wanted to put *below
 zero* ($0.00\*). That's not the model hiding uncertainty — it's the
-opposite. The additive conformal interval is wide enough (~±$3.18) that
+opposite. The additive conformal interval is wide enough (~±$2.05) that
 on a sub-$2 part the band mathematically extends past zero, and the
 toolkit surfaces it rather than silently clamping.
 
 > [!TIP]
 > **🛒 Procurement parallel.** A point estimate alone would have said
-> "$1.77" and moved on. The interval says "$1.77, but I'm genuinely
+> "$1.60" and moved on. The interval says "$1.60, but I'm genuinely
 > uncertain at this price level" — and the negative bound is a flag that
 > *this target wants a multiplicative model*. That's an actionable
 > modelling signal, not just a display quirk: for any positive-quantity
 > target (prices, costs, lead times), the fix is the `--log-target on/off`
-> flag (roadmap), which produces strictly-positive percentage intervals.
+> flag (now available), which produces strictly-positive percentage intervals.
 
 ## The story
 
@@ -485,12 +507,13 @@ yourself by running the commands in
 
 **1. Real procurement data is small, and P2Predict still produces an
 honest model on it.** 102 parts is a realistic BOM-benchmarking size, not
-a big-data demo. The model lands at R² 0.563 — modest, and we label it
+a big-data demo. The model lands at R² 0.512 — modest, and we label it
 "Needs Improvement" rather than dress it up — but it is **statistically
-unbiased** (residual-bias p-value 0.57), which on a small dataset is the
-property that actually matters: the model isn't systematically over- or
-under-pricing, so the intervals and SHAP attributions are trustworthy
-even where the point estimate is rough. That distinction matters more
+unbiased** (residual-bias p-value 0.09 — not significant at the
+conventional 0.05 level), which on a small dataset is the property that
+actually matters: the model isn't systematically over- or under-pricing,
+so the intervals and SHAP attributions are trustworthy even where the
+point estimate is rough. That distinction matters more
 than R² alone: a model can explain *more* variance yet have biased
 residuals (a systematic lean high or low). Here the residuals are honest,
 which is what makes the intervals and attributions usable.
@@ -501,7 +524,7 @@ consequences you can see.** Skew 0.12 is far below the 1.0 threshold, so
 dollars (nice) but makes the conformal interval additive too, which
 sends the lower bound negative on cheap parts (not nice). The case study
 shows both faces honestly, and is the concrete motivation for the
-`--log-target on/off` override on the roadmap. Details in
+`--log-target on/off` override (now available in the trainer). Details in
 [Methodology > Log-target trigger](#log-target-trigger--skewness-based-automatic).
 
 **3. The 90% likely range is real coverage, not a heuristic.** The
@@ -524,7 +547,7 @@ confident wrong number. Details in
 the entire 16-cell BMS spec fixed and asking "what if this were a
 Microchip part instead of ADI/Maxim" takes one
 `--whatif "manufacturer:Microchip Technology"` on the CLI (or
-`p2predict.what_if(...)` in Python) and returns −28.5% / −$1.50 per unit.
+`p2predict.what_if(...)` in Python) and returns −37.7% / −$2.07 per unit.
 For procurement that *is* the deliverable: a defensible, line-itemised
 supplier-premium number you can take into a sourcing conversation.
 
@@ -688,8 +711,10 @@ wrap **stays off** and the model is additive. This is the *correct*
 automatic decision for this sample, and it's also exactly why the cheap
 parts get negative interval bounds (Finding #6). For a positive-quantity
 target you'd often *want* the multiplicative behaviour regardless of the
-sample's measured skew; forcing it on is the `--log-target on/off`
-roadmap item this case study motivates.
+sample's measured skew; forcing it on is exactly what the now-available
+`--log-target on/off` override is for — and this case study is its
+motivating example. We deliberately leave it off here, since skew 0.12 is
+the textbook case where the automatic decision is the right one.
 
 **Source.** `src/p2predict/training.py::should_log_target`.
 
@@ -710,19 +735,28 @@ Built *per algorithm* because linear and tree models want different inputs:
 | Family | Numerical | Categorical |
 |---|---|---|
 | Linear (Ridge, Lasso) | `StandardScaler` | `OneHotEncoder(handle_unknown="ignore")` |
-| Tree (RandomForest, XGBoost) | `passthrough` | `OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)` |
+| Tree (RandomForest, XGBoost) | `passthrough` | `TargetEncoder` (scikit-learn's cross-fitted target/mean encoder) |
 
 <details>
-<summary>💡 <b>What's "one-hot encoding" and why do we need it?</b></summary>
+<summary>💡 <b>What's "one-hot encoding," and why do trees get a target encoder instead?</b></summary>
 
 A linear model needs numbers, not the word "Texas Instruments." One-hot
 encoding replaces a categorical column with one yes/no (1/0) column per
 value: a row with `manufacturer="Texas Instruments"` becomes a 1 in an
 "is-TI" column and 0 in every other manufacturer column. That's how the
 linear model can carry a separate coefficient — and therefore a separate
-price effect — per manufacturer. Trees split on integer-coded categories
-directly, so P2Predict gives them an `OrdinalEncoder` instead. Different
-math, different food.
+price effect — per manufacturer.
+
+Trees split on a single numeric code per category, so they need each
+category mapped to *one* number. The naive choice — an ordinal integer
+code — assigns those codes **arbitrarily** (alphabetically), so a tree's
+threshold split lumps unrelated manufacturers together purely because
+their names sort next to each other. P2Predict instead gives trees a
+**`TargetEncoder`**, which maps each category to its *smoothed mean
+target* (cross-fitted to avoid leakage). Now the code **orders by price**,
+so a single split cleanly separates premium suppliers from commodity ones
+— a far more useful cut than alphabetical happenstance. Different math,
+different food.
 </details>
 
 **Source.** `src/p2predict/preprocessing.py::build_preprocessor`.
@@ -745,10 +779,16 @@ P2Predict cross-validates *each* of Ridge, RandomForest, and XGBoost with
 hyperparameter search, then picks the winner by mean CV R²:
 
 ```
-ridge          CV R² = 0.313    ◄── selected
-xgboost        CV R² = 0.258
-random_forest  CV R² = 0.070
+ridge          CV R² = 0.691    ◄── selected
+random_forest  CV R² = 0.598
+xgboost        CV R² = 0.593
 ```
+
+> These CV scores are much higher and more sensible than this study's
+> original run (ridge 0.313, RF 0.070) — a direct result of P2Predict's
+> hyperparameter-search fix: the search used to decide the winner on a
+> ~90-row floor regardless of dataset size, which on a 120-row training set
+> meant near-random scores. The selection is now made on the full data.
 
 Ridge winning makes sense here: with only 102 parts and eight mostly
 additive cost drivers, the gradient-boosted trees don't have enough data
@@ -790,11 +830,22 @@ Ridge's only knob is `alpha` over `loguniform(1e-4, 1e+4)`.
 
 **What it is.** Split-conformal prediction
 ([Lei et al. 2018](https://arxiv.org/abs/1604.04173)): compute residuals
-on the held-out test set; the (1 − α) empirical quantile of their
+on the held-out calibration set; the (1 − α) empirical quantile of their
 absolute values is the interval half-width.
 
+**Banded (Mondrian) calibration, and why it falls back here.** The
+current P2Predict core can compute *banded* (Mondrian) conformal
+intervals — separate widths per price band, so a $1 part and a $6 part can
+carry differently-sized ranges. Banding only kicks in once the calibration
+set is large enough to populate each band reliably (a 150-point floor).
+This BMIC slice's calibration set is well below that floor, so every
+interval here correctly uses **one global width** — exactly the graceful
+fallback you want: banding never over-fits a width to two or three
+calibration points. The worked-example output flags this explicitly
+("band: global (calibration set too small to band)").
+
 **For non-log models (this one).** Residuals are in target units (dollars)
-and the interval is `prediction ± q̂` — **additive**. With a ~$3.18
+and the interval is `prediction ± q̂` — **additive**. With a ~$2.05
 half-width, that means cheap parts get a lower bound below zero (which we
 clip to $0 for display and flag with `*`). It's the conformal math being
 honest, not failing: the guarantee is about *coverage*, and a wide
@@ -825,7 +876,7 @@ the data supports. A log-target model would give a multiplicative
 > Shapley value is the **unique** credit split satisfying four
 > common-sense fairness rules at once — efficiency (the parts add to the
 > whole), symmetry, missingness, and consistency. That uniqueness is why
-> "the 48-pin package adds $1.41" is defensible under scrutiny, not just
+> "the 48-pin package adds $1.93" is defensible under scrutiny, not just
 > "feature importance."
 
 P2Predict uses the SHAP explainer that's *exact* for the model family.
@@ -848,8 +899,8 @@ their source column so the report has one row per original spec.
 
 R² is the **fraction of variation in the data the model explains**.
 Predicting "the average price" for every part gives R² = 0; a perfect
-oracle gives R² = 1. Our holdout R² of 0.563 means the model explains
-about 56% of the variation in BMIC prices from the eight specs — modest,
+oracle gives R² = 1. Our holdout R² of 0.512 means the model explains
+about 51% of the variation in BMIC prices from the eight specs — modest,
 which is honest for 102 parts and eight features. The rest is part-level
 detail the catalog doesn't expose (die process, volume tier, package
 material) plus genuine noise.
@@ -861,7 +912,7 @@ material) plus genuine noise.
 | > 60 | Good |
 | ≤ 60 | Needs Improvement |
 
-This case study: R² = 0.563 → composite 56.3 → **Needs Improvement.** We
+This case study: R² = 0.512 → composite 51.2 → **Needs Improvement.** We
 quote the honest label rather than round up — on 102 parts, "ballpark
 with trustworthy uncertainty" is the right expectation, and the unbiased
 residuals (below) are what make that ballpark usable.
@@ -873,19 +924,21 @@ residuals (below) are what make that ballpark usable.
 
 A p-value is the probability of seeing data this extreme **if the thing
 you're testing for isn't actually happening**. Here we test whether the
-model's average error differs from zero. A **high** p-value (like our
-0.57) means we *can't* distinguish the average error from zero — the
-model is statistically unbiased. A **tiny** p-value (say 10⁻⁷⁵) would
-mean the opposite: a model that is clearly, systematically off.
+model's average error differs from zero. A p-value above the
+conventional 0.05 threshold (like our 0.09) means we *can't* distinguish
+the average error from zero at that confidence level — the model is
+statistically unbiased. A **tiny** p-value (say 10⁻⁷⁵) would mean the
+opposite: a model that is clearly, systematically off.
 </details>
 
 **What's tested.** Whether residuals `y_test − ŷ_test` have a mean
 significantly different from zero. **Test.**
 `scipy.stats.ttest_1samp(residuals, 0.0)`.
 
-**This case study's p-value ≈ 0.57** — comfortably non-significant. The
-model is **not** systematically over- or under-pricing; its errors
-scatter symmetrically around zero. This is the headline quality result:
+**This case study's p-value ≈ 0.09** — non-significant at the
+conventional α = 0.05 level, though marginal. The model is **not**
+systematically over- or under-pricing at that threshold; its errors
+scatter approximately symmetrically around zero. This is the headline quality result:
 the R² is modest, but because the model is unbiased, its dollar
 attributions and intervals are trustworthy on average. A small *and*
 honest model beats a bigger biased one for procurement, where you care
@@ -903,9 +956,9 @@ were generated from.
 
 | | |
 |---|---|
-| **Algorithm selected** (auto, CV) | `ridge` (CV R² 0.313, beat XGBoost 0.258 and RF 0.070) |
+| **Algorithm selected** (auto, CV) | `ridge` (CV R² 0.691, beat RandomForest 0.598 and XGBoost 0.593) |
 | **Log-target wrap** | **Off** — price skew 0.12 < 1.0 threshold (additive model) |
-| **Rows** | 102 trainable of 150 pulled (48 dropped for missing specs) |
+| **Rows** | all **150** trainable (the NA-handling fix keeps rows with missing *feature* specs — only target-NA rows are dropped — instead of the old blanket drop that lost ~48) |
 | **Target outliers** | Detected and **kept** (`--outliers warn`) |
 | **Feature outliers** | **Kept** (`--feature-outliers warn` — dropping is destructive on 102 parts; see Methodology) |
 
@@ -913,28 +966,28 @@ were generated from.
 
 | | |
 |---|---|
-| R² | **0.563** |
-| MAE | **$0.76** (≈ 23% of the $3.31 median price — a reasonable ballpark on a category this small; you'd still quote, not benchmark, a single part off the point estimate) |
-| RMSE | $1.04 |
-| Residual-bias p-value | **≈ 0.57** — one-sample t-test of residuals against zero. *High* value means the model is statistically **unbiased**. See [Methodology > Residual-bias test](#residual-bias-test--one-sample-t-test-against-zero). |
-| Quality label | **Needs Improvement** (R² × 100 = 56.3, just below the 60 "Good" cutoff). See [Methodology > Quality label](#quality-label). |
+| R² | **0.512** |
+| MAE | **$0.67** (≈ 20% of the $3.31 median price — a reasonable ballpark on a category this small; you'd still quote, not benchmark, a single part off the point estimate) |
+| RMSE | $0.95 |
+| Residual-bias p-value | **≈ 0.09** — one-sample t-test of residuals against zero. Above the 0.05 threshold, so the residuals aren't flagged as systematically biased — though on 30 holdout points this is more marginal than a larger p would be. See [Methodology > Residual-bias test](#residual-bias-test--one-sample-t-test-against-zero). |
+| Quality label | **Needs Improvement** (R² × 100 = 51.2, just below the 60 "Good" cutoff). See [Methodology > Quality label](#quality-label). |
 
 ### Feature importance (Ridge coefficient magnitudes, after preprocessing)
 
 | Rank | Feature | Share |
 |---|---|---:|
-| 1 | manufacturer | 40.1% |
-| 2 | Battery Chemistry | 20.7% |
-| 3 | Interface | 16.3% |
-| 4 | is_multi_cell | 10.9% |
-| 5 | package_pins | 4.2% |
-| 6 | op_temp_min_C | 3.4% |
-| 7 | op_temp_max_C | 3.3% |
-| 8 | max_cells_supported | 1.2% |
+| 1 | manufacturer | 45.6% |
+| 2 | Battery Chemistry | 19.7% |
+| 3 | Interface | 17.9% |
+| 4 | is_multi_cell | 9.7% |
+| 5 | package_pins | 3.0% |
+| 6 | op_temp_max_C | 1.7% |
+| 7 | max_cells_supported | 1.4% |
+| 8 | op_temp_min_C | 1.0% |
 
 The top three features — manufacturer, chemistry, interface — explain
 **77%** of the model's decisions. `package_pins` looks small here but is
-the dominant *dollar* driver on the EV BMS (+$1.41); coefficient-share
+the dominant *dollar* driver on the EV BMS (+$1.93); coefficient-share
 and per-prediction SHAP answer different questions, and the SHAP view in
 [Worked examples](#worked-examples) is the more actionable one for a
 specific part.
@@ -1068,7 +1121,7 @@ the metrics. For the real numbers, use the full path.
 ## Notes & footnotes worth knowing
 
 - **This dataset is small *on purpose*.** 102 parts is a realistic
-  BOM-benchmarking size. The modest R² (0.563) and the two
+  BOM-benchmarking size. The modest R² (0.512) and the two
   counterintuitive findings (cell count, temperature grade) are not
   failures to paper over — they're what a real procurement dataset looks
   like, and the case study's value is showing how SHAP + intervals let
@@ -1084,8 +1137,9 @@ the metrics. For the real numbers, use the full path.
   This dataset's skew (0.12) correctly keeps the wrap off, which makes the
   additive interval dip below zero on sub-$2 parts. For a positive-quantity
   target you often want multiplicative behaviour *regardless* of the
-  measured skew. A `--log-target on/off` override is on the roadmap;
-  this case study is its motivating example.
+  measured skew. A `--log-target on/off` override is now available in the
+  trainer; this case study is its motivating example. We keep it off here
+  on purpose — skew 0.12 makes the automatic additive choice correct.
 - **The raw catalog is gitignored.** DigiKey's developer terms forbid bulk
   redistribution, so only the code, schema, and a 30-row non-identifying
   sample are checked in. Bring your own (free) credentials for the full
@@ -1105,7 +1159,7 @@ the metrics. For the real numbers, use the full path.
   leverage actually lives.
 - **It doesn't decode every datasheet spec.** P2Predict treats each input
   column as a flat feature; the catalog exposes a handful of parametric
-  specs, not die process, wafer cost, or volume tier. R² 0.563 is what
+  specs, not die process, wafer cost, or volume tier. R² 0.512 is what
   those eight legible specs explain; the rest needs richer data.
 - **It doesn't segment by part family.** One model spans protection ICs,
   charge controllers, and pack monitors. A per-family model would sharpen
