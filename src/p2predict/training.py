@@ -155,8 +155,7 @@ def build_pipeline(algorithm, numerical_cols, categorical_cols, log_target=False
     return pipeline
 
 
-def _inner_pipeline(model):
-    return model.regressor_ if isinstance(model, TransformedTargetRegressor) else model
+from p2predict.model_utils import inner_pipeline as _inner_pipeline
 
 
 def _tune(pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=False):

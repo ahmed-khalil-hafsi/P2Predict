@@ -54,6 +54,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mcp = [
+    "mcp>=1.0",
+]
 dev = [
     "pytest>=7",
 ]
@@ -68,6 +71,7 @@ Roadmap = "https://github.com/ahmed-khalil-hafsi/P2Predict/blob/main/ROADMAP.md"
 [project.scripts]
 p2predict = "p2predict.cli.predict:main"
 p2predict-train = "p2predict.cli.train:train"
+p2predict-mcp = "p2predict.mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
