@@ -29,7 +29,7 @@ An engineer proposes tighter tolerances on a fastener — ±0.05mm instead of ±
 
 **Without P2Predict**: a 45-minute debate based on intuition. The decision ends up driven by whoever speaks loudest.
 
-**With P2Predict**: one `--whatif` call returns *"this change adds $0.42 per unit (+18%), with a 9-in-10 likely range of $0.30–$0.55."* Now the conversation is *"is +18% worth it for this requirement?"* — a real engineering question with a real answer.
+**With P2Predict**: ask the agent *"what happens to cost if we tighten the tolerance to ±0.05mm?"* and it returns *"this change adds $0.42 per unit (+18%), with a 9-in-10 likely range of $0.30–$0.55."* Now the conversation is *"is +18% worth it for this requirement?"* — a real engineering question with a real answer.
 
 #### BOM challenges from finance: "is this realistic?"
 
@@ -37,7 +37,7 @@ The CFO walks in and asks the BOM owner *"are we sure this $42 per-unit BOM is a
 
 **Without P2Predict**: defended with anecdote and one-off supplier conversations.
 
-**With P2Predict**: defended with `--interval` against the model. *"15 of these 18 line items are inside the model's 9-in-10 likely range. The three that aren't, and what's pulling each one: supplier choice on line 5, the EU-only requirement on line 11, the tolerance on line 14."* That's the difference between "trust us" and a numerical defense.
+**With P2Predict**: ask the agent to benchmark the BOM against the model. *"15 of these 18 line items are inside the model's 9-in-10 likely range. The three that aren't, and what's pulling each one: supplier choice on line 5, the EU-only requirement on line 11, the tolerance on line 14."* That's the difference between "trust us" and a numerical defense.
 
 #### Material and supplier trade-offs: "what's the actual cost delta?"
 
@@ -45,7 +45,7 @@ Engineering wants to move a part from aluminum to a higher-spec alloy. Procureme
 
 **Without P2Predict**: source two RFQs, take a week, get a single supplier's number.
 
-**With P2Predict**: `--whatif "Material:Alloy7075"` returns the predicted delta based on every similar part the company has historically bought, with a SHAP attribution showing whether the cost driver is the material itself or correlated features that ride along with it. Same answer in 30 seconds.
+**With P2Predict**: ask the agent *"what if we switch this part to Alloy 7075?"* and it returns the predicted delta based on every similar part the company has historically bought, with a SHAP attribution showing whether the cost driver is the material itself or correlated features that ride along with it. Same answer in 30 seconds.
 
 ### Inside procurement
 
@@ -55,19 +55,19 @@ P2Predict is also built for procurement people working without engineering in th
 
 A new RFQ arrives with 200 line items. You have an afternoon, not a week.
 
-Running `--interval` over the batch CSV: every line gets a low/high prediction. Lines inside the likely range are routine — auto-approve or queue them. The 8–15 lines that fall outside are the ones worth a phone call. You stop spending equal attention on every line and start spending it where it actually moves spend.
+Drop the CSV on the agent: *"benchmark these 200 line items."* Every line gets a low/high prediction. Lines inside the likely range are routine — auto-approve or queue them. The 8–15 lines that fall outside are the ones worth a phone call. You stop spending equal attention on every line and start spending it where it actually moves spend.
 
 #### Negotiation prep: know exactly what to push back on
 
 Supplier quotes $14.20 for a part the model predicts at $12.40 (90% range $10.80–$13.90).
 
-With `--explain` you see the contribution table: supplier choice +$0.85, rush-delivery flag +$1.20, size +$0.40. You stop arguing about the unit price and start arguing about its *components*. *"Why is rush delivery on this line? We agreed to standard."*
+Ask the agent *"explain this quote"* and it shows the contribution table: supplier choice +$0.85, rush-delivery flag +$1.20, size +$0.40. You stop arguing about the unit price and start arguing about its *components*. *"Why is rush delivery on this line? We agreed to standard."*
 
 #### Audit defense: explain the decision six months later
 
 Finance asks why a $14.20 unit price got approved on PO #4521.
 
-With `--explain` + `--interval` on the saved model, there's a written rationale: the model expected $12.40 ± $1.50, the quote landed $0.30 above the high end, the drivers were tolerance and supplier — both consistent with the engineering spec on that part. That's an auditable answer with a paper trail, not "Bob said it was fine."
+Ask the agent to pull up the model's explanation for that part: the model expected $12.40 ± $1.50, the quote landed $0.30 above the high end, the drivers were tolerance and supplier — both consistent with the engineering spec on that part. That's an auditable answer with a paper trail, not "Bob said it was fine."
 
 #### Buyer onboarding: capture the institutional knowledge before the senior people leave
 
@@ -89,7 +89,7 @@ Each ships with a `README` walking through the story, a `fetch_data.py` to pull 
 
 ## Part 2 — How it works
 
-If Part 1 sold the scenarios, this part is the tool itself: how the model is trained, what the CSV needs to look like, the CLI flags, the Python API, and the install path.
+If Part 1 sold the scenarios, this part is the tool itself: how to connect an AI agent, how the model is trained, what the CSV needs to look like, and the developer surfaces (CLI and Python API).
 
 ![User Experience Expert Mode](./documentation/p2predict_train.gif)
 
@@ -103,13 +103,13 @@ The model learns from your data — so the benchmark reflects your supply base a
 
 ### Three ways to use it
 
-P2Predict ships three surfaces. Pick the one that fits the workflow:
+P2Predict ships three surfaces. The MCP server is the primary interface — designed so procurement teams interact through their AI agent, not a terminal.
 
 | Surface | Who uses it | How |
 |---|---|---|
+| **MCP server** | AI agents (Claude, Cursor, custom) on behalf of procurement teams | 10 typed tools the agent calls; the user never touches a CLI |
 | **CLI** | Procurement engineers, data scientists | `p2predict-train ...` and `p2predict ...` after `pip install` |
 | **Python API** | Apps, notebooks, custom pipelines | `from p2predict import auto_train, explain, predict_interval, what_if` |
-| **MCP server** *(coming v1.0)* | AI agents working on behalf of procurement teams | Typed tools the agent calls; the procurement user never touches a CLI |
 
 All three call the same underlying math. See [`examples/python_api.py`](examples/python_api.py) for an end-to-end Python walkthrough.
 
@@ -126,7 +126,7 @@ CP30-19674030,30,SG,supplier A,Large,2.15
 
 Notes that matter in practice:
 - **Column types are auto-detected.** Numeric columns become numerical features; text and boolean columns become categorical. You don't have to one-hot encode by hand.
-- **The target column is whatever you pass with `--target`.** It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
+- **The target column is whatever you specify at training time** (via `--target` on CLI, or the agent asks which column to predict). It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
 - **Identifier columns** (part numbers, SKUs, anything near-unique) are auto-detected as "high variation" and flagged for you to drop. You usually don't want them in the model.
 - **Missing values:** rows with a missing *target* are dropped (can't learn from a row without a label). Feature NAs are handled by the preprocessor: XGBoost passes them through natively; Random Forest and Ridge impute numerics with the median and categoricals with the most-frequent value.
 - **Outliers in the target or in numerical features:** flagged by default (Tukey IQR). Pass `--outliers drop` / `--outliers winsorize` to act on the target column, and `--feature-outliers drop` / `--feature-outliers winsorize` to act on the feature columns. Feature-side `drop` is row-level (any column outlier removes the row); feature-side `winsorize` caps each column at its own IQR bounds.
@@ -168,12 +168,57 @@ See [`examples/example.csv`](examples/example.csv) for a working procurement-sha
 #### Install
 
 ```bash
-pip install -e .          # while developing from a clone
-# or once published:
-pip install p2predict
+pip install p2predict          # core: CLI + Python API
+pip install p2predict[mcp]     # adds the MCP server for AI agents
 ```
 
-That installs the `p2predict` and `p2predict-train` commands and the `p2predict` Python package.
+The base install gives you `p2predict`, `p2predict-train`, and the Python package. The `[mcp]` extra adds `p2predict-mcp` for agent integration.
+
+#### Connect an AI agent (MCP)
+
+This is the recommended way to use P2Predict. Your agent handles the conversation; P2Predict handles the math.
+
+**1. Configure your agent host** (Claude Desktop, Cursor, or any MCP-compatible client):
+
+```json
+{
+  "mcpServers": {
+    "p2predict": {
+      "command": "p2predict-mcp",
+      "args": ["--models-dir", "/path/to/your/models"]
+    }
+  }
+}
+```
+
+**2. Talk to your agent.** The agent discovers available models and tools automatically. Example conversations:
+
+> *"Train a model on my purchasing data at ~/data/parts.csv, predicting Price"*
+>
+> *"What would a 25kg EU part from Supplier A cost?"*
+>
+> *"What happens to the price if we switch to Supplier B?"*
+>
+> *"Benchmark these 200 RFQ line items against the model"*
+>
+> *"Generate a model quality report"*
+
+The MCP server exposes 10 tools:
+
+| Tool | What it does |
+|---|---|
+| `list_models` | Discover all trained models in the directory |
+| `get_model_info` | Features, types, categories, calibration status |
+| `predict` | Point prediction for a single part |
+| `predict_batch` | Predict multiple parts in one call |
+| `explain` | SHAP attribution — which features drive this price |
+| `predict_interval` | Conformal "likely range" (e.g. 9-in-10 coverage) |
+| `what_if` | Counterfactual: what changes if I switch supplier/material? |
+| `predict_from_csv` | Batch-predict an entire CSV file |
+| `train` | Train a new model from a CSV |
+| `generate_report` | Produce a model-quality PDF report |
+
+All data stays on your machine — the server runs locally over stdio, nothing leaves disk.
 
 #### Train a model
 
@@ -255,7 +300,7 @@ p2predict -m models/my_model.model -i rfq_lines.csv --interval 90
 
 ### Python API
 
-Everything the CLI can do is also reachable from Python. This is the surface an embedded application — or an AI agent acting on behalf of a procurement user — calls when it doesn't want to shell out to a subprocess.
+Everything the CLI can do is also reachable from Python — the surface for notebooks, custom pipelines, and embedded applications. (For agent integration, use the MCP server instead.)
 
 ```python
 import pandas as pd
@@ -371,21 +416,18 @@ The train CLI's JSON shape (with `cv_scores`, `evaluation`, `feature_importances
 
 ### Dependencies
 
-Check `requirements.txt` for exact versions. Install with `pip install -r requirements.txt`.
+Core: click, joblib, numpy, pandas, scipy, scikit-learn (≥ 1.5), xgboost, shap, rich, halo, questionary, matplotlib, seaborn.
 
-- click, joblib, numpy, pandas, scipy
-- scikit-learn (≥ 1.5), xgboost, shap
-- rich, halo, questionary
-- matplotlib, seaborn
+MCP extra (`pip install p2predict[mcp]`): adds the Anthropic [MCP SDK](https://modelcontextprotocol.io) (`mcp >= 1.0`).
 
 ### Running the tests
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,mcp]"   # include MCP tests
 pytest tests/
 ```
 
-The same suite runs in CI on every push to `main` and on pull requests.
+The same suite runs in CI on every push to `main` and on pull requests. MCP tests are skipped gracefully if the `mcp` extra isn't installed.
 
 ---
 
