@@ -1,186 +1,27 @@
 # P2Predict
 
-
 [![CI](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
 
-**Parametric price benchmarking for engineering and procurement trade-offs. Agentic first, runs on your data, stays on your machine.**
-
----
-
-## What it is (and isn't)
-
-P2Predict is a **parametric, data-driven cost-prediction tool** — the kind of model NASA, ICEAA, and the cost-estimating bodies call *parametric estimating*. It learns `features → price` from your historical data.
-
-It is **not bottom-up should-costing.** It does not decompose parts into material cost + labor minutes + machine time + overhead. Tools like aPriori or Siemens Teamcenter PCM do that, from first principles. P2Predict answers the complementary question: *"what has the market actually charged us for parts like this?"* The two approaches work well together — one tells you what a part ought to cost, the other tells you what similar parts have cost.
-
----
-
-## Part 1 — What it's worth
-
-P2Predict isn't trying to replace anyone's judgment. It's a shared, data-grounded reference that takes specific conversations from anecdote to numbers. Here are the conversations it's built for.
-
-### Procurement ↔ Engineering
-
-Most cost overruns get baked in during design — when engineering chooses features and procurement is downstream of the choice. The two functions usually meet over those choices in three places.
-
-#### Design reviews: "is this feature worth it?"
-
-An engineer proposes tighter tolerances on a fastener — ±0.05mm instead of ±0.1mm. Procurement suspects that pushes the part above target cost.
-
-**Without P2Predict**: a 45-minute debate based on intuition. The decision ends up driven by whoever speaks loudest.
-
-**With P2Predict**: ask the agent *"what happens to cost if we tighten the tolerance to ±0.05mm?"* and it returns *"this change adds $0.42 per unit (+18%), with a 9-in-10 likely range of $0.30–$0.55."* Now the conversation is *"is +18% worth it for this requirement?"* — a real engineering question with a real answer.
-
-#### BOM challenges from finance: "is this realistic?"
-
-The CFO walks in and asks the BOM owner *"are we sure this $42 per-unit BOM is achievable?"*
-
-**Without P2Predict**: defended with anecdote and one-off supplier conversations.
-
-**With P2Predict**: ask the agent to benchmark the BOM against the model. *"15 of these 18 line items are inside the model's 9-in-10 likely range. The three that aren't, and what's pulling each one: supplier choice on line 5, the EU-only requirement on line 11, the tolerance on line 14."* That's the difference between "trust us" and a numerical defense.
-
-#### Material and supplier trade-offs: "what's the actual cost delta?"
-
-Engineering wants to move a part from aluminum to a higher-spec alloy. Procurement wants to know the cost impact before saying yes.
-
-**Without P2Predict**: source two RFQs, take a week, get a single supplier's number.
-
-**With P2Predict**: ask the agent *"what if we switch this part to Alloy 7075?"* and it returns the predicted delta based on every similar part the company has historically bought, with a SHAP attribution showing whether the cost driver is the material itself or correlated features that ride along with it. Same answer in 30 seconds.
-
-### Inside procurement
-
-P2Predict is also built for procurement people working without engineering in the room.
-
-#### RFQ triage: spend the meeting on the lines that need a meeting
-
-A new RFQ arrives with 200 line items. You have an afternoon, not a week.
-
-Drop the CSV on the agent: *"benchmark these 200 line items."* Every line gets a low/high prediction. Lines inside the likely range are routine — auto-approve or queue them. The 8–15 lines that fall outside are the ones worth a phone call. You stop spending equal attention on every line and start spending it where it actually moves spend.
-
-#### Negotiation prep: know exactly what to push back on
-
-Supplier quotes $14.20 for a part the model predicts at $12.40 (90% range $10.80–$13.90).
-
-Ask the agent *"explain this quote"* and it shows the contribution table: supplier choice +$0.85, rush-delivery flag +$1.20, size +$0.40. You stop arguing about the unit price and start arguing about its *components*. *"Why is rush delivery on this line? We agreed to standard."*
-
-#### Audit defense: explain the decision six months later
-
-Finance asks why a $14.20 unit price got approved on PO #4521.
-
-Ask the agent to pull up the model's explanation for that part: the model expected $12.40 ± $1.50, the quote landed $0.30 above the high end, the drivers were tolerance and supplier — both consistent with the engineering spec on that part. That's an auditable answer with a paper trail, not "Bob said it was fine."
-
-#### Buyer onboarding: capture the institutional knowledge before the senior people leave
-
-A senior buyer who's been benchmarking the company's plastic parts for 20 years retires. That intuition usually walks out with them.
-
-A P2Predict model trained on the historical buys captures the *pattern* — what features drive cost in your supply base, what a typical range looks like, what looks off. The new buyer doesn't inherit Maria's intuition, but they inherit a baseline that lets them ask better questions and a backstop that flags things even Maria might have missed.
-
-### See it on real data — [case studies →](case-studies/)
-
-Three reproducible case studies on public datasets, each targeting a different audience:
-
-- **[Battery Management ICs](case-studies/battery-management-ics/)** — parametric pricing for EE procurement (Octopart / Mouser / DigiKey API).
-- **[Used vehicles](case-studies/used-cars/)** — the tutorial, on prices that span orders of magnitude (Kaggle, CC-licensed).
-- **[Aerospace fasteners](case-studies/aerospace-fasteners/)** — detecting noisy data: measuring a model's R² ceiling before tuning, on the public-domain DLA PUB LOG fastener catalog.
-
-Each ships with a `README` walking through the story, a `fetch_data.py` to pull the dataset, training command, and worked predictions with `--explain` / `--interval` / `--whatif`.
-
----
-
-## Part 2 — How it works
-
-If Part 1 sold the scenarios, this part is the tool itself: how to connect an AI agent, how the model is trained, what the CSV needs to look like, and the developer surfaces (CLI and Python API).
-
-![User Experience Expert Mode](./documentation/p2predict_train.gif)
-
-### How it works in one minute
-
-1. **Bring your history.** A CSV of past purchases — one row per part, with technical features (weight, material, region, supplier, size, …) and the price you paid.
-2. **Train a model.** P2Predict fits a regression model (Ridge / Random Forest / XGBoost), cross-validates them against each other, and keeps the best one.
-3. **Ask "what would similar parts cost?"** Feed it the technical features of a new or proposed part and it returns a benchmark price grounded in your historical data.
-
-The model learns from your data — so the benchmark reflects your supply base and your buying patterns, not a vendor's reference catalog.
-
-### Three ways to use it
-
-P2Predict ships three surfaces. The MCP server is the primary interface — designed so procurement teams interact through their AI agent, not a terminal.
-
-| Surface | Who uses it | How |
-|---|---|---|
-| **MCP server** | AI agents (Claude, Cursor, custom) on behalf of procurement teams | 10 typed tools the agent calls; the user never touches a CLI |
-| **CLI** | Procurement engineers, data scientists | `p2predict-train ...` and `p2predict ...` after `pip install` |
-| **Python API** | Apps, notebooks, custom pipelines | `from p2predict import auto_train, explain, predict_interval, what_if` |
-
-All three call the same underlying math. See [`examples/python_api.py`](examples/python_api.py) for an end-to-end Python walkthrough.
-
-### Data format
-
-One row per part. One column is the target (the price or whatever else you want to predict); the rest are the technical features the model will learn from.
-
-```csv
-CPN,Weight,Region,Supplier,Size,Price
-CP17-17921595,17,EU,supplier A,Standard,1.41
-CP2-5580430,2,CN,supplier A,Small,0.18
-CP30-19674030,30,SG,supplier A,Large,2.15
-```
-
-Notes that matter in practice:
-- **Column types are auto-detected.** Numeric columns become numerical features; text and boolean columns become categorical. You don't have to one-hot encode by hand.
-- **The target column is whatever you specify at training time** (via `--target` on CLI, or the agent asks which column to predict). It doesn't have to be called "Price" — `Cost`, `Revenue`, `Churn`, anything numeric works.
-- **Identifier columns** (part numbers, SKUs, anything near-unique) are auto-detected as "high variation" and flagged for you to drop. You usually don't want them in the model.
-- **Missing values:** rows with a missing *target* are dropped (can't learn from a row without a label). Feature NAs are handled by the preprocessor: XGBoost passes them through natively; Random Forest and Ridge impute numerics with the median and categoricals with the most-frequent value.
-- **Outliers in the target or in numerical features:** flagged by default (Tukey IQR). Pass `--outliers drop` / `--outliers winsorize` to act on the target column, and `--feature-outliers drop` / `--feature-outliers winsorize` to act on the feature columns. Feature-side `drop` is row-level (any column outlier removes the row); feature-side `winsorize` caps each column at its own IQR bounds.
-- **Time-ordered data:** if the CSV has a date column, pass `--time-column DATE` so the train/test split and CV become chronological — random splitting on time-ordered data inflates measured accuracy.
-
-See [`examples/example.csv`](examples/example.csv) for a working procurement-shaped dataset.
-
-### Features
-
-#### Benchmarking / prediction
-- Predict the benchmark price (or any other numerical target) for a part given its technical features
-- Batch-predict an entire CSV of candidate parts in one call
-- **Likely-range intervals** via `--interval` — a "9 in 10" range around each prediction, calibrated on the training holdout. On larger datasets the calibration is **banded by predicted price** (Mondrian conformal): a cheap part and an expensive one get widths matched to how well the model actually does in *their* price range, instead of one global width set by the noisiest segment — so the "9 in 10" promise holds within each band, not just on average. Quotes outside the range are unusual and worth questioning. Coverage is mathematically guaranteed under the same distribution assumption as the model's accuracy metrics
-- **Per-prediction explanations** via `--explain` — uses exact SHAP (TreeExplainer for tree models, LinearExplainer for linear models). Shows the additive decomposition `baseline + Σ contributions = prediction`, or for log-target models the strict multiplicative factors in price space
-- **What-if analysis** via `--whatif "Region:EU,Supplier:B"` — compare a base scenario against a counterfactual where one or more features change. Shows base and counterfactual predictions side-by-side (with likely ranges), the delta in dollars and percent, and a SHAP-attributed decomposition of where the change came from. The design-review tool for cross-functional cost discussions
-- Robust to unseen categorical values at prediction time (a new supplier code or region won't crash the model)
-
-#### Model training
-- Import training data from a CSV file
-- **Cross-validated model selection** across Ridge, Random Forest and XGBoost (`HalvingRandomSearchCV`) — auto-mode picks the best model *and* hyperparameters for your data
-- **Automatic log-target transform** for positive, skewed targets (typical of price data)
-- **Outlier handling** on both the target *and* the feature columns (Tukey IQR rule) with four policies each: `warn`, `drop`, `winsorize`, `keep`. Feature-side `drop` removes any row with an outlier in any feature column; `winsorize` caps each column at its own IQR bounds. Categorical features are ignored
-- **Time-aware cross-validation** via `--time-column` — chronological train/test split and `TimeSeriesSplit` for HPO, to prevent look-ahead bias on time-ordered data
-- Auto-detection of the most predictive features using a Random Forest baseline
-- Auto-detection of low/no information features that might bias the model
-- Tree models use `TargetEncoder` (maps each category to its smoothed mean target — orders by price, not alphabet); linear models use `OneHotEncoder + StandardScaler`
-- Expert mode lets you pick the algorithm and optionally run hyperparameter tuning — the tuned model is what gets saved
-- Configurable HPO search budget via `--budget {fast,thorough}`
-- Models can be saved and loaded
-- Evaluation metrics: R², MAE, RMSE, and a residual-bias check
-
-#### Plotting
-- Create a PDF with model performance indicators (predicted vs actual price, distribution of prediction errors, …)
-
-![Model performance plot](./documentation/model_perf_plot.png)
-
-### Quick start
-
-#### Install
-
-```bash
-pip install p2predict          # core: CLI + Python API
-pip install p2predict[mcp]     # adds the MCP server for AI agents
-```
-
-The base install gives you `p2predict`, `p2predict-train`, and the Python package. The `[mcp]` extra adds `p2predict-mcp` for agent integration.
-
-#### Connect an AI agent (MCP)
-
-This is the recommended way to use P2Predict. Your agent handles the conversation; P2Predict handles the math.
+**Parametric price benchmarking for procurement. Talk to your AI agent, get data-grounded answers. Runs on your data, stays on your machine.**
 
 ![P2Predict MCP Demo](./documentation/p2predict_mcp_demo.gif)
 
-**1. Configure your agent host** (Claude Desktop, Cursor, or any MCP-compatible client):
+- **Ask what a part should cost** — point prediction grounded in your historical purchases
+- **Know how confident the model is** — calibrated "9-in-10" likely ranges (conformal intervals)
+- **See exactly why** — per-feature SHAP attribution: which spec drives the price, by how much
+- **Test design trade-offs in seconds** — *"what if we switch supplier?"* with dollar deltas and confidence ranges
+- **Batch-benchmark an entire RFQ** — drop a CSV, flag the lines worth a phone call
+- **Your data never leaves your machine** — local models, local inference, stdio transport
+
+---
+
+## Quick start
+
+```bash
+pip install p2predict[mcp]
+```
+
+Configure your agent (Claude Desktop, Cursor, or any MCP client):
 
 ```json
 {
@@ -193,7 +34,7 @@ This is the recommended way to use P2Predict. Your agent handles the conversatio
 }
 ```
 
-**2. Talk to your agent.** The agent discovers available models and tools automatically. Example conversations:
+Then just talk:
 
 > *"Train a model on my purchasing data at ~/data/parts.csv, predicting Price"*
 >
@@ -202,252 +43,115 @@ This is the recommended way to use P2Predict. Your agent handles the conversatio
 > *"What happens to the price if we switch to Supplier B?"*
 >
 > *"Benchmark these 200 RFQ line items against the model"*
->
-> *"Generate a model quality report"*
 
-The MCP server exposes 10 tools:
+The agent discovers models and tools automatically. 10 MCP tools cover the full surface:
 
 | Tool | What it does |
 |---|---|
-| `list_models` | Discover all trained models in the directory |
+| `list_models` | Discover trained models |
 | `get_model_info` | Features, types, categories, calibration status |
 | `predict` | Point prediction for a single part |
 | `predict_batch` | Predict multiple parts in one call |
 | `explain` | SHAP attribution — which features drive this price |
 | `predict_interval` | Conformal "likely range" (e.g. 9-in-10 coverage) |
-| `what_if` | Counterfactual: what changes if I switch supplier/material? |
-| `predict_from_csv` | Batch-predict an entire CSV file |
+| `what_if` | What changes if I switch supplier / material / spec? |
+| `predict_from_csv` | Batch-predict a CSV file |
 | `train` | Train a new model from a CSV |
-| `generate_report` | Produce a model-quality PDF report |
+| `generate_report` | Model-quality PDF report |
 
-All data stays on your machine — the server runs locally over stdio, nothing leaves disk.
+Also available as a **CLI** (`p2predict`, `p2predict-train`) and a **Python API** (`from p2predict import auto_train, explain, predict_interval, what_if`). All three surfaces call the same math. See the [technical reference](TECHNICAL.md) for full docs.
 
-#### Train a model
+---
 
-```bash
-p2predict-train --input examples/example.csv --target Price
-```
+## What it is
 
-Auto-mode picks the best algorithm and hyperparameters for you. Output names the winning algorithm and lists CV R² for each candidate.
+P2Predict is a **parametric cost-prediction tool** — the kind of model NASA, ICEAA, and cost-estimating bodies call *parametric estimating*. It learns `features → price` from your historical purchasing data, then answers questions about new or proposed parts.
 
-Full options:
+It is **not bottom-up should-costing** (aPriori, Siemens Teamcenter PCM). Those tools decompose a part into material + labor + machine time. P2Predict answers the complementary question: *"what has the market actually charged us for parts like this?"*
 
-| Flag | Description |
+### How it works
+
+1. **Bring your history.** A CSV — one row per part, with specs (weight, material, region, supplier, …) and the price you paid.
+2. **Train a model.** P2Predict fits Ridge, Random Forest, and XGBoost, cross-validates them, and keeps the best one.
+3. **Ask questions.** Point estimates, likely ranges, per-feature explanations, what-if comparisons — through your agent or the CLI.
+
+The model learns from *your* data — so the benchmark reflects your supply base, not a vendor's catalog.
+
+---
+
+## Built for these conversations
+
+### Design reviews: "is this feature worth it?"
+
+Engineer proposes tighter tolerances — ±0.05mm instead of ±0.1mm. Ask the agent: *"what happens to cost?"*
+
+Answer: *"+$0.42/unit (+18%), 9-in-10 range $0.30–$0.55."* Now the conversation is *"is +18% worth it for this requirement?"* — not a debate based on who speaks loudest.
+
+### RFQ triage: focus on what matters
+
+200 line items, one afternoon. Drop the CSV on the agent: *"benchmark these."* Every line gets a prediction and a likely range. The 8–15 lines outside the range are the ones worth a call. The rest are routine.
+
+### Negotiation prep: argue the components, not the total
+
+Supplier quotes $14.20, model says $12.40 (90% range $10.80–$13.90). Ask for the breakdown: supplier choice +$0.85, rush delivery +$1.20, size +$0.40. *"Why is rush delivery on this line? We agreed to standard lead time."*
+
+### Supplier and material trade-offs
+
+*"What if we switch from ADI/Maxim to Microchip on this 16-cell BMS?"* → **−$2.07/unit (−37.7%)**, with per-feature SHAP showing what's driving the delta. Same answer in 30 seconds that would take a week of RFQs.
+
+### Audit defense
+
+Finance asks about PO #4521 six months later. The model's explanation is on file: predicted $12.40 ± $1.50, drivers were tolerance and supplier, consistent with the engineering spec. That's an auditable paper trail.
+
+### Buyer onboarding
+
+Senior buyer retires — 20 years of benchmarking intuition walks out. A P2Predict model trained on historical buys captures what features drive cost, what a normal range looks like, and what looks off. The new buyer inherits a baseline, not just a spreadsheet.
+
+---
+
+## Case studies
+
+Three reproducible builds on public datasets:
+
+- **[Battery Management ICs](case-studies/battery-management-ics/)** — 150 parts from DigiKey. The procurement-shaped case study: thin data, additive target, supplier-swap what-if.
+- **[Used vehicles](case-studies/used-cars/)** — 426k rows, prices spanning orders of magnitude. The tutorial.
+- **[Aerospace fasteners](case-studies/aerospace-fasteners/)** — public-domain DLA catalog. Measuring a model's R² ceiling on noisy data.
+
+Each includes a `fetch_data.py`, training command, and worked predictions with explanations, intervals, and what-if.
+
+---
+
+## Under the hood
+
+| | |
 |---|---|
-| `--input`, `-i` | Path to your input CSV file |
-| `--target`, `-t` | Name of the column to predict (e.g. `Price`) |
-| `--expert`, `-x` | Expert mode — control feature selection, algorithm, and HPO |
-| `--algorithm`, `-a` | Algorithm in expert mode: `ridge`, `xgboost`, or `random_forest` |
-| `--interactive`, `-c` | Guided interactive mode |
-| `--training_features`, `-tf` | Comma-separated list of features to train on |
-| `--budget`, `-b` | HPO search budget: `fast` (default) or `thorough` |
-| `--tune / --no-tune` | Expert mode: run hyperparameter tuning and save the tuned model |
-| `--outliers` | Target outlier policy: `warn` (default), `drop`, `winsorize`, `keep` |
-| `--feature-outliers` | Feature outlier policy: same options, applied per-column |
-| `--time-column` | Date column name — enables chronological split and `TimeSeriesSplit` CV |
-| `--json` | Emit structured JSON to stdout instead of Rich-formatted output |
+| **Algorithms** | Ridge, Random Forest, XGBoost — auto-selected via cross-validated `HalvingRandomSearchCV` |
+| **Explanations** | Exact SHAP — `TreeExplainer` for tree models, `LinearExplainer` for linear |
+| **Intervals** | Split-conformal prediction intervals, banded by price range (Mondrian) on larger datasets |
+| **Categoricals** | `TargetEncoder` for trees (orders by price, not alphabet), `OneHotEncoder` for linear |
+| **Outliers** | Tukey IQR on target and features, four policies: `warn`, `drop`, `winsorize`, `keep` |
+| **Log-target** | Auto-detected (skew > 1.0) or manual override — multiplicative SHAP, always-positive intervals |
+| **Time-aware** | Chronological split + `TimeSeriesSplit` CV via `--time-column` |
 
-Run `p2predict-train --help` for the full list.
+Full CLI reference, Python API, JSON schema, and data format docs: **[TECHNICAL.md](TECHNICAL.md)**
 
-Common examples:
-
-```bash
-# Interactive guided mode
-p2predict-train --interactive
-
-# Thorough HPO search
-p2predict-train --input data/parts.csv --target Price --budget thorough
-
-# Expert mode: tuned XGBoost on specific features
-p2predict-train --expert --input examples/example.csv \
-  --algorithm xgboost --target Price \
-  --training_features Weight,Size,Region --tune --budget fast
-```
-
-#### Predict
-
-```bash
-p2predict -m MODEL_PATH [-p PREDICT_USING] [-i PREDICT_FILE]
-```
-
-| Flag | Description |
-|---|---|
-| `-m, --model` | Path to the trained `.model` file |
-| `-p, --predict_using` | Inline feature/value pair: `"Weight:15,Region:EU"` |
-| `-i, --predict_file` | CSV of parts to batch-predict |
-| `--explain` | Per-feature SHAP attribution alongside the prediction |
-| `--interval N` | Likely range at N% coverage (e.g. `--interval 90`) |
-| `--whatif "F:V,..."` | Base vs counterfactual comparison with delta and SHAP breakdown |
-| `--json` | Structured JSON output — composes with all other flags |
-
-Examples:
-
-```bash
-# Inline prediction
-p2predict -m models/my_model.model -p "Weight:25,Region:EU,Supplier:A,Size:Standard"
-
-# With likely range and SHAP explanation
-p2predict -m models/my_model.model \
-  -p "Weight:25,Region:EU,Supplier:A,Size:Standard" \
-  --interval 90 --explain
-
-# What-if: what does switching supplier cost?
-p2predict -m models/my_model.model \
-  -p "Weight:25,Region:EU,Supplier:A,Size:Standard" \
-  --whatif "Supplier:B" --interval 90
-
-# Batch prediction from CSV
-p2predict -m models/my_model.model -i rfq_lines.csv --interval 90
-```
-
-### Python API
-
-Everything the CLI can do is also reachable from Python — the surface for notebooks, custom pipelines, and embedded applications. (For agent integration, use the MCP server instead.)
-
-```python
-import pandas as pd
-from p2predict import (
-    auto_train,           # CV-based model selection (Ridge/RF/XGBoost)
-    explain,              # exact SHAP attribution per prediction
-    predict_interval,     # conformal "likely range" with guaranteed coverage
-    what_if,              # base vs counterfactual comparison
-    load_model, save_model,
-)
-from p2predict.prepare_data import prepare_data
-from p2predict.intervals import compute_calibration_residuals
-
-data = pd.read_csv("purchases.csv")
-features = ["Weight", "Region", "Supplier", "Size"]
-
-# Train (cross-validated model selection across three algorithms).
-X_train, X_test, y_train, y_test, num, cat = prepare_data(data, features, "Price")
-model, algorithm, scores, log_target = auto_train(X_train, y_train, num, cat)
-
-# Inference + per-feature attribution.
-new_part = pd.DataFrame([{"Weight": 15, "Region": "EU",
-                          "Supplier": "A", "Size": "Standard"}])
-calibration = compute_calibration_residuals(model, X_test, y_test)
-
-[interval] = predict_interval(model, new_part, calibration, coverage=0.90)
-explanation = explain(model, new_part, background_X=X_train.sample(100))
-
-print(f"Predicted: {interval.prediction:.2f}")
-print(f"Likely range (90%): {interval.low:.2f}–{interval.high:.2f}")
-for feature, contribution in explanation.contributions.items():
-    print(f"  {feature}: {contribution:+.2f}")
-```
-
-See [`examples/python_api.py`](examples/python_api.py) for an end-to-end script that loads `examples/example.csv`, trains, persists, reloads, and demonstrates all four entry points.
-
-The public API surface is everything in `from p2predict import ...`; submodule paths like `p2predict.training` and `p2predict.intervals` are stable but lower-level.
-
-### Machine-readable JSON output
-
-Both CLIs accept `--json`, which suppresses all Rich-formatted output and emits a single JSON document on stdout. The schema is documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.py) and versioned via a `schema_version` field on every response.
-
-```bash
-p2predict -m my_model.model \
-  -p "Weight:15,Region:EU,Supplier:A,Size:Standard" \
-  --interval 90 --explain --whatif "Region:CN" \
-  --json | jq '.'
-```
-
-```json
-{
-  "schema_version": "1.0",
-  "command": "predict",
-  "model": {
-    "path": "my_model.model",
-    "algorithm": "random_forest",
-    "target": "Price",
-    "version": "v0.9",
-    "log_target": false,
-    "features": ["Weight", "Region", "Supplier", "Size"]
-  },
-  "mode": "inline",
-  "predictions": [
-    {"input": {"Weight": "15", "Region": "EU", "Supplier": "A", "Size": "Standard"},
-     "prediction": 1.318}
-  ],
-  "interval": {
-    "coverage": 0.90,
-    "per_row": [{"low": 1.04, "prediction": 1.318, "high": 1.59,
-                 "band": "predicted 0.80 to 2.10"}],
-    "soft_warning": null
-  },
-  "explanation": [
-    {
-      "baseline": 1.35,
-      "prediction": 1.318,
-      "log_target": false,
-      "contributions": [
-        {"feature": "Weight", "value": -0.059},
-        {"feature": "Region", "value": 0.030},
-        ...
-      ],
-      "multiplicative_factors": null,
-      "dollar_attribution": null,
-      "residual": 0.0
-    }
-  ],
-  "whatif": {
-    "changes": {"Region": {"from": "EU", "to": "CN"}},
-    "base_prediction": 1.318,
-    "counterfactual_prediction": 1.250,
-    "delta": -0.068,
-    "delta_pct": -5.2,
-    "changed_contributions": [...],
-    "interaction_contribution": -0.012,
-    "interaction_is_material": false,
-    "base_interval": {"low": 1.04, "high": 1.59},
-    "cf_interval": {"low": 0.97, "high": 1.52}
-  }
-}
-```
-
-Key points for agents and downstream tools:
-
-- **Stable schema, versioned.** Tests in [`tests/test_json_output.py`](tests/test_json_output.py) lock in the top-level keys for both commands. New fields can be added without bumping the schema version; renames or removals bump the major number.
-- **stdout is exclusively the JSON document.** No banner, no logo, no spinner. `jq` and other parsers work on the raw output without preprocessing.
-- **Errors emit JSON too.** Failure paths produce `{"schema_version": "1.0", "command": ..., "error": {"code": "...", "message": "..."}}` on stdout with exit code 1.
-- **`--json` composes with `--interval`, `--explain`, and `--whatif`.** Each adds its block to the response without changing the others.
-- **Each interval row carries a `band`** — a human-readable description of the price band its width was calibrated on (e.g. `"predicted 0.80 to 2.10"`), or `null` when a single global width was used (small calibration set, or a model file trained before banded calibration shipped).
-- **Interactive mode is incompatible with `--json`** — `p2predict --json` without `-p` or `-i` errors cleanly instead of prompting.
-
-The train CLI's JSON shape (with `cv_scores`, `evaluation`, `feature_importances`, `model_path`, etc.) is documented at the top of [`src/p2predict/json_output.py`](src/p2predict/json_output.py).
-
-### Dependencies
-
-Core: click, joblib, numpy, pandas, scipy, scikit-learn (≥ 1.5), xgboost, shap, rich, halo, questionary, matplotlib, seaborn.
-
-MCP extra (`pip install p2predict[mcp]`): adds the Anthropic [MCP SDK](https://modelcontextprotocol.io) (`mcp >= 1.0`).
-
-### Running the tests
-
-```bash
-pip install -e ".[dev,mcp]"   # include MCP tests
-pytest tests/
-```
-
-The same suite runs in CI on every push to `main` and on pull requests. MCP tests are skipped gracefully if the `mcp` extra isn't installed.
+![Model performance plot](./documentation/model_perf_plot.png)
 
 ---
 
 ## Contributing
 
-Bug reports, feature requests, and dataset suggestions are welcome — please open an issue.
+Bug reports, feature requests, and dataset suggestions — [open an issue](https://github.com/ahmed-khalil-hafsi/P2Predict/issues).
 
-I'm particularly keen on expanding the collection of datasets for direct and indirect commodities: ICs, passive components, plastic parts, mechanical parts, and more. If you're aware of open datasets in these areas, or your organization would like to contribute one, please reach out.
+I'm particularly keen on **open procurement datasets**: ICs, passive components, plastic parts, mechanical parts. If you know of one or your organization would share, please reach out.
 
-**Code contributions** require signing a Contributor License Agreement (CLA) before a pull request can be accepted. This is necessary because P2Predict is dual-licensed — noncommercial for the community, with commercial licenses available — and contributors need to explicitly grant rights that cover both. [Reach out](https://ahmedhafsi.com/contact/) before investing time in a large patch.
+**Code contributions** require a CLA (P2Predict is dual-licensed). [Reach out](https://ahmedhafsi.com/contact/) before investing time in a large patch.
 
 ## Licensing
 
-P2Predict is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). This means:
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
-- **Free for internal use** — companies and individuals can use P2Predict within their own organization at no cost.
-- **Commercial use requires a license** — deploying P2Predict for clients, embedding it in a paid service, or offering it as part of a consulting engagement requires a separate commercial license.
-
-Commercial licenses are available. If you are a consulting firm, systems integrator, or software vendor interested in distributing or deploying P2Predict commercially, please reach out to discuss licensing terms:
+- **Free for internal use** — use P2Predict within your own organization at no cost.
+- **Commercial use requires a license** — deploying for clients, embedding in a paid service, or consulting engagements.
 
 **Ahmed K. Hafsi** — [ahmedhafsi.com/contact](https://ahmedhafsi.com/contact/)
