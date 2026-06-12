@@ -127,7 +127,19 @@ import pandas as pd
 
 m = load_model("model.model")          # dict: model, calibration,
                                         # background_sample, features,
-                                        # target_feature, feature_types, ...
+                                        # target_feature, log_target,
+                                        # model_name, r2, training_date, ...
+
+# feature_types is NOT stored in the model — define it to match the
+# training features. The CLI infers this from the pipeline internals;
+# the Python API needs it explicitly for what_if.
+FEATURE_TYPES = {
+    "manufacturer": "Categorical",
+    "package_pins": "Numerical",
+    "op_temp_max_C": "Numerical",
+    "interface": "Categorical",
+}
+
 part = pd.DataFrame([{ "manufacturer": "Texas Instruments",
                        "package_pins": 8, "op_temp_max_C": 85,
                        "interface": "I2C" }])
@@ -136,7 +148,7 @@ price      = m["model"].predict(part)[0]
 intervals  = predict_interval(m["model"], part, m["calibration"], coverage=0.90)
 expl       = explain(m["model"], part, background_X=m["background_sample"])
 whatif     = what_if(m["model"], part, {"manufacturer": "Microchip Technology"},
-                     m["feature_types"], background_X=m["background_sample"],
+                     FEATURE_TYPES, background_X=m["background_sample"],
                      calibration=m["calibration"])
 ```
 
@@ -245,6 +257,16 @@ Before repeating any finding to a stakeholder, check its feature's importance
 (PDF page 3). A finding resting on a high-importance, well-sampled feature
 (e.g. supplier at 40%) is quotable. One resting on a 1–2% feature is a weak
 signal — present it as a hypothesis, not a number to negotiate against.
+
+### 7. Categorical features are target-encoded — supplier/brand premiums are real
+
+Tree models (RF, XGBoost) use **TargetEncoder** to map each category to its
+smoothed mean target price. This means the model sees `"manufacturer:ADI"` as
+"the price level associated with ADI parts in training," not an arbitrary
+alphabet code. The practical consequence: when the model says ADI adds 18% vs.
+TI, that's learned from actual price data, not a spurious ordinal-code
+correlation. Brand/supplier premium findings from tree models are reliable
+signals for negotiation — they reflect genuine pricing behaviour in the data.
 
 ---
 
