@@ -5,6 +5,14 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 ## [Unreleased]
 
 ### Added
+- **MCP server — 10 typed tools for AI agent integration.** `pip install p2predict[mcp]` adds the `p2predict-mcp` command, a local stdio-transport MCP server that lets Claude, Cursor, and custom agents call P2Predict as typed tools. The procurement user talks to their agent; the agent calls P2Predict; the answer flows back in plain English. Tools: `list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`. Trained models are also exposed as MCP resources (`model://{model_id}`). All data stays on the user's machine — nothing leaves disk.
+  - **`ModelRegistry`** (`p2predict.mcp.registry`) scans a models directory, lazy-loads `.model` files with an LRU cache (max 5), and exposes `ModelInfo` metadata (algorithm, target, features, feature types, categories, calibration status).
+  - **`model_utils.py`** — shared helpers extracted from `cli/predict.py` so both CLI and MCP call the same code: `inner_pipeline()`, `extract_feature_info()` (enhanced to handle `TargetEncoder` pipelines alongside `OneHotEncoder`/`OrdinalEncoder`), `coerce_features()`, `interval_to_dicts()`, `explanation_to_dict()`, `whatif_to_dict()`.
+  - **`train` tool** stores `holdout_y_test` and `holdout_y_pred` in the model metadata so `generate_report` can produce the PDF without re-deriving the test set.
+  - **`generate_report` tool** uses `matplotlib.use("agg")` for thread-safe PDF generation via `asyncio.to_thread()`.
+  - **18 integration tests** in `tests/test_mcp.py` covering all tools and error paths. Guarded by `pytest.importorskip("mcp")` for graceful skip when the extra isn't installed.
+  - **CI updated** to install `.[dev,mcp]` + `pytest-asyncio` and run a `p2predict-mcp --help` smoke check.
+  - **`pyproject.toml`**: `mcp = ["mcp>=1.0"]` optional dependency; `p2predict-mcp` console script entry point.
 - **Banded (Mondrian) conformal calibration for likely-range intervals.** A single global conformal quantile gives every prediction the same width, letting the noisiest price segment set the width for everyone (on the fasteners catalog: one ×225 band for all parts, inflated by near-random sub-$5 bolts). When the calibration set has ≥150 points, `predict_interval` now partitions it into three bands by *predicted* value and computes a separate quantile per band, so the range width tracks where the model is actually good — and the ~90% coverage guarantee holds *within each band*, not just on average (the banding rule depends only on the model's prediction, never on calibration labels). `compute_calibration_residuals` additionally stores the calibration predictions; `IntervalResult` gains an optional `band` description; the predict `--json` interval rows gain a `band` field. Fallbacks reproduce the old behaviour bit-for-bit: model files saved before this version (no stored predictions), calibration sets under 150 points, and degenerate prediction distributions all use the single global quantile with `band: null`. Tests in `tests/test_intervals.py` (banded width tracking, per-band empirical coverage, positivity, all three fallbacks).
 
 ### Changed
@@ -72,7 +80,7 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 ## [v0.9] — 2026-06
 
 ### Added
-- **`--json` flag on both CLIs** for machine-readable structured output, replacing Rich-formatted tables. Designed for AI agents, scripts, and downstream tooling that need to ingest P2Predict's output without regexing terminal text. Closes ROADMAP item #1 (the agent-readiness prerequisite for the upcoming MCP server).
+- **`--json` flag on both CLIs** for machine-readable structured output, replacing Rich-formatted tables. Designed for AI agents, scripts, and downstream tooling that need to ingest P2Predict's output without regexing terminal text. Closes ROADMAP item #1 (the agent-readiness prerequisite for the MCP server shipped in v1.0).
 - **`p2predict.json_output` module** documents the stable response schema for both `predict` and `train`. Every response carries `schema_version: "1.0"` so consumers can evolve safely as fields are added.
 - **JSON error path** — when `--json` is set, abort cases emit `{"error": {"code": "...", "message": "..."}}` on stdout with exit 1 instead of Rich abort messages, so an agent piping output gets a parseable failure document.
 - **Composability** — `--json` works alongside `--interval`, `--explain`, and `--whatif`; each adds its block to the response without affecting the others. Interactive mode is rejected with a clear error under `--json` (it would require prompts no agent can answer).
@@ -90,7 +98,7 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ### Added
 - **Pip-installable as the `p2predict` package.** `pyproject.toml` with `[project.scripts]` entries registers `p2predict` and `p2predict-train` as console scripts. Closes ROADMAP item #5. Install with `pip install -e .` (development) or `pip install p2predict` (once published).
-- **Public Python API.** `from p2predict import auto_train, explain, predict_interval, what_if, save_model, load_model, ...` — the same functionality the CLI exposes, callable from scripts / notebooks / agent code without shelling out. This is the surface AI agents will call once the MCP server lands in v1.0.
+- **Public Python API.** `from p2predict import auto_train, explain, predict_interval, what_if, save_model, load_model, ...` — the same functionality the CLI exposes, callable from scripts / notebooks / agent code without shelling out. This is the surface the MCP server (v1.0) and AI agents call.
 - **`python -m p2predict`** invokes the predict CLI without needing the console script entry point (useful for sandboxed environments or one-off use).
 - **`examples/python_api.py`** — end-to-end walkthrough loading `examples/example.csv`, training, persisting, reloading, and demonstrating all four programmatic entry points.
 

@@ -2,7 +2,7 @@
 
 The first arc — getting from 6/10 to 8/10 robustness — shipped across v0.4 to v0.8. SHAP attributions, conformal likely-range intervals, what-if comparisons, feature-side outlier handling, and pip-install + public Python API. All five with axiomatic tests locking in the property each feature claims.
 
-The next arc is **distribution and agent-first deployment**: putting the rigorous math in front of the procurement workflows and AI agents that will actually use it. Four items, ordered.
+The next arc is **distribution and agent-first deployment**: putting the rigorous math in front of the procurement workflows and AI agents that will actually use it. The MCP server (v1.0) is shipped — remaining items are PyPI publish and the landing page.
 
 ## Shipped — v0.4 → v0.8 (8/10 robustness)
 
@@ -50,7 +50,7 @@ Also fixed a latent bug in `detect_outliers()` while we were in there — near-c
 
 ## ~~5. `pyproject.toml` and pip-installable~~ ✅ Shipped in v0.8
 
-`pip install -e .` (development) or `pip install p2predict` (once published) installs the package and the `p2predict` / `p2predict-train` console scripts. `from p2predict import auto_train, explain, predict_interval, what_if, ...` is now the supported Python API surface — used by embedded apps, notebooks, and the MCP server that lands next.
+`pip install -e .` (development) or `pip install p2predict` (once published) installs the package and the `p2predict` / `p2predict-train` console scripts. `from p2predict import auto_train, explain, predict_interval, what_if, ...` is now the supported Python API surface — used by embedded apps, notebooks, and the MCP server (shipped in v1.0).
 
 Package layout moved to `src/p2predict/` (PEP 517 / 518 src-layout). CI installs via `pip install -e ".[dev]"` and runs an install-time smoke check, so the install path is validated on every push.
 
@@ -84,27 +84,17 @@ Small but load-bearing. Auto-mode previously capped at 6 features with no overri
 
 ### ~~1. JSON output mode~~ ✅ Shipped in v0.9
 
-`--json` on both `p2predict` and `p2predict-train`. Stable schema with `schema_version: "1.0"` on every response. Composes with `--interval`, `--explain`, and `--whatif`; each adds its block. Errors emit JSON too (`{"error": {"code": "...", "message": "..."}}` on stdout, exit 1) so agents piping the output get a parseable failure document.
+`--json` on both `p2predict` and `p2predict-train`. Stable schema with `schema_version: "1.0"` on every response. Composes with `--interval`, `--explain`, and `--whatif`; each adds its block. Errors emit JSON too (`{"error": {"code": "...", "message": "..."}}` on stdout, exit 1) so agents piping the output get a parseable failure document. (The MCP server in v1.0 uses a similar JSON error schema for tool responses.)
 
 15 new tests in `tests/test_json_output.py` assert the documented top-level keys on both CLIs, for both success and failure paths. The schema is now a tested contract.
 
 Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.py) and the [README](README.md#machine-readable-json-output).
 
-### 2. MCP server (v1.0 — the agentic-first headliner)
+### ~~2. MCP server (v1.0 — the agentic-first headliner)~~ ✅ Shipped in v1.0
 
-**Why it matters.** This is the agent-first deployment surface. Claude, Cursor, Zed, and custom procurement agents call P2Predict as typed MCP tools instead of shelling out to a CLI. The procurement user never sees a terminal — they talk to their existing agent, the agent calls P2Predict, the answer flows back in plain English. This is what makes P2Predict a first-class citizen in modern procurement workflows.
+`pip install p2predict[mcp]` adds the `p2predict-mcp` console script — a local stdio-transport MCP server with 10 typed tools (`list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`) and model resources (`model://{model_id}`). Claude, Cursor, and custom agents call P2Predict directly — the procurement user talks to their agent, the agent calls the math, the answer flows back in plain English. All data stays local; nothing leaves the machine.
 
-**Scope**
-- New package `p2predict-mcp` (or an extra: `pip install p2predict[mcp]`).
-- Typed MCP tools wrapping the v0.8 Python API: `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `train`, `list_models`, `get_model_info`.
-- Trained models exposed as MCP resources with their metadata (target, features, training date, calibration size, log-target flag).
-- Local-by-default deployment — runs in the user's environment, calls the user's models, no data leaves the network.
-- Documentation for both self-hosted and (optional) hosted deployment.
-
-**Acceptance**
-- A Claude or Cursor agent can list, inspect, and invoke P2Predict tools without shelling out — the procurement user sees an answer, not a CLI.
-- An RFQ-shaped batch prediction through MCP returns structured results an agent can summarise back to the user.
-- Listed on the Anthropic MCP directory (or equivalent in other agent platforms).
+Built on `ModelRegistry` (lazy-load + LRU cache), shared `model_utils.py` (extracted from `cli/predict.py` so CLI and MCP call identical code), and `asyncio.to_thread()` for CPU-bound sklearn/SHAP calls. 18 integration tests in `tests/test_mcp.py`. CI installs and smoke-checks the MCP entry point on every push.
 
 ### 3. PyPI publish (v1.0.x)
 
