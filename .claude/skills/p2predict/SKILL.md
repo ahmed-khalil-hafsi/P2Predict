@@ -33,10 +33,14 @@ where the value is.
 
 ## The shape of every job
 
-P2Predict has two surfaces over one core. Prefer the **CLI** — it's what the
-case studies use, it's the most stable surface, and `--json` makes it
-agent-friendly. Reach for the **Python API** only when embedding in a script
-or notebook.
+P2Predict has three surfaces over one core. This skill operates the **CLI** —
+it's what the case studies use, it's the most stable surface, and `--json`
+makes it agent-friendly. Reach for the **Python API** only when embedding in a
+script or notebook. There is also an **MCP server** (`p2predict-mcp`, the
+end-user / agentic surface) that wraps the same core with typed tools and
+*enforces* some of the interpretation rules in code (it screens target leakage
+and recommends a log-target — see rules 1 and 8); when you're driving the CLI
+yourself you apply those rules manually via the flags below.
 
 A typical job is a pipeline:
 
@@ -241,6 +245,15 @@ If the derived feature didn't help, say that too — it's useful signal:
 These are the lessons that separate a usable answer from a confident-wrong one.
 Apply them every time; explain the relevant ones to the user so they trust the
 result for the right reasons.
+
+> **This file is the canonical version of these rules.** A condensed copy lives
+> in the MCP server's instructions (`src/p2predict/mcp/server.py`,
+> `FastMCP(instructions=...)`) so non-Claude clients get them too — if you edit
+> a rule here, update that copy as well. On the **MCP surface** some of these
+> are now *enforced in code*, not just advised: target leakage (rule 8) is
+> screened by `propose_training_plan`/`train`, and a log-target (rule 1) is
+> recommended automatically for positive targets. On the **CLI surface** (this
+> skill's default) you apply them yourself via the flags below.
 
 ### 1. Set `--log-target on` for any price or cost model
 

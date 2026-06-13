@@ -15,6 +15,12 @@ from mcp.server.fastmcp import FastMCP
 
 from p2predict.mcp.registry import ModelRegistry
 
+# NOTE: the "INTERPRETING OUTPUT" rules below are a condensed, self-contained
+# mirror of "The interpretation rules" in .claude/skills/p2predict/SKILL.md.
+# The SKILL.md version is the canonical, fuller teaching (it also covers the
+# CLI/Python surface and feature engineering); this copy exists because
+# non-Claude clients never see the skill and the server must stand alone.
+# If you change a rule here, update SKILL.md too (and vice versa).
 mcp = FastMCP(
     "P2Predict",
     instructions=(
