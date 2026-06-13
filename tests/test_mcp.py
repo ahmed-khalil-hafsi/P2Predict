@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytest.importorskip("mcp", reason="MCP SDK not installed (pip install p2predict[mcp])")
+
 from p2predict import auto_train, save_model, Serialize_Trained_Model
 from p2predict.intervals import compute_calibration_residuals
 from p2predict.prepare_data import prepare_data

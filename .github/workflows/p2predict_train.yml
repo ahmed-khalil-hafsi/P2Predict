@@ -30,7 +30,8 @@ jobs:
         # Install the package via pyproject.toml — same path real users will
         # take (`pip install p2predict`), so CI validates the install surface
         # too, not just the code on disk.
-        pip install -e ".[dev]"
+        pip install -e ".[dev,mcp]"
+        pip install pytest-asyncio
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -47,4 +48,5 @@ jobs:
         # smoke check.
         p2predict --help > /dev/null
         p2predict-train --help > /dev/null
+        p2predict-mcp --help > /dev/null
 
