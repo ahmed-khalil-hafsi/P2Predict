@@ -10,14 +10,19 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.table import Table
-from sklearn.compose import TransformedTargetRegressor
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 from p2predict.cmdline_io import print_logo
 from p2predict.explain import Explanation, explain_batch, explain_row, top_drivers
 from p2predict.intervals import coverage_health, predict_interval
 from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
+from p2predict.model_utils import (
+    coerce_features as _coerce_features,
+    explanation_to_dict as _explanation_to_dict,
+    extract_feature_info as _extract_feature_info,
+    inner_pipeline as _inner_pipeline,
+    interval_to_dicts as _interval_per_row,
+    whatif_to_dict as _whatif_to_dict,
+)
 from p2predict.trained_model_io import LoadModel
 from p2predict.whatif import (
     WhatIfResult,
@@ -25,44 +30,6 @@ from p2predict.whatif import (
     interaction_is_material,
     parse_changes,
 )
-
-
-def _inner_pipeline(model):
-    return model.regressor_ if isinstance(model, TransformedTargetRegressor) else model
-
-
-def _extract_feature_info(pipeline):
-    """Return (feature_types, all_categories) from the fitted preprocessor."""
-    preprocessor = pipeline.named_steps["preprocessor"]
-    feature_types = {}
-    all_categories = {}
-
-    for name, transformer, columns in preprocessor.transformers_:
-        if name == "num":
-            feature_types.update({col: "Numerical" for col in columns})
-        elif name == "cat":
-            feature_types.update({col: "Categorical" for col in columns})
-
-            encoder = transformer
-            if isinstance(transformer, Pipeline) and "onehot" in transformer.named_steps:
-                encoder = transformer.named_steps["onehot"]
-
-            if isinstance(encoder, (OneHotEncoder, OrdinalEncoder)) and hasattr(
-                encoder, "categories_"
-            ):
-                all_categories = {
-                    col: cat.tolist()
-                    for col, cat in zip(columns, encoder.categories_)
-                }
-
-    return feature_types, all_categories
-
-
-def _coerce_features(features_df, feature_types):
-    for col, kind in feature_types.items():
-        if col in features_df.columns and kind == "Numerical":
-            features_df[col] = pd.to_numeric(features_df[col], errors="coerce")
-    return features_df
 
 
 # ---------------------------------------------------------------------------
