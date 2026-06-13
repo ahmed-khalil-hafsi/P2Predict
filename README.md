@@ -178,6 +178,8 @@ The base install gives you `p2predict`, `p2predict-train`, and the Python packag
 
 This is the recommended way to use P2Predict. Your agent handles the conversation; P2Predict handles the math.
 
+![P2Predict MCP Demo](./documentation/p2predict_mcp_demo.gif)
+
 **1. Configure your agent host** (Claude Desktop, Cursor, or any MCP-compatible client):
 
 ```json
