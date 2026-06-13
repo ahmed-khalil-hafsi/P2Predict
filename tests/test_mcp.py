@@ -265,6 +265,102 @@ async def test_train_bad_target(registry, tmp_path, synthetic_parts):
 
 
 # ---------------------------------------------------------------------------
+# train / propose_training_plan guardrails (leakage + log-target)
+# ---------------------------------------------------------------------------
+
+
+def _leaky_csv(tmp_path, synthetic_parts):
+    """A copy of the synthetic data with an added target-leakage column."""
+    df = synthetic_parts.copy()
+    # Price_at_1k is ~the same number as the target Price -> leakage.
+    df["Price_at_1k"] = df["Price"] * 0.5 + np.random.default_rng(0).normal(
+        0, 0.005, len(df)
+    )
+    csv = tmp_path / "leaky.csv"
+    df.to_csv(csv, index=False)
+    return csv
+
+
+@pytest.mark.asyncio
+async def test_train_auto_excludes_leaky_feature(registry, tmp_path, synthetic_parts):
+    csv = _leaky_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+    ))
+    assert "error" not in result
+    # The leaky column must not be among the auto-selected features...
+    assert "Price_at_1k" not in result["features"]
+    # ...and the user must be told it was excluded.
+    assert any("Price_at_1k" in w for w in result["warnings"])
+    assert any(d["feature"] == "Price_at_1k" for d in result["excluded_leaky_features"])
+
+
+@pytest.mark.asyncio
+async def test_train_blocks_explicit_leaky_feature(registry, tmp_path, synthetic_parts):
+    csv = _leaky_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price",
+        features=["Weight", "Price_at_1k"], algorithm="ridge", budget="fast",
+    ))
+    # Should refuse and ask rather than train a leaking model.
+    assert result.get("status") == "needs_confirmation"
+    assert result["reason"] == "target_leakage"
+    assert any(d["feature"] == "Price_at_1k" for d in result["leaky_features"])
+
+
+@pytest.mark.asyncio
+async def test_train_override_allows_leaky_feature(registry, tmp_path, synthetic_parts):
+    csv = _leaky_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price",
+        features=["Weight", "Price_at_1k"], algorithm="ridge", budget="fast",
+        allow_leaky_features=True,
+    ))
+    assert "error" not in result
+    assert "Price_at_1k" in result["features"]
+
+
+@pytest.mark.asyncio
+async def test_train_recommends_log_target_for_positive_price(
+    registry, tmp_path, synthetic_parts
+):
+    csv = tmp_path / "clean.csv"
+    synthetic_parts.to_csv(csv, index=False)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price",
+        features=["Weight", "Region", "Supplier", "Size"],
+        algorithm="ridge", budget="fast", log_target="auto",
+    ))
+    assert "error" not in result
+    # synthetic_parts price is near-symmetric -> auto leaves log off -> recommend on.
+    if not result["log_target"]:
+        assert any("log_target" in w for w in result["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_propose_training_plan_flags_leakage(registry, tmp_path, synthetic_parts):
+    csv = _leaky_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    assert result["status"] == "needs_confirmation"
+    assert "Price_at_1k" not in result["i_will_use_these_specs"]
+    assert any(e["column"] == "Price_at_1k" for e in result["i_am_leaving_out"])
+    assert result["recommended_log_target"] == "on"
+    assert result["questions_for_the_user"]
+
+
+@pytest.mark.asyncio
+async def test_propose_training_plan_bad_target(registry, tmp_path, synthetic_parts):
+    csv = tmp_path / "clean.csv"
+    synthetic_parts.to_csv(csv, index=False)
+    result = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Nope",
+    ))
+    assert result["error"]["code"] == "plan_error"
+
+
+# ---------------------------------------------------------------------------
 # generate_report
 # ---------------------------------------------------------------------------
 

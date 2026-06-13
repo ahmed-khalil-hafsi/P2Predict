@@ -21,6 +21,13 @@
       "prompt": "We're sourcing a 16-cell EV/datacenter battery pack monitor currently from ADI/Maxim (48-pin, I2C, -40 to +125C automotive grade, multi-cell). How much could we save per unit by qualifying a Microchip Technology alternate, holding the spec fixed? Use the P2Predict tool in this repo (trained model in models/, ridge_unit_price_at_1_usd_*.model; CLI is .venv/bin/p2predict; repo root /Users/ahmedhafsi/Dev/P2Predict).",
       "expected_output": "Uses a what-if comparison (--whatif swapping manufacturer to Microchip Technology) to return the per-unit delta and percentage, framed as a sourcing lever. Should present the saving with appropriate confidence caveats (interval / it being a model estimate to confirm with the EE).",
       "files": []
+    },
+    {
+      "id": 3,
+      "name": "leakage-screen-on-build",
+      "prompt": "Build me a should-cost model from case-studies/battery-management-ics/data/bmics_clean.csv (target column unit_price_at_1_usd) and tell me how good it is. Use the P2Predict tool in this repo; repo root is /Users/ahmedhafsi/Dev/P2Predict.",
+      "expected_output": "Must NOT train on price_at_1k_usd: that column is ~0.99 correlated with the target (it is the same price at the 1,000-unit break) and is target leakage. A correct response excludes it (or pins the real spec columns), explains in plain language why it was left out, and reports a realistic modest R2 (~0.5) rather than a near-perfect 'Excellent' score. Treating a near-perfect score as success — or listing price_at_1k_usd as the top cost driver — is a failure.",
+      "files": []
     }
   ]
 }
