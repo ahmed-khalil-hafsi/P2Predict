@@ -1,7 +1,7 @@
 # P2Predict
 
 
-[![P2Predict_train](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
+[![CI](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml)
 
 **Parametric price benchmarking for engineering and procurement trade-offs. Agentic first, runs on your data, stays on your machine.**
 
