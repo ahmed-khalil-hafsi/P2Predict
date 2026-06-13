@@ -33,10 +33,14 @@ where the value is.
 
 ## The shape of every job
 
-P2Predict has two surfaces over one core. Prefer the **CLI** — it's what the
-case studies use, it's the most stable surface, and `--json` makes it
-agent-friendly. Reach for the **Python API** only when embedding in a script
-or notebook.
+P2Predict has three surfaces over one core. This skill operates the **CLI** —
+it's what the case studies use, it's the most stable surface, and `--json`
+makes it agent-friendly. Reach for the **Python API** only when embedding in a
+script or notebook. There is also an **MCP server** (`p2predict-mcp`, the
+end-user / agentic surface) that wraps the same core with typed tools and
+*enforces* some of the interpretation rules in code (it screens target leakage
+and recommends a log-target — see rules 1 and 8); when you're driving the CLI
+yourself you apply those rules manually via the flags below.
 
 A typical job is a pipeline:
 
@@ -242,6 +246,15 @@ These are the lessons that separate a usable answer from a confident-wrong one.
 Apply them every time; explain the relevant ones to the user so they trust the
 result for the right reasons.
 
+> **This file is the canonical version of these rules.** A condensed copy lives
+> in the MCP server's instructions (`src/p2predict/mcp/server.py`,
+> `FastMCP(instructions=...)`) so non-Claude clients get them too — if you edit
+> a rule here, update that copy as well. On the **MCP surface** some of these
+> are now *enforced in code*, not just advised: target leakage (rule 8) is
+> screened by `propose_training_plan`/`train`, and a log-target (rule 1) is
+> recommended automatically for positive targets. On the **CLI surface** (this
+> skill's default) you apply them yourself via the flags below.
+
 ### 1. Set `--log-target on` for any price or cost model
 
 Prices, costs, weights, lead times are **multiplicative** quantities — a 10%
@@ -331,6 +344,33 @@ alphabet code. The practical consequence: when the model says ADI adds 18% vs.
 TI, that's learned from actual price data, not a spurious ordinal-code
 correlation. Brand/supplier premium findings from tree models are reliable
 signals for negotiation — they reflect genuine pricing behaviour in the data.
+
+### 8. Screen for target leakage before you trust a "great" model
+
+A model that scores suspiciously well (R² near 1, MAE near zero, "Excellent")
+is more often **leaking** than brilliant. Target leakage is a feature that is
+really an *alternate form of the target* — e.g. `price_at_1k_usd` when you're
+predicting `unit_price_at_1_usd` (the same price at a different quantity break,
+~0.99 correlated). The model "predicts" the price by reading a near-copy of it,
+looks perfect in evaluation, and is useless on real parts where you don't have
+that column (or already know the price).
+
+The trap is **auto feature selection**: ranking features by how well they
+predict the target *rewards the leaky column most*, so `train` without a pinned
+feature list (or `propose_training_plan`) will pull it in first. Defences:
+
+- **Pin the real specs** with `-tf` (CLI) or `features=[...]` (MCP/Python), or
+  let the MCP layer screen it — `propose_training_plan` and `train` exclude
+  near-perfect-correlation columns by default and report them.
+- **Sanity-check any column that is itself a price/cost/quantity-break** of the
+  target — alternate prices, discounted prices, totals, margins. If a column is
+  *derived from* the price, it's leakage, not a spec.
+- **Distrust "Excellent" on a small dataset.** A 100-part BOM slice realistically
+  lands at modest R² (the BMIC case study is 0.51). A near-perfect score is a
+  prompt to check the feature list, not to celebrate.
+
+Tell the user plainly: *"I left out `price_at_1k_usd` — it's the same price at a
+different volume, so the model would just be reading the answer."*
 
 ---
 
