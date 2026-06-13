@@ -19,9 +19,47 @@ mcp = FastMCP(
     "P2Predict",
     instructions=(
         "P2Predict is a parametric price/cost benchmarking toolkit for "
-        "procurement. Use list_models to discover trained models, then "
-        "predict, explain, predict_interval, or what_if to analyse parts. "
-        "Use train to build a new model from a CSV of specs + prices."
+        "procurement. The person you are helping is almost always a "
+        "category manager or buyer, NOT a data scientist — they do not know "
+        "what a 'feature', 'target', 'leakage', or 'log-target' is. Your job "
+        "is to do that thinking for them and explain results in plain "
+        "procurement language ('this supplier adds $0.72', not 'feature "
+        "importance 0.4').\n"
+        "\n"
+        "DISCOVER & ANALYSE: use list_models to find trained models, then "
+        "predict, explain, predict_interval, or what_if on parts.\n"
+        "\n"
+        "BUILD A MODEL: do NOT call `train` directly on a user's CSV first. "
+        "Call `propose_training_plan` first, relay its plain_summary and "
+        "questions_for_the_user to the user, and only call `train` after they "
+        "confirm. If you do call `train` directly, it applies safe defaults "
+        "(it screens out target-leakage columns and recommends a log-target "
+        "for price/cost targets) and reports them in `warnings` — surface "
+        "those warnings to the user.\n"
+        "\n"
+        "INTERPRETING OUTPUT (this is where the value is — apply every time):\n"
+        "1. log-target: prices/costs are multiplicative; a log-target keeps "
+        "intervals positive and makes SHAP read as percentages. Recommend it "
+        "for any price/cost target — don't trust 'auto' to catch it.\n"
+        "2. SHAP has an axiom check (baseline +/x contributions = prediction); "
+        "if it fails the explanation is unsound. Sign-check contributions: a "
+        "counterintuitive sign on a LOW-importance feature means that feature "
+        "is under-sampled, not that the world is upside-down — lean on the "
+        "high-importance, correctly-signed drivers.\n"
+        "3. The interval width is the per-part trust signal. A wide band — or "
+        "a lower bound at/below $0 on an additive model — means 'I'm unsure "
+        "here; get a quote, don't benchmark.' Always show the interval, not "
+        "just the point estimate, when the user will act on the number.\n"
+        "4. Judge a model by residual-bias (unbiasedness), not R2 alone: a "
+        "modest-R2 but unbiased model is more trustworthy for procurement than "
+        "a higher-R2 biased one.\n"
+        "5. Before quoting a finding to a stakeholder, check its feature's "
+        "importance — a finding resting on a 1-2% feature is a hypothesis, not "
+        "a number to negotiate against.\n"
+        "\n"
+        "Never present a single high-value part's point estimate as a final "
+        "appraisal — use the model to set the target and find the lever, then "
+        "get a real quote for the decision."
     ),
 )
 
@@ -168,6 +206,14 @@ async def explain(model_id: str, features: dict, top_n: int = 3) -> str:
     Shows each feature's contribution to moving the prediction from the
     baseline. For log-target models, also shows multiplicative factors.
     top_n controls how many top drivers are highlighted (default 3).
+
+    Reading it for the user: the explanation carries an axiom check
+    (baseline +/x contributions = prediction); if it fails the explanation is
+    unsound. SIGN-CHECK the drivers against intuition — a counterintuitive
+    sign (e.g. "more cells -> cheaper") on a LOW-importance feature means that
+    feature is under-sampled, not that the world is upside-down. Quote the
+    high-importance, correctly-signed drivers; flag the rest as noise. State
+    contributions in the user's terms ("this supplier adds $0.72" / "+18%").
     """
     registry = _get_registry()
     try:
@@ -217,6 +263,13 @@ async def predict_interval(
     For a 90% interval, about 9 in 10 similar parts fall within the range.
     coverage is an integer 1-99 (default 90). Requires a model trained with
     P2Predict v0.5+ (which stores calibration data).
+
+    Reading it for the user: the band WIDTH is the per-part trust signal. A
+    tight band = predict with confidence; a very wide band — or a lower bound
+    at/below $0 on an additive (non-log) model — means "I'm genuinely unsure
+    on this part; get a quote, don't benchmark." Always surface the range, not
+    just the point estimate, when the user will act on the number. A negative
+    lower bound is a sign the model should have used a log-target.
     """
     registry = _get_registry()
     try:
@@ -432,6 +485,151 @@ async def predict_from_csv(
 
 
 @mcp.tool()
+async def propose_training_plan(
+    csv_path: str,
+    target: str,
+    max_features: int = 6,
+) -> str:
+    """Inspect a training CSV and return a plain-language plan BEFORE training.
+
+    Call this first whenever a user wants to build a should-cost / pricing
+    model. It reads the CSV, decides what it would predict, which columns it
+    would use as specs, which it would leave out (and why — target leakage,
+    ID-like columns), and whether the target should use a log-target. It
+    trains nothing and writes nothing.
+
+    Relay `plain_summary` and `questions_for_the_user` to the user in their
+    own language, get confirmation, then call `train` (passing the agreed
+    `features` and `log_target`).
+    """
+    registry = _get_registry()  # noqa: F841 — validates server is initialised
+
+    def _do_plan() -> dict:
+        import pandas as pd
+
+        from p2predict.feature_selection import (
+            find_high_variation_features,
+            find_leaky_features,
+            find_no_variation_features,
+            get_most_predictable_features,
+        )
+        from p2predict.trained_model_io import load_csv_file
+        from p2predict.training import resolve_log_target
+
+        path = Path(csv_path)
+        if not path.exists():
+            raise FileNotFoundError(f"CSV not found: {csv_path}")
+
+        data = load_csv_file(csv_path)
+        rows_loaded = len(data)
+        if target not in data.columns:
+            raise ValueError(
+                f"Target '{target}' not in CSV columns: {list(data.columns)}"
+            )
+
+        data = data[data[target].notna()]
+        if data.empty:
+            raise ValueError(f"All rows have missing values in target '{target}'.")
+
+        y = pd.to_numeric(data[target], errors="coerce").dropna()
+
+        # Columns to leave out, with reasons the user can understand.
+        leaky = find_leaky_features(data, target)
+        leaky_names = {d["feature"] for d in leaky}
+
+        no_var = [c for c in find_no_variation_features(data) if c != target]
+        high_var = find_high_variation_features(data)
+        id_like = [
+            c for c in high_var
+            if c != target
+            and c not in leaky_names
+            and not pd.api.types.is_numeric_dtype(data[c])
+        ]
+
+        excluded = []
+        for d in leaky:
+            excluded.append({"column": d["feature"], "reason": d["reason"]})
+        for c in id_like:
+            excluded.append({
+                "column": c,
+                "reason": "Looks like an ID / free-text column (almost every "
+                          "row is unique), not a spec the model can learn from.",
+            })
+        for c in no_var:
+            excluded.append({
+                "column": c,
+                "reason": "Same value in every row — carries no information.",
+            })
+
+        drop_all = leaky_names | set(id_like) | set(no_var)
+        ranked = get_most_predictable_features(data, target, output_only_headers=True)
+        candidate_specs = [c for c in ranked.tolist() if c not in drop_all]
+        cap = max(2, min(len(candidate_specs), max_features))
+        selected = candidate_specs[:cap]
+
+        # Log-target recommendation.
+        _, auto_decision = resolve_log_target(y, mode="auto")
+        positive = bool((y > 0).all()) and len(y) > 0
+        recommend_log_target = "on" if positive else "off"
+
+        questions = [
+            f"I'll predict '{target}'. Is that the price/cost you actually pay "
+            "per part? If not, tell me which column is.",
+        ]
+        if leaky:
+            cols = ", ".join(f"'{d['feature']}'" for d in leaky)
+            questions.append(
+                f"I'm leaving out {cols} because it's almost the same number as "
+                f"'{target}' — it would make the model 'cheat'. OK to exclude?"
+            )
+        if positive and recommend_log_target == "on":
+            questions.append(
+                "I'll model this on a percentage scale (log-target) so the "
+                "likely-range never goes negative on cheap parts. Sound good?"
+            )
+
+        plain_summary = (
+            f"I found {rows_loaded} rows. I can build a model that estimates "
+            f"'{target}' from {len(selected)} spec column(s): "
+            f"{', '.join(selected)}."
+        )
+        if excluded:
+            plain_summary += (
+                f" I'd leave out {len(excluded)} column(s) "
+                f"({', '.join(e['column'] for e in excluded)}) — see "
+                "i_am_leaving_out for why."
+            )
+
+        return {
+            "status": "needs_confirmation",
+            "plain_summary": plain_summary,
+            "i_will_predict": target,
+            "i_will_use_these_specs": selected,
+            "i_am_leaving_out": excluded,
+            "recommended_log_target": recommend_log_target,
+            "log_target_auto_decision": auto_decision,
+            "rows_available": rows_loaded,
+            "questions_for_the_user": questions,
+            "to_proceed": (
+                "After the user confirms, call train(csv_path, target, "
+                "features=i_will_use_these_specs, "
+                "log_target=recommended_log_target)."
+            ),
+        }
+
+    try:
+        result = await asyncio.to_thread(_do_plan)
+    except FileNotFoundError as e:
+        return _error("file_not_found", str(e))
+    except ValueError as e:
+        return _error("plan_error", str(e))
+    except Exception as e:
+        return _error("internal_error", str(e))
+
+    return _ok(result)
+
+
+@mcp.tool()
 async def train(
     csv_path: str,
     target: str,
@@ -442,17 +640,27 @@ async def train(
     outlier_policy: str = "warn",
     feature_outlier_policy: str = "warn",
     max_features: int = 6,
+    allow_leaky_features: bool = False,
 ) -> str:
     """Train a new P2Predict model from a local CSV file.
 
-    The CSV must have spec columns and a price/cost target column.
-    Training runs locally — no data leaves the machine. The trained model
-    is saved to the models directory and immediately available for
-    prediction.
+    Prefer calling `propose_training_plan` first and confirming with the user
+    — this tool is the execution step. The CSV must have spec columns and a
+    price/cost target column. Training runs locally; no data leaves the
+    machine. The trained model is saved and immediately available.
+
+    Safe defaults (always surfaced in the returned `warnings` list):
+      - When features are auto-selected (features=None), columns that look
+        like target leakage — a near-duplicate of the price being predicted —
+        are excluded automatically.
+      - For a strictly-positive (price/cost) target where the automatic skew
+        test leaves the log-target off, the result recommends log_target="on".
 
     algorithm: "auto" (default), "ridge", "random_forest", or "xgboost".
     budget: "fast" (default) or "thorough".
     log_target: "auto" (default), "on", or "off". Use "on" for prices.
+    allow_leaky_features: set True only to override the leakage guard and
+        train on an explicitly-requested feature that looks like leakage.
     """
     registry = _get_registry()
 
@@ -461,6 +669,7 @@ async def train(
 
         from p2predict import auto_train, Serialize_Trained_Model, save_model
         from p2predict.feature_selection import (
+            find_leaky_features,
             find_no_variation_features,
             get_most_predictable_features,
         )
@@ -507,16 +716,47 @@ async def train(
         if low_vars:
             data = data.drop(low_vars, axis=1)
 
+        warnings: list[str] = []
+        leaky = find_leaky_features(data, target)
+        leaky_names = {d["feature"] for d in leaky}
+
         if features:
             missing = [f for f in features if f not in data.columns]
             if missing:
                 raise ValueError(f"Requested features not in CSV: {missing}")
+
+            explicit_leaky = [d for d in leaky if d["feature"] in set(features)]
+            if explicit_leaky and not allow_leaky_features:
+                # Stop and ask rather than train a confidently-wrong model.
+                return {
+                    "status": "needs_confirmation",
+                    "reason": "target_leakage",
+                    "message": (
+                        "Some requested features look like target leakage — a "
+                        "near-duplicate of the value you're predicting, not a "
+                        "real spec. Training on them produces a model that looks "
+                        "near-perfect but is useless on real parts."
+                    ),
+                    "leaky_features": explicit_leaky,
+                    "to_proceed": (
+                        "Re-call train without these features (recommended), or "
+                        "pass allow_leaky_features=true to override deliberately."
+                    ),
+                }
             selected = list(features)
         else:
             ranked = get_most_predictable_features(data, target, output_only_headers=True)
+            # Safe default: never auto-select a leakage column.
+            ranked = [c for c in ranked.tolist() if c not in leaky_names]
             n_ranked = len(ranked)
             cap = max(2, min(n_ranked, max_features))
-            selected = ranked.head(cap).tolist()
+            selected = ranked[:cap]
+            if leaky_names:
+                warnings.append(
+                    "Auto-excluded likely target-leakage column(s) from feature "
+                    f"selection: {sorted(leaky_names)}. "
+                    + "; ".join(d["reason"] for d in leaky)
+                )
 
         X_train, X_test, y_train, y_test, num_cols, cat_cols = prepare_data(
             data, selected, target
@@ -525,6 +765,22 @@ async def train(
         log_target_override, log_target_decision = resolve_log_target(
             y_train, mode=log_target
         )
+
+        # Prices/costs are multiplicative: a log-target keeps intervals strictly
+        # positive and makes SHAP read as percentages. The skew-based "auto"
+        # test under-fires on samples that happen to look symmetric, so for a
+        # strictly-positive target left additive by auto, recommend "on".
+        if (
+            log_target == "auto"
+            and not log_target_override
+            and bool((y_train > 0).all())
+        ):
+            warnings.append(
+                "Target is strictly positive (price/cost-like) but the automatic "
+                "skew test left the log-target OFF, so intervals are additive and "
+                "can go negative on cheap parts. Consider re-training with "
+                "log_target=\"on\" for percentage-based, always-positive intervals."
+            )
 
         scores: dict = {}
         if algorithm == "auto":
@@ -608,6 +864,8 @@ async def train(
             "rows_loaded": rows_loaded,
             "rows_used": len(data),
             "calibration_size": calibration.get("n_calibration"),
+            "excluded_leaky_features": leaky,
+            "warnings": warnings,
         }
 
     try:

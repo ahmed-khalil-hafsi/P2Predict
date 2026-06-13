@@ -332,6 +332,33 @@ TI, that's learned from actual price data, not a spurious ordinal-code
 correlation. Brand/supplier premium findings from tree models are reliable
 signals for negotiation — they reflect genuine pricing behaviour in the data.
 
+### 8. Screen for target leakage before you trust a "great" model
+
+A model that scores suspiciously well (R² near 1, MAE near zero, "Excellent")
+is more often **leaking** than brilliant. Target leakage is a feature that is
+really an *alternate form of the target* — e.g. `price_at_1k_usd` when you're
+predicting `unit_price_at_1_usd` (the same price at a different quantity break,
+~0.99 correlated). The model "predicts" the price by reading a near-copy of it,
+looks perfect in evaluation, and is useless on real parts where you don't have
+that column (or already know the price).
+
+The trap is **auto feature selection**: ranking features by how well they
+predict the target *rewards the leaky column most*, so `train` without a pinned
+feature list (or `propose_training_plan`) will pull it in first. Defences:
+
+- **Pin the real specs** with `-tf` (CLI) or `features=[...]` (MCP/Python), or
+  let the MCP layer screen it — `propose_training_plan` and `train` exclude
+  near-perfect-correlation columns by default and report them.
+- **Sanity-check any column that is itself a price/cost/quantity-break** of the
+  target — alternate prices, discounted prices, totals, margins. If a column is
+  *derived from* the price, it's leakage, not a spec.
+- **Distrust "Excellent" on a small dataset.** A 100-part BOM slice realistically
+  lands at modest R² (the BMIC case study is 0.51). A near-perfect score is a
+  prompt to check the feature list, not to celebrate.
+
+Tell the user plainly: *"I left out `price_at_1k_usd` — it's the same price at a
+different volume, so the model would just be reading the answer."*
+
 ---
 
 ## Presenting results to a category manager
