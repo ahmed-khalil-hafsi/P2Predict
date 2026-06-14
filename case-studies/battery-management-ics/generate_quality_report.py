@@ -47,7 +47,8 @@ TRAINING_CSV = HERE / "data" / "bmics_clean.csv"
 
 
 def _latest_ridge() -> Path:
-    candidates = sorted(MODELS_DIR.glob("ridge_unit_price_at_1_usd_*.model"))
+    candidates = sorted(MODELS_DIR.glob("ridge_unit_price_at_1_usd_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         sys.exit(
             f"No ridge_unit_price_at_1_usd_*.model in {MODELS_DIR}. Train one "

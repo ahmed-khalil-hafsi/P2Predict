@@ -122,7 +122,7 @@ def main() -> None:
 
     # 2. SHAP for the EV BMS — the most procurement-interesting part.
     print("=" * 72)
-    print("2. WHY $5.25 FOR THE 16-CELL EV BMS? — SHAP DOLLAR ATTRIBUTION")
+    print("2. WHY ~$5.48 FOR THE 16-CELL EV BMS? — SHAP DOLLAR ATTRIBUTION")
     print("=" * 72)
     ev = df.iloc[[1]]
     ex = explain(model, ev, background_X=bg)
@@ -154,7 +154,7 @@ def main() -> None:
     print(f"  Delta:                          ${wi.delta:+.2f}  ({wi.delta_pct:+.1f}%)")
     print()
     print("  Interpretation: same 16-cell BMS spec, swap the supplier from")
-    print("  ADI/Maxim to Microchip — the model says ~28% cheaper. That's the")
+    print(f"  ADI/Maxim to Microchip — the model says {wi.delta_pct:+.1f}%. That's the")
     print("  procurement negotiation lever, quantified from real DigiKey data.")
     print("  Whether the Microchip part actually meets your spec is your")
     print("  engineer's call; the model only knows the catalog patterns.")

@@ -17,7 +17,17 @@ MODELS_DIR = REPO_ROOT / "models"
 
 
 def _latest_model() -> Path:
-    return sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"))[-1]
+    # Sort by mtime, not filename — the algorithm prefix precedes the
+    # timestamp, so an alphabetical sort can rank an older xgboost model
+    # above a newer ridge one. mtime = the model actually trained last.
+    candidates = sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"),
+                        key=lambda p: p.stat().st_mtime)
+    if not candidates:
+        raise SystemExit(
+            f"No price models in {MODELS_DIR}. Train first — see "
+            "case-studies/battery-management-ics/README.md."
+        )
+    return candidates[-1]
 
 
 # Baseline: a deliberately bland mid-tier BMIC. Each sweep below

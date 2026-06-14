@@ -78,7 +78,10 @@ EV_BMS = {
 
 
 def _latest_model() -> Path:
-    candidates = sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"))
+    # Sort by mtime, not filename — an alphabetical sort can rank an older
+    # xgboost model above a newer ridge one. mtime = trained last.
+    candidates = sorted(MODELS_DIR.glob("*_unit_price_at_1_usd_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         raise SystemExit(
             f"No price models in {MODELS_DIR}. Train first — see README."
