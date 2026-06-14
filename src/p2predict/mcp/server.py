@@ -33,7 +33,10 @@ mcp = FastMCP(
         "importance 0.4').\n"
         "\n"
         "DISCOVER & ANALYSE: use list_models to find trained models, then "
-        "predict, explain, predict_interval, or what_if on parts.\n"
+        "predict, explain, predict_interval, or what_if on parts. Use "
+        "get_model_quality to judge whether a model is trustworthy before "
+        "quoting its numbers (it returns the bias verdict, per-price-band "
+        "reliability, and per-feature signal strength as computed flags).\n"
         "\n"
         "BUILD A MODEL: do NOT call `train` directly on a user's CSV first. "
         "Call `propose_training_plan` first, relay its plain_summary and "
@@ -841,14 +844,8 @@ async def train(
         model_id = model_path.stem
         registry.register(model_id, model_path, model_metadata)
 
-        r2_clamped = min(max(r2, 0.0), 1.0)
-        composite = r2_clamped * 100
-        if composite > 80:
-            quality_label = "Excellent"
-        elif composite > 60:
-            quality_label = "Good"
-        else:
-            quality_label = "Needs Improvement"
+        from p2predict.quality import r2_quality_label
+        quality_label = r2_quality_label(r2)
 
         return {
             "model_id": model_id,
@@ -886,6 +883,67 @@ async def train(
     return _ok(result)
 
 
+def _quality_report_for(loaded: dict, include_holdout: bool = False) -> dict:
+    """Build the structured quality report for a loaded model (shared by
+    get_model_quality and generate_report). Raises ValueError('no_holdout_data')."""
+    from p2predict.quality import build_quality_report
+    from p2predict.training import extract_feature_importances
+
+    try:
+        importances = extract_feature_importances(
+            loaded["model"], loaded.get("background_sample")
+        )
+    except Exception:
+        importances = None
+    return build_quality_report(loaded, importances, include_holdout=include_holdout)
+
+
+@mcp.tool()
+async def get_model_quality(model_id: str, include_holdout: bool = False) -> str:
+    """Structured, agent-readable model-quality report — the JSON form of the PDF.
+
+    Use this (not just generate_report, which only writes a PDF) when you need
+    to *reason about or relay* model quality. Every judgment is computed so you
+    don't eyeball thresholds:
+
+      - `assessment.verdict` — LEAD WITH THIS. One of: 'trustworthy' | 'usable'
+        | 'unreliable' (biased residuals) | 'unknown' (bias not measurable) |
+        'insufficient_data' (too few holdout points to judge). It folds bias and
+        sample size into the headline — e.g. a modest-R² but unbiased model is
+        'usable', not just 'Needs Improvement'. `assessment.confidence` is
+        'high' | 'limited' | 'insufficient'.
+      - `calibration_by_price_band[].reliability` — 'trust' | 'caution' |
+        'quote' per price range (with `low_confidence` when a band is thin).
+        Tell the user which prices to benchmark vs. get a quote on.
+      - `feature_importance[].signal` — 'strong' | 'moderate' | 'weak'. Only
+        quote findings resting on 'strong' features to a stakeholder.
+
+    Set include_holdout=true to also get the raw actual/predicted arrays, so an
+    agent with a code/plotting tool can draw its own charts (predicted-vs-actual,
+    residuals, error-by-band). `metrics` and `provenance` round out the report.
+
+    Requires a model trained via the MCP train tool (which stores holdout data).
+    """
+    registry = _get_registry()
+    try:
+        loaded = await asyncio.to_thread(registry.load, model_id)
+    except FileNotFoundError as e:
+        return _error("model_not_found", str(e))
+
+    try:
+        report = await asyncio.to_thread(_quality_report_for, loaded, include_holdout)
+    except ValueError:
+        return _error(
+            "no_holdout_data",
+            "This model has no stored holdout data (trained before MCP support). "
+            "Retrain via the MCP train tool to enable the quality report.",
+        )
+    except Exception as e:
+        return _error("quality_error", str(e))
+
+    return _ok({"model_id": model_id, **report})
+
+
 @mcp.tool()
 async def generate_report(
     model_id: str,
@@ -896,6 +954,10 @@ async def generate_report(
     Page 1: summary metrics + predicted vs actual scatter.
     Page 2: error distribution + median % error by price band.
     Page 3: top-N feature importance.
+
+    The PDF is the human deliverable; the return value also echoes the same
+    numbers as a structured `quality` block (identical to get_model_quality)
+    so you can both hand the user the file AND reason over the metrics.
 
     Works best with models trained via the MCP train tool (which stores
     holdout data). For older models, the report may be unavailable.
@@ -954,9 +1016,17 @@ async def generate_report(
     except Exception as e:
         return _error("report_error", str(e))
 
+    # Echo the same numbers as structured data so the agent can reason over the
+    # report, not just hand the user a PDF path.
+    try:
+        quality = await asyncio.to_thread(_quality_report_for, loaded)
+    except Exception:
+        quality = None
+
     return _ok({
         "model_id": model_id,
         "report_path": path,
+        "quality": quality,
     })
 
 
