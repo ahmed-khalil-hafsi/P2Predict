@@ -3,7 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
-from sklearn.metrics import mean_absolute_error, r2_score
+
+# Quality stats live in p2predict.quality (the single source) so the PDF and
+# the MCP get_model_quality JSON compute identical numbers.
+from p2predict import quality as _quality
 
 
 # ---------------------------------------------------------------------------
@@ -123,75 +126,15 @@ def plot_histograms(df):
 
 # ---------------------------------------------------------------------------
 # Metric helpers for the procurement-style report.
+# Stat helpers re-exported from p2predict.quality (canonical home) so the PDF
+# and the MCP get_model_quality JSON compute identical numbers.
 # ---------------------------------------------------------------------------
 
-_EPS = 1e-9
+_abs_pct_errors = _quality.abs_pct_errors
 
 
-def _abs_pct_errors(y_test, y_pred):
-    """Return absolute percentage errors (%), dropping rows where y_test == 0."""
-    y_test = np.asarray(y_test, dtype=float)
-    y_pred = np.asarray(y_pred, dtype=float)
-    mask = np.abs(y_test) > _EPS
-    if not mask.any():
-        return np.array([])
-    return np.abs(y_test[mask] - y_pred[mask]) / np.abs(y_test[mask]) * 100.0
-
-
-def _summary_metrics(y_test, y_pred):
-    y_test = np.asarray(y_test, dtype=float)
-    y_pred = np.asarray(y_pred, dtype=float)
-    residuals = y_test - y_pred
-    mae = float(mean_absolute_error(y_test, y_pred))
-    rmse = float(np.sqrt(np.mean(residuals ** 2)))
-    r2 = float(r2_score(y_test, y_pred))
-    ape = _abs_pct_errors(y_test, y_pred)
-    if ape.size:
-        mape = float(np.mean(ape))
-        median_ape = float(np.median(ape))
-        p90_ape = float(np.quantile(ape, 0.9))
-    else:
-        mape = median_ape = p90_ape = float("nan")
-    return {
-        "n_test": int(len(y_test)),
-        "mae": mae,
-        "rmse": rmse,
-        "r2": r2,
-        "mape": mape,
-        "median_ape": median_ape,
-        "p90_ape": p90_ape,
-    }
-
-
-def _error_by_price_band(y_test, y_pred, n_bins=10):
-    """Bucket holdout points by actual-price quantile and return median APE per bucket.
-
-    Returns (labels, median_apes, counts) or None if data is too thin to bin.
-    """
-    y_test = np.asarray(y_test, dtype=float)
-    y_pred = np.asarray(y_pred, dtype=float)
-    if len(y_test) < n_bins:
-        return None
-    edges = np.unique(np.quantile(y_test, np.linspace(0, 1, n_bins + 1)))
-    if len(edges) < 3:
-        return None
-    # np.digitize with the interior edges; clip to valid bin range.
-    bin_idx = np.clip(np.digitize(y_test, edges[1:-1]), 0, len(edges) - 2)
-    labels, medians, counts = [], [], []
-    for b in range(len(edges) - 1):
-        mask = bin_idx == b
-        n = int(mask.sum())
-        if n == 0:
-            continue
-        ape = _abs_pct_errors(y_test[mask], y_pred[mask])
-        if ape.size == 0:
-            continue
-        labels.append(f"{edges[b]:,.0f}–{edges[b + 1]:,.0f}")
-        medians.append(float(np.median(ape)))
-        counts.append(n)
-    if not labels:
-        return None
-    return labels, medians, counts
+_summary_metrics = _quality.summary_metrics
+_error_by_price_band = _quality.error_by_price_band
 
 
 # ---------------------------------------------------------------------------

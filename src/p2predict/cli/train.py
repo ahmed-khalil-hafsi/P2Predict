@@ -479,14 +479,9 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     mae, r2, p_value, rmse = evaluate_model(X_test, y_test, model)
 
     # Quality label, computed once and used in both the Rich and JSON paths.
-    r2_score_clamped = min(max(r2, 0.0), 1.0)
-    composite = r2_score_clamped * 100
-    if composite > 80:
-        quality_label = "Excellent"
-    elif composite > 60:
-        quality_label = "Good"
-    else:
-        quality_label = "Needs Improvement"
+    # Shared with the MCP layer via p2predict.quality (single source of truth).
+    from p2predict.quality import r2_quality_label
+    quality_label = r2_quality_label(r2)
 
     if not json_mode:
         if expert:
