@@ -980,6 +980,30 @@ Full path, **150-part** trainable dataset (150 pulled; 48 have a missing
 spec that is imputed, none dropped). These are the metrics the
 [worked examples](#worked-examples) were generated from.
 
+### Prediction quality at a glance
+
+> **One-line read:** a modest but **honest** model — ballpark point
+> estimates with trustworthy uncertainty and unbiased errors, strongest in
+> the mid price range and on the supplier signal, weakest on the cheapest
+> parts.
+
+| What | Number | What it means for you |
+|---|---:|---|
+| **Holdout R²** | **0.512** | Explains ~51% of price variation from 8 specs — modest, honest for 150 parts (label: *Needs Improvement*). |
+| **MAE** | **$0.67** | Typical miss ≈ 20% of the $3.31 median price. Benchmark, don't appraise, a single part off this. |
+| **Median % error** | **16.1%** | Half the holdout lands within ~16% of actual ([PDF p.1](#page-1--summary)). |
+| **P90 % error** | **73.1%** | Worst-case tail is wide — driven by the cheap parts. |
+| **Residual-bias p** | **0.092** | Above 0.05 → **not systematically high or low**. This is what makes the intervals and SHAP usable despite the modest R². |
+| **Best / worst band** | **$3–$3 (1.4%)** / **$1–$2 (71.5%)** | Trustworthy in the mid/upper range; get a quote on sub-$2 parts ([PDF p.2](#page-2--error-distribution-and-calibration)). |
+
+**Where to trust it, in one place:** the supplier premium and the
+package-pin slope are the model's strongest, best-sampled signals; the
+cheap-part point estimates and the cell-count / temperature-grade signals
+are under-sampled and confounded. The full breakdown is the
+[🟢🟡🔴 trust map](#so-what--wheres-the-value-wheres-the-rubbish), and the
+three [worked examples](#worked-examples) show the per-part interval and
+SHAP you'd actually read before acting.
+
 ### What the trainer chose
 
 | | |
