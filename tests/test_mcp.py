@@ -372,6 +372,36 @@ async def test_generate_report(model_id, tmp_path):
     assert "error" not in result
     assert result["report_path"] == out
     assert Path(out).exists()
+    # The PDF call also echoes the structured quality block.
+    assert result["quality"] is not None
+    assert "assessment" in result["quality"]
+
+
+# ---------------------------------------------------------------------------
+# get_model_quality
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_model_quality(model_id):
+    result = _parse(await mcp_server.get_model_quality(model_id))
+    assert "error" not in result
+    assert result["model_id"] == model_id
+    # Structured, agent-readable quality with computed verdicts.
+    assert "metrics" in result and "quality_label" in result["metrics"]
+    a = result["assessment"]
+    assert set(a) >= {"quality_label", "accuracy", "unbiased", "headline"}
+    assert isinstance(a["unbiased"], bool)
+    for band in result["calibration_by_price_band"]:
+        assert band["reliability"] in {"trust", "caution", "quote"}
+    for feat in result["feature_importance"]:
+        assert feat["signal"] in {"strong", "moderate", "weak"}
+
+
+@pytest.mark.asyncio
+async def test_get_model_quality_not_found(registry):
+    result = _parse(await mcp_server.get_model_quality("nonexistent"))
+    assert result["error"]["code"] == "model_not_found"
 
 
 # ---------------------------------------------------------------------------
