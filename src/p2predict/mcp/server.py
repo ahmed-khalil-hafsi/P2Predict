@@ -883,7 +883,7 @@ async def train(
     return _ok(result)
 
 
-def _quality_report_for(loaded: dict) -> dict:
+def _quality_report_for(loaded: dict, include_holdout: bool = False) -> dict:
     """Build the structured quality report for a loaded model (shared by
     get_model_quality and generate_report). Raises ValueError('no_holdout_data')."""
     from p2predict.quality import build_quality_report
@@ -895,25 +895,32 @@ def _quality_report_for(loaded: dict) -> dict:
         )
     except Exception:
         importances = None
-    return build_quality_report(loaded, importances)
+    return build_quality_report(loaded, importances, include_holdout=include_holdout)
 
 
 @mcp.tool()
-async def get_model_quality(model_id: str) -> str:
+async def get_model_quality(model_id: str, include_holdout: bool = False) -> str:
     """Structured, agent-readable model-quality report — the JSON form of the PDF.
 
     Use this (not just generate_report, which only writes a PDF) when you need
-    to *reason about or relay* model quality. Returns provenance, headline
-    metrics, an honest multi-factor `assessment`, per-price-band calibration,
-    and ranked feature importance — each with a computed verdict so you don't
-    have to eyeball thresholds:
+    to *reason about or relay* model quality. Every judgment is computed so you
+    don't eyeball thresholds:
 
-      - `assessment.unbiased` / `.headline` — judge the model by bias, not R²
-        alone. A modest-R² but unbiased model is usable for benchmarking.
+      - `assessment.verdict` — LEAD WITH THIS. One of: 'trustworthy' | 'usable'
+        | 'unreliable' (biased residuals) | 'unknown' (bias not measurable) |
+        'insufficient_data' (too few holdout points to judge). It folds bias and
+        sample size into the headline — e.g. a modest-R² but unbiased model is
+        'usable', not just 'Needs Improvement'. `assessment.confidence` is
+        'high' | 'limited' | 'insufficient'.
       - `calibration_by_price_band[].reliability` — 'trust' | 'caution' |
-        'quote'. Tell the user which price ranges to benchmark vs. get a quote.
+        'quote' per price range (with `low_confidence` when a band is thin).
+        Tell the user which prices to benchmark vs. get a quote on.
       - `feature_importance[].signal` — 'strong' | 'moderate' | 'weak'. Only
         quote findings resting on 'strong' features to a stakeholder.
+
+    Set include_holdout=true to also get the raw actual/predicted arrays, so an
+    agent with a code/plotting tool can draw its own charts (predicted-vs-actual,
+    residuals, error-by-band). `metrics` and `provenance` round out the report.
 
     Requires a model trained via the MCP train tool (which stores holdout data).
     """
@@ -924,7 +931,7 @@ async def get_model_quality(model_id: str) -> str:
         return _error("model_not_found", str(e))
 
     try:
-        report = await asyncio.to_thread(_quality_report_for, loaded)
+        report = await asyncio.to_thread(_quality_report_for, loaded, include_holdout)
     except ValueError:
         return _error(
             "no_holdout_data",

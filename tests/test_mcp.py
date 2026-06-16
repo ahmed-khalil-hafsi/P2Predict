@@ -390,12 +390,24 @@ async def test_get_model_quality(model_id):
     # Structured, agent-readable quality with computed verdicts.
     assert "metrics" in result and "quality_label" in result["metrics"]
     a = result["assessment"]
-    assert set(a) >= {"quality_label", "accuracy", "unbiased", "headline"}
-    assert isinstance(a["unbiased"], bool)
+    assert set(a) >= {"verdict", "quality_label", "accuracy", "unbiased",
+                      "confidence", "headline"}
+    assert a["verdict"] in {"trustworthy", "usable", "unreliable", "unknown",
+                            "insufficient_data"}
+    assert a["confidence"] in {"high", "limited", "insufficient"}
+    assert a["unbiased"] in (True, False, None)
     for band in result["calibration_by_price_band"]:
         assert band["reliability"] in {"trust", "caution", "quote"}
     for feat in result["feature_importance"]:
         assert feat["signal"] in {"strong", "moderate", "weak"}
+
+
+@pytest.mark.asyncio
+async def test_get_model_quality_include_holdout(model_id):
+    result = _parse(await mcp_server.get_model_quality(model_id, include_holdout=True))
+    assert "error" not in result
+    assert "holdout" in result
+    assert len(result["holdout"]["y_actual"]) == len(result["holdout"]["y_predicted"])
 
 
 @pytest.mark.asyncio

@@ -28,16 +28,39 @@ def test_feature_signal_thresholds():
 
 
 def test_assess_model_modest_but_unbiased_is_usable():
-    a = quality.assess_model(r2=0.512, residual_bias_p=0.09)
+    a = quality.assess_model(r2=0.512, residual_bias_p=0.09, n_holdout=30)
     assert a["accuracy"] == "modest"
     assert a["unbiased"] is True
+    assert a["verdict"] == "usable"
+    assert a["confidence"] == "limited"
     assert "unbiased" in a["headline"].lower()
 
 
 def test_assess_model_flags_bias():
-    a = quality.assess_model(r2=0.85, residual_bias_p=1e-6)
+    a = quality.assess_model(r2=0.85, residual_bias_p=1e-6, n_holdout=60)
     assert a["unbiased"] is False
-    assert "bias" in a["headline"].lower()
+    assert a["verdict"] == "unreliable"
+    assert "biased" in a["headline"].lower()
+
+
+def test_assess_model_trustworthy_high_confidence():
+    a = quality.assess_model(r2=0.85, residual_bias_p=0.5, n_holdout=60)
+    assert a["verdict"] == "trustworthy"
+    assert a["confidence"] == "high"
+
+
+def test_assess_model_insufficient_data_overrides_everything():
+    # Even a great-looking model is 'insufficient_data' with too few points.
+    a = quality.assess_model(r2=0.95, residual_bias_p=0.9, n_holdout=8)
+    assert a["verdict"] == "insufficient_data"
+    assert a["confidence"] == "insufficient"
+    assert "too few" in a["headline"].lower()
+
+
+def test_assess_model_unknown_when_bias_unmeasurable():
+    a = quality.assess_model(r2=0.6, residual_bias_p=float("nan"), n_holdout=30)
+    assert a["verdict"] == "unknown"
+    assert a["unbiased"] is None
 
 
 def test_build_quality_report_shape():
@@ -62,12 +85,42 @@ def test_build_quality_report_shape():
     }
     assert rep["provenance"]["n_features"] == 2
     assert "quality_label" in rep["metrics"]
+    assert "verdict" in rep["assessment"]
     assert rep["calibration_by_price_band"]  # 40 points -> bins
     for band in rep["calibration_by_price_band"]:
         assert band["reliability"] in {"trust", "caution", "quote"}
+    # 40 points / 10 bins -> ~4 per band -> flagged low_confidence.
+    assert any(b.get("low_confidence") for b in rep["calibration_by_price_band"])
     sig = {f["feature"]: f["signal"] for f in rep["feature_importance"]}
     assert sig["manufacturer"] == "strong"
     assert sig["package_pins"] == "weak"
+    # No raw holdout unless asked.
+    assert "holdout" not in rep
+
+
+def test_build_quality_report_include_holdout():
+    rng = np.random.default_rng(0)
+    y_test = rng.uniform(0.5, 7.0, 40)
+    y_pred = y_test + rng.normal(0, 0.4, 40)
+    loaded = {"holdout_y_test": y_test.tolist(), "holdout_y_pred": y_pred.tolist(),
+              "features": ["a"]}
+    rep = quality.build_quality_report(loaded, include_holdout=True)
+    assert len(rep["holdout"]["y_actual"]) == 40
+    assert len(rep["holdout"]["y_predicted"]) == 40
+
+
+def test_build_quality_report_thin_holdout_says_so():
+    # Few points: report still builds, but the verdict is honest about it.
+    rng = np.random.default_rng(0)
+    y_test = rng.uniform(0.5, 7.0, 8)
+    y_pred = y_test + rng.normal(0, 0.3, 8)
+    loaded = {"holdout_y_test": y_test.tolist(), "holdout_y_pred": y_pred.tolist(),
+              "features": ["a"]}
+    rep = quality.build_quality_report(loaded)
+    assert rep["assessment"]["verdict"] == "insufficient_data"
+    # Too few to band -> explained, not silently empty.
+    assert rep["calibration_by_price_band"] == []
+    assert rep["calibration_note"]
 
 
 def test_build_quality_report_requires_holdout():

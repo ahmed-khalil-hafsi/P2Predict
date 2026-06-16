@@ -42,6 +42,14 @@ FEATURE_STRONG_MIN_PCT = 10.0   # ≥ this → quotable to a stakeholder
 FEATURE_MODERATE_MIN_PCT = 3.0  # ≥ this → directional
 #                                 < this → weak / likely under-sampled
 
+# How many holdout points we need before a quality verdict means anything.
+MIN_HOLDOUT_FOR_JUDGMENT = 15   # below → "insufficient_data" verdict
+HIGH_CONFIDENCE_MIN_N = 50      # at/above → "high" confidence; between → "limited"
+
+# Per-band: fewer than this many points → the band's median % error is too
+# noisy to act on, so we flag it rather than dress it up as a verdict.
+MIN_BAND_N = 5
+
 
 # ---------------------------------------------------------------------------
 # Verdicts
@@ -75,42 +83,82 @@ def feature_signal(importance_pct: float) -> str:
     return "weak"
 
 
-def assess_model(r2: float, residual_bias_p: float | None) -> dict:
-    """Multi-factor honest read combining accuracy AND bias.
+def confidence_for(n_holdout: int) -> str:
+    """How much to trust the quality verdict, from holdout size."""
+    if n_holdout < MIN_HOLDOUT_FOR_JUDGMENT:
+        return "insufficient"
+    if n_holdout < HIGH_CONFIDENCE_MIN_N:
+        return "limited"
+    return "high"
 
-    This is the judgment the R²-only label can't make: it's why a modest-R²
-    but unbiased model is correctly described as usable rather than just
-    'Needs Improvement'.
+
+def assess_model(r2: float, residual_bias_p: float | None, n_holdout: int) -> dict:
+    """Bias- AND confidence-aware overall verdict.
+
+    The headline `verdict` is the thing to lead with — it folds in three
+    questions the R²-only label can't answer:
+      1. Is there enough data to judge at all?  ('insufficient_data')
+      2. Could we even measure bias?            ('unknown')
+      3. Are the residuals biased?              ('unreliable')
+    Only an unbiased model with enough data earns 'trustworthy' (good/excellent
+    accuracy) or 'usable' (modest accuracy — fine for benchmarking, not for a
+    single-part appraisal).
     """
     label = r2_quality_label(r2)
     accuracy = {
         "Excellent": "excellent", "Good": "good", "Needs Improvement": "modest",
     }[label]
-    unbiased = residual_bias_p is not None and not np.isnan(residual_bias_p) \
-        and residual_bias_p > UNBIASED_P
+    confidence = confidence_for(n_holdout)
+    bias_known = residual_bias_p is not None and not np.isnan(residual_bias_p)
+    unbiased = bias_known and residual_bias_p > UNBIASED_P
 
-    if unbiased and accuracy == "modest":
+    if confidence == "insufficient":
+        verdict = "insufficient_data"
+        headline = (
+            f"Only {n_holdout} holdout point(s) — too few to judge quality "
+            "reliably. Treat every metric below as indicative at best; collect "
+            "more data before trusting this model to benchmark."
+        )
+    elif not bias_known:
+        verdict = "unknown"
+        headline = (
+            "Could not measure residual bias, so trustworthiness is unknown — "
+            "judge with caution and prefer relative comparisons."
+        )
+    elif not unbiased:
+        verdict = "unreliable"
+        headline = (
+            f"{accuracy.capitalize()} accuracy but residuals are biased "
+            "(systematically high or low) — point estimates are not trustworthy; "
+            "use only for relative comparisons, not absolute targets."
+        )
+    elif accuracy in ("excellent", "good"):
+        verdict = "trustworthy"
+        headline = (
+            f"{accuracy.capitalize()} accuracy and statistically unbiased — "
+            "trustworthy for benchmarking."
+        )
+    else:
+        verdict = "usable"
         headline = (
             "Modest accuracy but statistically unbiased — usable as a benchmark "
             "and for relative comparisons (supplier premiums, what-ifs), not as a "
             "single-part appraisal. Lean on the interval and SHAP, not the bare "
             "point estimate."
         )
-    elif unbiased:
-        headline = (
-            f"{accuracy.capitalize()} accuracy and statistically unbiased — "
-            "trustworthy for benchmarking."
+
+    # Even a positive verdict carries a caveat when the holdout is small.
+    if verdict in ("trustworthy", "usable") and confidence == "limited":
+        headline += (
+            f" (Based on a small {n_holdout}-point holdout — treat as indicative.)"
         )
-    else:
-        headline = (
-            f"{accuracy.capitalize()} accuracy but residuals look biased "
-            "(systematically high or low) — treat point estimates with caution "
-            "and prefer relative comparisons."
-        )
+
     return {
+        "verdict": verdict,
         "quality_label": label,
         "accuracy": accuracy,
-        "unbiased": bool(unbiased),
+        "unbiased": bool(unbiased) if bias_known else None,
+        "confidence": confidence,
         "headline": headline,
     }
 
@@ -198,13 +246,14 @@ def residual_bias_p(y_test, y_pred) -> float:
     return float(ttest_1samp(resid, 0.0).pvalue)
 
 
-def build_quality_report(loaded: dict, importances=None) -> dict:
+def build_quality_report(loaded: dict, importances=None, include_holdout=False) -> dict:
     """Assemble the structured quality report from a loaded model dict.
 
     ``loaded`` is the dict returned by ``load_model`` (needs
     ``holdout_y_test`` / ``holdout_y_pred``). ``importances`` is an optional
-    list of ``(feature, value)`` pairs. Raises ``ValueError("no_holdout_data")``
-    when the holdout isn't stored (older models).
+    list of ``(feature, value)`` pairs. Set ``include_holdout=True`` to attach
+    the raw actual/predicted arrays so a caller can draw its own charts.
+    Raises ``ValueError("no_holdout_data")`` when the holdout isn't stored.
     """
     y_test = loaded.get("holdout_y_test")
     y_pred = loaded.get("holdout_y_pred")
@@ -212,19 +261,31 @@ def build_quality_report(loaded: dict, importances=None) -> dict:
         raise ValueError("no_holdout_data")
 
     metrics = summary_metrics(y_test, y_pred)
+    n_holdout = metrics["n_test"]
     bias_p = residual_bias_p(y_test, y_pred)
-    assessment = assess_model(metrics["r2"], bias_p)
+    assessment = assess_model(metrics["r2"], bias_p, n_holdout)
 
     bands = error_by_price_band(y_test, y_pred)
     band_block = []
+    calibration_note = None
     if bands:
         for label, med, n in zip(*bands):
-            band_block.append({
+            entry = {
                 "band": label,
                 "median_pct_error": round(med, 1),
                 "n": n,
                 "reliability": band_reliability(med),
-            })
+            }
+            if n < MIN_BAND_N:
+                # Honest about thin bands: the verdict is computed but shaky.
+                entry["low_confidence"] = True
+                entry["note"] = f"only {n} point(s) in this band — verdict is noisy"
+            band_block.append(entry)
+    else:
+        calibration_note = (
+            "Too few holdout points to calibrate by price band — no per-band "
+            "reliability available."
+        )
 
     fi_block = []
     if importances:
@@ -236,8 +297,11 @@ def build_quality_report(loaded: dict, importances=None) -> dict:
                 "importance_pct": round(pct, 1),
                 "signal": feature_signal(pct),
             })
+    feature_note = None if fi_block else (
+        "Feature importance unavailable for this model."
+    )
 
-    return {
+    report = {
         "provenance": {
             "target": loaded.get("target_feature"),
             "algorithm": loaded.get("model_name"),
@@ -253,11 +317,21 @@ def build_quality_report(loaded: dict, importances=None) -> dict:
             "median_pct_error": round(metrics["median_ape"], 1),
             "mape": round(metrics["mape"], 1),
             "p90_pct_error": round(metrics["p90_ape"], 1),
-            "residual_bias_p_value": round(bias_p, 4),
-            "n_holdout": metrics["n_test"],
+            "residual_bias_p_value": round(bias_p, 4) if not np.isnan(bias_p) else None,
+            "n_holdout": n_holdout,
             "quality_label": assessment["quality_label"],
         },
         "assessment": assessment,
         "calibration_by_price_band": band_block,
+        "calibration_note": calibration_note,
         "feature_importance": fi_block,
+        "feature_note": feature_note,
     }
+    if include_holdout:
+        # Raw points so an agent with a plotting/code tool can draw its own
+        # charts (predicted-vs-actual, residuals, error-by-band, ...).
+        report["holdout"] = {
+            "y_actual": [float(v) for v in y_test],
+            "y_predicted": [float(v) for v in y_pred],
+        }
+    return report
