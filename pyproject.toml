@@ -7,7 +7,7 @@ name = "p2predict"
 version = "0.9.0"
 description = "Parametric price benchmarking for procurement and engineering — exact SHAP attribution, conformal likely-range intervals, what-if comparisons, all CLI- and agent-callable."
 readme = "README.md"
-license = "MIT"
+license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
 authors = [{name = "Ahmed Khalil Hafsi"}]
 requires-python = ">=3.10"
