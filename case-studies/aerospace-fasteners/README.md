@@ -1,17 +1,16 @@
 # Case study: Aerospace fasteners
 
-> **A public-domain, government-catalog case study — and an honest one.** Real
-> cataloging data from the U.S. Defense Logistics Agency's **PUB LOG** release of
-> the Federal Logistics Information System (FLIS) — the master catalog the DoD,
-> NASA, and their contractors order fasteners from, by National Stock Number.
+> **The honest case study — the one that tells you when a number is worth
+> trusting and when it isn't.** Real catalog data from the U.S. Defense Logistics
+> Agency's **PUB LOG** — the master catalog the DoD, NASA, and their contractors
+> order fasteners from, by National Stock Number.
 >
-> What makes it worth reading is the *honesty*. Bolt catalog prices are
-> **heavily right-skewed and intrinsically noisy** — the same spec is cataloged
-> across a wide price band, and there's a hard ceiling on how well *any* model can
-> predict them. We ship it anyway, because the valuable lesson here isn't "look how
-> accurate the model is." It's **how to tell, before you waste a week tuning, that
-> the data itself is the limit.** That diagnostic (`diagnose_noise.py`) is the
-> centerpiece.
+> Bolt prices here are heavily skewed and intrinsically noisy: the catalog lists
+> the same spec across a wide price band, and that caps how well *any* model can
+> predict them. That's the point. Procurement teams burn real money trusting
+> benchmarks the data can never support. This study shows how to measure that
+> ceiling up front (`diagnose_noise.py`) and tell a solid number from a directional
+> hint — the discipline that protects your credibility in a sourcing conversation.
 
 ## The procurement question
 
@@ -48,8 +47,6 @@ Three reasons it's worth doing:
    model caps at a modest R² and **the right move is to stop tuning and prove it's
    the data, not the model.** That skill — diagnosing a noise floor — is worth
    more than another point of R² on an already-clean dataset.
-
----
 
 ## Part 1 — What the analysis tells us
 
@@ -102,10 +99,9 @@ base ($2.64): CRES **+96%**, A286 superalloy **+5%**, titanium **+174%**, nickel
 alloy **+213%**. Titanium and nickel land clearly above the base — that *direction*
 is the robust, quotable signal. But A286 superalloy reading **below** CRES and
 barely above commodity steel is out of position, and the order shuffles run-to-run.
-That instability isn't a bug to paper over: it's this study's thesis showing up in
-the sweep — the catalog prices these material specs loosely enough that the exact
-ladder won't hold still. Quote the titanium/nickel premium as a direction; don't
-quote the order or the percentages.
+That instability is this study's thesis showing up in the sweep: the catalog prices
+these material specs loosely enough that the exact ladder won't hold still. Quote the
+titanium/nickel premium as a direction; don't quote the order or the percentages.
 
 #### Finding 2 — length is a clean cost ruler
 
@@ -187,8 +183,6 @@ honest interval is correspondingly narrower exactly there — which is where the
 procurement dollars and the negotiation leverage are. That's a real gain over a
 single global width: a tighter, still-honest range on the parts that matter most.
 
----
-
 ## Part 2 — The methodology centerpiece: detecting noisy data
 
 When a model caps out at a modest R², the reflex is to keep tuning — more trees,
@@ -269,8 +263,6 @@ model.** When the strengthening move that *should* help doesn't, you've found a
 noise floor, and the right call is to stop tuning and either go find better
 features or accept the target is intrinsically noisy. (If a future feature pull
 adds e.g. manufacturer or lot-quantity, that becomes a genuine follow-up study.)
-
----
 
 ## Part 3 — Under the hood
 
@@ -505,8 +497,6 @@ python generate_quality_report.py
 ```
 
 You can delete the downloaded segment zips after step 2 to reclaim disk.
-
----
 
 ## Part 4 — Caveats
 

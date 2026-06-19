@@ -164,6 +164,6 @@ models/
 # Case study downloaded data — fetched on demand, never checked in.
 case-studies/*/data/
 
-# Local Claude Code config + skill eval scratch (the skill itself IS tracked).
-.claude/settings.local.json
-.claude/skills/*-workspace/
+# Local Claude Code config. The p2predict operator skill is a private
+# consulting asset and is intentionally NOT tracked — keep it local only.
+.claude/
