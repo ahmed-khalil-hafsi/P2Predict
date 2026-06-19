@@ -4,7 +4,7 @@ Three real-world stories that show P2Predict on data anyone can download and ver
 
 | Case study | Audience | Data source | Demonstrates |
 |---|---|---|---|
-| [Battery Management ICs](battery-management-ics/) | EE procurement engineers, electronics buyers, hardware BOM owners | Octopart / Mouser / DigiKey API | The classic parametric procurement use case — `--explain` and `--whatif` for spec-driven cost trade-offs |
+| [Battery Management ICs](battery-management-ics/) | EE procurement engineers, electronics category managers, hardware BOM owners | Octopart / Mouser / DigiKey API | The classic parametric procurement use case — `--explain` and `--whatif` for spec-driven cost trade-offs |
 | [Used vehicles](used-cars/) | Anyone — the universally-relatable tutorial | Kaggle (CC license) | Log-target SHAP + multiplicative explanations on prices that span orders of magnitude |
 | [Aerospace fasteners](aerospace-fasteners/) | Fastener / MRO category managers, federal procurement, cost engineers | DLA PUB LOG / FLIS catalog (public domain) | **Detecting noisy data** — measuring a model's R² ceiling before tuning, plus log-target multiplicative SHAP on a heavily-skewed price |
 

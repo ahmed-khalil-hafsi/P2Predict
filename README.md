@@ -17,13 +17,13 @@
 
 ## The problem
 
-Your team negotiates thousands of prices a year on gut feel and last year's PO. The senior buyer who *knew* what a part should cost is retiring. Engineering adds a tolerance and nobody can say what it costs. A supplier quote lands and your buyer has no defensible number to push back with.
+Your team negotiates thousands of prices a year on gut feel and last year's PO. The senior category manager who *knew* what a part should cost is retiring. Engineering adds a tolerance and nobody can say what it costs. A supplier quote lands and your category manager has no defensible number to push back with.
 
-The pricing knowledge is sitting in your purchase history. It just isn't usable yet.
+The pricing knowledge is sitting in your purchase history, waiting to be used.
 
 ## What P2Predict does
 
-P2Predict learns from your own purchasing data what drives the price of a part: supplier, material, size, spec, region. Then it gives your team a defensible target for any new or proposed part. Your buyers ask in plain English. The answer comes back grounded in what you have actually paid.
+P2Predict learns from your own purchasing data what drives the price of a part: supplier, material, size, spec, region. Then it gives your team a defensible target for any new or proposed part. Your category managers ask in plain English. The answer comes back grounded in what you have actually paid.
 
 It runs on your machine, on your data, through any AI agent your team already uses. Nothing is uploaded. No vendor catalog, no cloud, no per-seat data-sharing.
 
@@ -33,29 +33,29 @@ This is where P2Predict earns its keep. Every one of these is a real question yo
 
 ### "Is this quote fair?"
 
-Your buyer drops the quote on the agent.
+Your category manager drops the quote on the agent.
 
-> **Buyer:** *"Supplier quotes $14.20 for this part. What should it cost?"*
+> **Category manager:** *"Supplier quotes $14.20 for this part. What should it cost?"*
 >
 > **P2Predict:** *"$12.40. Nine times in ten the real price lands between $10.80 and $13.90. This quote is running about 15% high."*
 
-Your buyer walks in with a number and a range, not a hunch.
+Your category manager now knows exactly where they can push back, with real data behind it.
 
 ### When the supplier pushes back: "Are you sure that's the right price?"
 
-This is the moment most buyers fold. Now you have an answer. Ask for the breakdown.
+This is where most negotiations stall. Now you have an answer. Ask for the breakdown.
 
-> **Buyer:** *"Why $12.40? Break it down."*
+> **Category manager:** *"Why $12.40? Break it down."*
 >
 > **P2Predict:** *"Supplier choice +$0.85, rush delivery +$1.20, tighter tolerance +$0.42, size +$0.40."*
 
-Now you argue the components, not the total: *"We agreed standard lead time. Take the $1.20 rush charge off and we're aligned."* A supplier can wave away a total. A line item is much harder to defend.
+Now you argue the components line by line: *"We agreed standard lead time. Take the $1.20 rush charge off and we're aligned."* A line item is hard to wave away.
 
 ### "What if we switch supplier?"
 
 Hold the spec fixed, swap the supplier, read the delta.
 
-> **Buyer:** *"What happens if we move this 16-cell pack monitor from Supplier A to Supplier B?"*
+> **Category manager:** *"What happens if we move this 16-cell pack monitor from Supplier A to Supplier B?"*
 >
 > **P2Predict:** *"Down 37.7%, about $2.07 a unit, with the per-feature breakdown to back it up."*
 
@@ -67,11 +67,11 @@ Engineering proposes a tighter tolerance. Before it gets locked in, cost it.
 
 > **Engineer:** *"We want to go from ±0.1mm to ±0.05mm."*
 >
-> **Buyer to the agent:** *"What does that do to cost?"*
+> **Category manager to the agent:** *"What does that do to cost?"*
 >
 > **P2Predict:** *"+$0.42 a unit, +18%, likely range $0.30 to $0.55."*
 
-Now the conversation is *"is 18% worth this requirement?"* That is a costed trade-off, not the loudest voice winning.
+Now the conversation is *"is 18% worth this requirement?"*, a costed trade-off the room decides on numbers.
 
 ### In the cost-down workshop: "What is the design paying for that it doesn't need?"
 
@@ -87,11 +87,11 @@ Most tools hand you a number and walk away. P2Predict hands you the number **and
 
 ![Honest confidence ranges, per part](./case-studies/battery-management-ics/assets/intervals_comparison.png)
 
-Three real parts, three different confidence ranges. The model is tight on the part it knows well and openly uncertain on the ones it doesn't. A narrow range means negotiate hard. A wide one means get a quote first. Your buyer always knows which.
+Three real parts, three different confidence ranges. The model is tight on the part it knows well and openly uncertain on the ones it doesn't. A narrow range means negotiate hard. A wide one means get a quote first. Your category manager always knows which.
 
-- **A confidence range on every estimate.** Not "$12.40" but "$12.40, and nine times in ten the real price lands between $10.80 and $13.90."
+- **A confidence range on every estimate.** "$12.40, and nine times in ten the real price lands between $10.80 and $13.90."
 - **An honest map of where the model is strong and where it is thin.** P2Predict flags which parts of your category it can benchmark with confidence and which need a real quote, so nobody negotiates off a number the data can't support.
-- **A reason for every number.** Every estimate breaks down into what each spec and the supplier contribute. You argue the components, not the total.
+- **A reason for every number.** Every estimate breaks down into what each spec and the supplier contribute, so you argue the components line by line.
 
 ## See what actually drives the cost
 
@@ -101,29 +101,29 @@ Point P2Predict at a category and it shows you the levers. These charts come str
 
 ![Supplier premium on an identical part](./case-studies/battery-management-ics/assets/manufacturer_premium.png)
 
-The premium supplier is priced at roughly four times the value option for the same part. That is a number you take into a negotiation, not a hunch.
+The premium supplier is priced at roughly four times the value option for the same part. That is a number you take into a negotiation, backed by your own data.
 
 **Every estimate breaks down spec by spec.** Ask why a part costs what it does and you get the receipt:
 
 ![Per-feature dollar breakdown for one part](./case-studies/battery-management-ics/assets/ev_bms_attribution.png)
 
-Package size, supplier premium, multi-cell architecture: each one in dollars, each one adding up exactly to the predicted price. This is what lets your buyer say *"I know what I'm paying for, and here's the line I want to cut."*
+Package size, supplier premium, multi-cell architecture: each one in dollars, each one adding up exactly to the predicted price. This is what lets your category manager say *"I know what I'm paying for, and here's the line I want to cut."*
 
 ## How it fits your stack
 
-P2Predict speaks to **any AI agent**: Claude, and any other assistant your team runs, through a standard connector. Your buyers don't learn a new tool. They ask the assistant they already use, and it does the analysis.
+P2Predict speaks to **any AI agent**: Claude, and any other assistant your team runs, through a standard connector. Your category managers don't learn a new tool. They ask the assistant they already use, and it does the analysis.
 
 Everything runs **locally**. Your purchasing data is your most sensitive commercial asset, so it stays on your machine. No upload, no third-party model training on your spend, no data-residency conversation with legal.
 
-It complements should-cost tools. Bottom-up should-costing builds a part up from material, labor, and machine time. P2Predict answers the other question every buyer actually asks: *what has the market charged us for parts like this, and what should the next one cost?*
+It complements should-cost tools. Bottom-up should-costing builds a part up from material, labor, and machine time. P2Predict answers the other question every category manager actually asks: *what has the market charged us for parts like this, and what should the next one cost?*
 
 ## Proof on public data
 
 Three worked case studies, each reproducible end to end on data anyone can download:
 
-- **[Battery Management ICs](case-studies/battery-management-ics/):** the closest thing to a real procurement job. A small, realistic parts slice, a supplier-premium lever you can quote, and an honest read on where the model is solid and where it isn't.
+- **[Battery Management ICs](case-studies/battery-management-ics/):** the closest thing to a real procurement job. A small, realistic parts slice, a supplier-premium lever you can quote, and an honest read on where the model is strong and where it needs a real quote.
 - **[Used vehicles](case-studies/used-cars/):** the easy-to-follow walkthrough on prices that span orders of magnitude.
-- **[Aerospace fasteners](case-studies/aerospace-fasteners/):** the honesty story. How P2Predict tells you when the data, not the model, is the limit, so you stop chasing accuracy that isn't there.
+- **[Aerospace fasteners](case-studies/aerospace-fasteners/):** the honesty story. How P2Predict shows you when the data itself sets the limit, so you stop chasing accuracy the data can't give.
 
 Each one leads with results, shows where to trust them, and points to exactly where every number comes from.
 

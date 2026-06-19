@@ -22,7 +22,7 @@ Three reasons:
 1. **The math shows up clearly.** Used-car prices span $500 → $200k. That
    heavy right tail triggers P2Predict's log-target wrap automatically,
    which makes the SHAP attribution *multiplicative in price space* — and
-   that's the form that most resembles how a buyer actually reasons
+   that's the form that most resembles how a category manager actually reasons
    ("low miles add about 19%, FWD pulls about 15% off"). The math is
    identical to what you'd want on a procurement BOM; the *vocabulary* is
    one everyone already speaks.
@@ -516,7 +516,7 @@ to learn.
 > data actually works, makes the model better behaved on the right
 > tail, and — as we'll see in the SHAP section — lets the per-feature
 > attribution become *multiplicative factors* in dollars, which is
-> exactly how a procurement buyer already reasons.
+> exactly how a category manager already reasons.
 
 **What's measured.** The Fisher–Pearson sample skewness of the target
 column. Positive means right-tailed (many small values, a few big
