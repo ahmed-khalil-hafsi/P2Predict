@@ -2,7 +2,7 @@
 
 > **The closest thing to a real procurement job.** Real catalog data from
 > the DigiKey API, a deliberately small dataset (~150 parts — the size a real
-> BOM-benchmarking exercise actually has), and the question every buyer asks:
+> BOM-benchmarking exercise actually has), and the question every category manager asks:
 > what should this part cost, how sure are we, and which supplier premium can
 > we negotiate away? It shows P2Predict working on exactly the thin, real-world
 > parts slice a procurement team faces every day — and is honest about where
@@ -307,7 +307,7 @@ ADI/Maxim to Microchip, and the model expects the part to land **37.7%
 cheaper**. That's the procurement negotiation lever, computed from real
 DigiKey catalog patterns. Whether a Microchip part actually meets your
 electrical spec is your engineer's call — the model only knows the
-catalog. But it tells your buyer exactly where to push, with a number.
+catalog. But it tells your category manager exactly where to push, with a number.
 
 ## So what? — six findings the analysis surfaces
 
