@@ -1,11 +1,13 @@
 # Case study: Battery Management ICs
 
-> **A procurement-shaped case study.** Real catalog data from the DigiKey
-> API, a deliberately small dataset (~100 parts — the size a real BOM
-> benchmarking exercise actually has), and a price target that is small,
-> near-symmetric, and *additive*. It shows P2Predict working on exactly
-> the kind of thin, real-world parts slice a category manager faces — and
-> is honest about where that thinness costs you.
+> **The closest thing to a real procurement job.** Real catalog data from
+> the DigiKey API, a deliberately small dataset (~150 parts — the size a real
+> BOM-benchmarking exercise actually has), and the question every buyer asks:
+> what should this part cost, how sure are we, and which supplier premium can
+> we negotiate away? It shows P2Predict working on exactly the thin, real-world
+> parts slice a procurement team faces every day — and is honest about where
+> that thinness costs you. That honesty is the point: it tells you which
+> numbers to take into a negotiation and which to leave at the door.
 
 ## The procurement question
 
@@ -70,8 +72,6 @@ Three reasons:
 A business reader can stop after Part 1 and walk away knowing what
 P2Predict gives them. A technical reader continues into Part 2 and can
 audit every claim, line by line.
-
----
 
 ## Part 1 — What the analysis tells us
 
@@ -565,8 +565,6 @@ Microchip part instead of ADI/Maxim" takes one
 `p2predict.what_if(...)` in Python) and returns −37.7% / −$2.07 per unit.
 For procurement that *is* the deliverable: a defensible, line-itemised
 supplier-premium number you can take into a sourcing conversation.
-
----
 
 ## Part 2 — Under the hood
 
@@ -1165,8 +1163,6 @@ p2predict-train \
 The 30-row sample is too small for stable numbers — it's there to prove
 the *workflow* runs end-to-end on a different machine, not to reproduce
 the metrics. For the real numbers, use the full path.
-
----
 
 ## Part 3 — Caveats
 

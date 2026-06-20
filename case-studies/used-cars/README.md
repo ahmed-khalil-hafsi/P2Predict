@@ -1,9 +1,12 @@
 # Case study: Used vehicle pricing
 
-> **The warm-up case study.** Not procurement, but the strongest single
-> demo of how P2Predict actually behaves on real-world noisy data — and
-> the cleanest setting to understand what every flag in the toolkit
-> *does* before you point it at a procurement BOM.
+> **The warm-up — the easiest way to watch P2Predict think.** Used-car
+> prices are the clearest setting to see how the toolkit behaves on real,
+> noisy data and what every flag actually does, before you point it at a
+> procurement BOM. Everyone has intuition about what a car is worth, so you
+> can judge the model's answers for yourself — no category expertise needed.
+> The math is identical to what you'd run on a parts catalog; only the
+> vocabulary is friendlier.
 
 ## The question
 
@@ -58,8 +61,6 @@ tool for your shop, run this one.
 A business reader can stop after Part 1 and walk away knowing what
 P2Predict gives them. A technical reader continues into Part 2 and can
 audit every claim, line by line.
-
----
 
 ## Part 1 — What the analysis tells us
 
@@ -374,8 +375,6 @@ takes one `--whatif "odometer:90000"` on the CLI (or
 For procurement that translates directly into "what if the steel grade
 changed?", "what if we moved from EU to APAC suppliers?", "what if the
 weight came down 15%?" — same workflow, same math.
-
----
 
 ## Part 2 — Under the hood
 
@@ -1066,8 +1065,6 @@ p2predict-train \
   --budget thorough
 python predict_examples.py
 ```
-
----
 
 ## Part 3 — Caveats
 
