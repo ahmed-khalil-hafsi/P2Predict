@@ -1,17 +1,17 @@
 # Case study: Used vehicle pricing
 
-> **The warm-up — the easiest way to watch P2Predict think.** Used-car
+> **The warm-up, the easiest way to watch P2Predict think.** Used-car
 > prices are the clearest setting to see how the toolkit behaves on real,
 > noisy data and what every flag actually does, before you point it at a
 > procurement BOM. Everyone has intuition about what a car is worth, so you
-> can judge the model's answers for yourself — no category expertise needed.
+> can judge the model's answers for yourself, no category expertise needed.
 > The math is identical to what you'd run on a parts catalog; only the
 > vocabulary is friendlier.
 
 ## The question
 
 > Given a used vehicle's year, mileage, manufacturer, body type, drive,
-> fuel, transmission, condition, state, and paint color — what's the
+> fuel, transmission, condition, state, and paint color, what's the
 > expected listing price, **how confident is the model**, and how much
 > does each spec contribute to the answer?
 
@@ -21,7 +21,7 @@ Three reasons:
 
 1. **The math shows up clearly.** Used-car prices span $500 → $200k. That
    heavy right tail triggers P2Predict's log-target wrap automatically,
-   which makes the SHAP attribution *multiplicative in price space* — and
+   which makes the SHAP attribution *multiplicative in price space*, and
    that's the form that most resembles how a category manager actually reasons
    ("low miles add about 19%, FWD pulls about 15% off"). The math is
    identical to what you'd want on a procurement BOM; the *vocabulary* is
@@ -30,11 +30,11 @@ Three reasons:
    the model says a 2019 Civic with 45k miles is worth $16k, you have
    intuition. When it says a 2008 F-150 with 180k miles is worth $9k, you
    have intuition. When the model predicts $42k for a 2021 Tesla *and
-   gives it the tightest band of the three* — you know it's picking up
+   gives it the tightest band of the three*, you know it's picking up
    the premium-brand signal correctly.
 3. **It surfaces the methods that matter on harder datasets.** Conformal
    intervals, SHAP attribution in log space, what-if comparisons,
-   outlier-policy choices — all of them earn their keep on this dataset
+   outlier-policy choices, all of them earn their keep on this dataset
    in ways that are easy to see.
 
 If you only run one case study to decide whether P2Predict is the right
@@ -44,25 +44,25 @@ tool for your shop, run this one.
 
 > **Where to find what:**
 >
-> - **Part 1 — What this analysis tells us** (business-first)
->   1. [Worked examples](#worked-examples) — three real listings, with predictions, ranges, SHAP, and what-if
->   2. [So what?](#so-what--five-findings-the-analysis-surfaces) — five concrete findings about used-car prices, with procurement parallels
->   3. [The story](#the-story) — five claims the case study earns its keep with
-> - **Part 2 — Under the hood** (technical)
->   1. [Data](#data) — the Craigslist dataset and the columns we kept
->   2. [Methodology](#methodology) — every modelling decision, with code references and teaching nuggets
->   3. [Results](#results) — the trained-model quality metrics
->   4. [Model quality report (PDF)](#model-quality-report-pdf) — the procurement-style 3-page PDF P2Predict produces
->   5. [Reproducing this case study](#reproducing-this-case-study) — the exact commands
-> - **Part 3 — Caveats**
->   1. [Notes & footnotes worth knowing](#notes--footnotes-worth-knowing)
+> - **Part 1, What this analysis tells us** (business-first)
+>   1. [Worked examples](#worked-examples), three real listings, with predictions, ranges, SHAP, and what-if
+>   2. [So what?](#so-what-five-findings-the-analysis-surfaces, five concrete findings about used-car prices, with procurement parallels
+>   3. [The story](#the-story), five claims the case study earns its keep with
+> - **Part 2, Under the hood** (technical)
+>   1. [Data](#data), the Craigslist dataset and the columns we kept
+>   2. [Methodology](#methodology), every modelling decision, with code references and teaching nuggets
+>   3. [Results](#results), the trained-model quality metrics
+>   4. [Model quality report (PDF)](#model-quality-report-pdf), the procurement-style 3-page PDF P2Predict produces
+>   5. [Reproducing this case study](#reproducing-this-case-study), the exact commands
+> - **Part 3, Caveats**
+>   1. [Notes & footnotes worth knowing](#notes-footnotes-worth-knowing
 >   2. [What this case study does *not* do](#what-this-case-study-does-not-do-and-why)
 
 A business reader can stop after Part 1 and walk away knowing what
 P2Predict gives them. A technical reader continues into Part 2 and can
 audit every claim, line by line.
 
-## Part 1 — What the analysis tells us
+## Part 1: What the analysis tells us
 
 ### What we built (in one paragraph)
 
@@ -72,7 +72,7 @@ source). The trainer chose **Random Forest** as the best algorithm by
 cross-validation (CV R² 0.749, beating XGBoost 0.732 and Ridge 0.668),
 activated the **log-target wrap automatically** (prices are
 right-skewed), and produced a model that scores **R² 0.781 / MAE
-$3,658** on held-out data — quality label "Good." The two charts and
+$3,658** on held-out data, quality label "Good." The two charts and
 three example listings below come straight off that model. Numbers,
 intervals, and SHAP attributions are reproducible by the commands in
 the [Reproducing](#reproducing-this-case-study) section. The
@@ -90,7 +90,7 @@ the [Reproducing](#reproducing-this-case-study) section. The
 | 2008 Ford pickup, 180,000 mi, good, 4wd, TX | **$9,319** | $4,555 – $19,062 (×4.2) | low |
 | 2021 Tesla sedan, 22,000 mi, like new, WA | **$42,246** | $29,354 – $60,798 (×2.1) | top |
 
-The Tesla has the **tightest** band (×2.1) — the model is *most*
+The Tesla has the **tightest** band (×2.1): the model is *most*
 confident here, because TargetEncoder maps the premium brand to its
 mean price and a single tree split cleanly separates it from commodity
 makes. The Ford pickup sits in the low band where prices are noisier
@@ -98,19 +98,19 @@ makes. The Ford pickup sits in the low band where prices are noisier
 independently, so the intervals honestly reflect per-segment
 uncertainty rather than a single global width.
 
-### 2. Why $15,671 for the Civic? — SHAP multiplicative attribution
+### 2. Why $15,671 for the Civic? SHAP multiplicative attribution
 
 > [!TIP]
 > **💡 What's "baseline" in SHAP?**
 >
 > The **baseline** is what the model would predict if it knew nothing
-> specific about this vehicle — essentially the average prediction
+> specific about this vehicle, essentially the average prediction
 > across the training data, which works out to $14,291 here. Then each
 > feature pushes the prediction up or down from that baseline. The
 > whole job of SHAP is to fairly assign credit for the gap from
 > baseline ($14,291) to prediction ($15,671) across the 10 features.
 > The "Net factor: ×1.097" line below is just saying $15,671 / $14,291
-> = 1.097 — the model thinks this specific Civic is worth about 10%
+> = 1.097: the model thinks this specific Civic is worth about 10%
 > more than the average vehicle in training data, and the per-feature
 > factors below show *why*.
 
@@ -146,14 +146,14 @@ failed axiom in the output, the explanation is unsound.
 <details>
 <summary>💡 <b>Why "multiplicative factors" and not dollar contributions?</b></summary>
 
-The model predicts `log(price)`, not price directly — because the data
+The model predicts `log(price)`, not price directly, because the data
 is right-skewed and log-space behaves better. When SHAP attributes
 credit in log-space and we exponentiate back to dollars, each
 contribution becomes a **multiplier** instead of an add-on. So
 "year × 1.655" means: the model thinks this vehicle's year (2019,
 newer than average) makes it worth **65.5% more** than the baseline.
 Multipliers compose by multiplication, so the 10 per-feature factors
-above multiply out to ×1.097 — and 1.097 × $14,291 = $15,671, exactly
+above multiply out to ×1.097, and 1.097 × $14,291 = $15,671, exactly
 matching the prediction. That equality is the *multiplicative axiom*,
 and it's what makes "FWD pulls 14% off" the kind of statement you can
 take into a supplier negotiation, not a hand-wavy directional claim.
@@ -177,18 +177,17 @@ and you can quote the rationale line-by-line.
 
 That `×0.97` is the **depreciation per doubling of mileage** in this
 neighbourhood of the feature space, learned from hundreds of thousands
-of Craigslist listings — not from a rule of thumb. Random Forest
+of Craigslist listings, not from a rule of thumb. Random Forest
 captures the nonlinear depreciation curve directly: depreciation per
 mile flattens as the car gets older, which is why doubling from 45k
 to 90k (still "low mileage") only costs 2.9%. The sweep in Finding #3
 below shows the full shape of this curve.
 
-## So what? — five findings the analysis surfaces
+## So what?, five findings the analysis surfaces
 
 The case study isn't just a methodology demo. Once the model is
 trained, sweeping one feature at a time with everything else held
-fixed reveals real findings about how used-car prices actually work —
-the kind of patterns a human reviewer would have to stare at a
+fixed reveals real findings about how used-car prices actually work, the kind of patterns a human reviewer would have to stare at a
 spreadsheet for a week to find. Each finding has a procurement
 parallel underneath; the same workflow on a parts BOM tells you the
 same kind of story.
@@ -202,7 +201,7 @@ this baseline and change exactly that one feature."
 ### 1. Brand alone moves price by 2.7×
 
 Holding *everything else equal*, the same vehicle is worth **$21,837 as
-a Porsche** and **$8,028 as a Kia** — a 2.7× spread. The top end is
+a Porsche** and **$8,028 as a Kia**, a 2.7× spread. The top end is
 Porsche (×2.15) → Tesla (×1.57) → Lexus (×1.52) → Audi → Mercedes-Benz.
 The bottom is Kia → Chrysler → Nissan → Hyundai → Mazda. Honda is the
 median (that's why we picked it for the baseline).
@@ -210,15 +209,15 @@ median (that's why we picked it for the baseline).
 > [!TIP]
 > **🛒 Procurement parallel.** The same analysis on a parts dataset
 > answers "which supplier commands the biggest premium for the same
-> physical part?" — with a number, not a hunch, and with an axiom check
+> physical part?", with a number, not a hunch, and with an axiom check
 > showing the attribution adds up exactly. Standard procurement
 > spreadsheets can't separate "supplier premium" from "the parts that
 > supplier happens to make"; this model can.
 
 ### 2. The condition rating has a cliff at "fair"
 
-The top four condition labels — `excellent`, `like new`, `new`,
-`good` — all sit within **±6%** of each other. Then:
+The top four condition labels, `excellent`, `like new`, `new`,
+`good`, all sit within **±6%** of each other. Then:
 
 ```
   excellent       +6%    \
@@ -229,18 +228,18 @@ The top four condition labels — `excellent`, `like new`, `new`,
   salvage        −63%
 ```
 
-It's not a gradient — it's a **cliff**. The market doesn't reward
+It's not a gradient, it's a **cliff**. The market doesn't reward
 "slightly nicer"; it punishes "starts to be a problem."
 
 > [!TIP]
 > **🛒 Procurement parallel.** Quality grades, supplier ratings, and
 > certification levels often have the same step-function structure.
-> The model surfaces the cliff automatically — useful when negotiating
+> The model surfaces the cliff automatically, useful when negotiating
 > a quality spec, because you learn that paying for `excellent` over
 > `good` buys you 6%, but accepting `fair` instead of `good` loses
 > you 50%.
 
-### 3. Mileage depreciation declines *per mile* — not per percent
+### 3. Mileage depreciation declines *per mile*, not per percent
 
 ```
    25,000 mi → 50,000 mi   Δ per 10k mi:  −$425
@@ -253,7 +252,7 @@ It's not a gradient — it's a **cliff**. The market doesn't reward
 ```
 
 Every fleet manager has been told "cars lose $X per mile." The model
-says **that rule of thumb is wrong by 2× at the extremes** — $454 per
+says **that rule of thumb is wrong by 2× at the extremes**, $454 per
 10k miles at low mileage, $225 per 10k at high mileage. The
 *percentage* curve is the real curve, because the model works in
 log-mileage; in dollars, the marginal depreciation declines as the
@@ -266,7 +265,7 @@ car gets cheaper.
 > $1,000. Linear "cost per kilogram" rules of thumb routinely
 > over-charge at the high end and under-charge at the low end.
 
-### 4. Diesel commands +93% over gas — and that's the model leaking "truck"
+### 4. Diesel commands +93% over gas, and that's the model leaking "truck"
 
 Switch the baseline sedan's fuel from gas to diesel: $10,142 →
 **$19,558**. **+93%.** That isn't a typo; it's the model generalising
@@ -302,14 +301,14 @@ Top state vs bottom state for the same vehicle:
 
 A 1.34× spread, less than the popular "rust-belt cars cost more,
 California is expensive" intuition would suggest. Geography is a real
-lever, but a small one — brand, body type, and condition all dominate
+lever, but a small one, brand, body type, and condition all dominate
 it.
 
 > [!TIP]
 > **🛒 Procurement parallel.** The same question on a parts dataset
 > answers "how much does region or supplier-country actually cost me,
 > holding everything else fixed?" Often less than the gut feel
-> suggests — most of the value comes from picking the right supplier
+> suggests, most of the value comes from picking the right supplier
 > and the right specs, not the right zip code.
 
 ### Bonus finding: banded intervals separate what the model knows from what it doesn't
@@ -321,7 +320,7 @@ calibration sizes each band independently: the model is most confident
 on high-value vehicles where TargetEncoder cleanly separates premium
 brands, and least confident on the low-value segment where feature
 noise dominates. The old global interval would have given every vehicle
-the same width — hiding the fact that the model *knows more* about
+the same width, hiding the fact that the model *knows more* about
 some segments than others.
 
 > [!TIP]
@@ -342,7 +341,7 @@ notices and inserts a `TransformedTargetRegressor(np.log, np.exp)`
 around the pipeline. You don't have to remember to enable it; you do
 have to know it exists when you read the SHAP output as "factors"
 instead of "dollars." Details in
-[Methodology > Log-target trigger](#log-target-trigger--skewness-based-automatic).
+[Methodology > Log-target trigger](#log-target-trigger-skewness-based-automatic.
 
 **2. The choice between `--outliers drop` and `--outliers warn` matters
 *a lot*.** Our first training run used `--outliers drop` and the Tukey
@@ -357,8 +356,8 @@ reason. Worth documenting in your team's playbook.
 intervals come from banded (Mondrian) split-conformal calibration on the
 held-out test set; empirical coverage on the test set is ≈ 90% by
 construction. The Tesla's tight range (×2.1) and the Ford's wide range
-(×4.2) aren't noise — they reflect per-band uncertainty calibrated
-independently. Details in [Methodology > Conformal intervals](#conformal-intervals--split-conformal-on-the-test-residuals).
+(×4.2) aren't noise, they reflect per-band uncertainty calibrated
+independently. Details in [Methodology > Conformal intervals](#conformal-intervals-split-conformal-on-the-test-residuals.
 
 **4. SHAP gives axiomatically grounded per-feature attribution, not a
 heuristic ranking.** Because the model is log-target, the contributions
@@ -366,7 +365,7 @@ are *multiplicative factors* in price space. The axiom check (`product
 of factors == pred/baseline`) is built into every explanation; this is
 the property that lets you write something like "FWD pulls 15% off" and
 *defend it under scrutiny*, instead of mumbling about feature
-importance. Details in [Methodology > SHAP](#shap-attribution--exact-algorithms-only).
+importance. Details in [Methodology > SHAP](#shap-attribution-exact-algorithms-only.
 
 **5. What-if costs nothing once you have a model.** Holding everything
 else constant and asking "what if this car had 90k miles instead of 45k"
@@ -374,14 +373,13 @@ takes one `--whatif "odometer:90000"` on the CLI (or
 `p2predict.what_if(model, df, {"odometer": "90000"}, ...)` in Python).
 For procurement that translates directly into "what if the steel grade
 changed?", "what if we moved from EU to APAC suppliers?", "what if the
-weight came down 15%?" — same workflow, same math.
+weight came down 15%?", same workflow, same math.
 
-## Part 2 — Under the hood
+## Part 2: Under the hood
 
 ## Data
 
-**Source:** [Craigslist Cars+Trucks on Kaggle](https://www.kaggle.com/datasets/austinreese/craigslist-carstrucks-data)
-— 426,880 US listings, **CC0** (public domain) license, redistributable.
+**Source:** [Craigslist Cars+Trucks on Kaggle](https://www.kaggle.com/datasets/austinreese/craigslist-carstrucks-data), 426,880 US listings, **CC0** (public domain) license, redistributable.
 
 **Two reproducibility paths:**
 
@@ -400,7 +398,7 @@ Token" and save it to `~/.kaggle/api_token` (`chmod 600`).
 > A right-skewed distribution has a long tail of large values. Used-car
 > prices are a textbook example: most listings cluster around $5k–$25k,
 > but a few specialty cars push past $80k. Those few high-end outliers
-> "pull" the average price above the median — that asymmetry is what
+> "pull" the average price above the median, that asymmetry is what
 > *skew* mathematically measures. When skew gets large (> 1.0 here), we
 > transform the target with `log` before modelling, which converts the
 > asymmetric tail into something the math handles cleanly. The
@@ -424,11 +422,11 @@ Token" and save it to `~/.kaggle/api_token` (`chmod 600`).
 
 **Columns we drop and why:**
 - `id`, `url`, `region_url`, `image_url`, `VIN`, `description`,
-  `posting_date`, `lat`, `long` — non-parametric / identifier columns.
-- `county` — 100% null in this snapshot.
-- `size` (72% null), `cylinders` (42% null) — too sparse once
+  `posting_date`, `lat`, `long`, non-parametric / identifier columns.
+- `county`, 100% null in this snapshot.
+- `size` (72% null), `cylinders` (42% null), too sparse once
   `manufacturer` and `type` are present.
-- `model` (very high cardinality) — slows CV-driven HPO without much
+- `model` (very high cardinality), slows CV-driven HPO without much
   marginal lift; `manufacturer` plus `type` already captures most of the
   signal. A future iteration could include it with a target-encoded
   preprocessor.
@@ -455,14 +453,13 @@ is magic.
 ```
 
 The two design decisions that make P2Predict different from a hand-rolled
-sklearn script — and that you'll see referenced throughout this section —
-are: **(a)** every claim the toolkit makes (interval coverage, SHAP
+sklearn script, and that you'll see referenced throughout this section, are: **(a)** every claim the toolkit makes (interval coverage, SHAP
 attribution, multiplicative axiom) is backed by an axiomatic test in the
 suite, and **(b)** the conformal intervals and SHAP attributions
 compose with each other and with the log-target wrap in a mathematically
 clean way.
 
-### Outlier handling — Tukey IQR rule
+### Outlier handling, Tukey IQR rule
 
 **What it is.** Tukey's classic non-parametric outlier rule: any value
 outside the *fence* `[Q1 − 1.5·IQR, Q3 + 1.5·IQR]` is flagged, where
@@ -475,7 +472,7 @@ assumption, robust to skew, the same rule that draws box-plot whiskers.
 Sort all the values from smallest to largest. The 25th-percentile value
 is **Q1**, the 75th is **Q3**, and the middle 50% sitting between them
 is the **inter-quartile range** (IQR). Tukey's rule flags anything more
-than 1.5× IQR below Q1 or above Q3 as an outlier — these are the same
+than 1.5× IQR below Q1 or above Q3 as an outlier, these are the same
 "whiskers" you see on a box-plot. The advantage over a mean-and-stdev
 rule: outliers can't pollute their own detection (the quartiles
 basically ignore them), and the rule makes no assumption about the
@@ -490,7 +487,7 @@ distribution shape. It just works.
 | Each numerical feature (`year`, `odometer`) | `--feature-outliers {keep,warn,drop,winsorize}` | `warn` | `drop` |
 
 **Why `--outliers warn` on the target.** The right tail is real signal,
-not noise — $50–80k luxury cars *do* exist. Dropping them collapses
+not noise, $50–80k luxury cars *do* exist. Dropping them collapses
 skew below the log-target threshold, the wrap turns off, the model
 collapses to additive. The whole point of log-target is to absorb the
 heavy tail without losing data; using `--outliers drop` here defeats it.
@@ -502,25 +499,25 @@ to learn.
 
 **Source.** `src/p2predict/outliers.py`.
 
-### Log-target trigger — skewness-based, automatic
+### Log-target trigger, skewness-based, automatic
 
 > [!TIP]
 > **💡 Why "log-transform" the target at all?**
 >
 > A log transformation re-scales values so that *doubling* becomes
 > *adding a constant*. So the jump from $5,000 → $10,000 looks the
-> same in log space as $10,000 → $20,000 — both are "×2." Most
+> same in log space as $10,000 → $20,000, both are "×2." Most
 > positive quantities in the real world (prices, costs, weights,
 > populations) behave this way: a 10% change feels the same on a small
 > or a large number. Modelling in log space matches how the underlying
 > data actually works, makes the model better behaved on the right
-> tail, and — as we'll see in the SHAP section — lets the per-feature
+> tail, and, as we'll see in the SHAP section, lets the per-feature
 > attribution become *multiplicative factors* in dollars, which is
 > exactly how a category manager already reasons.
 
 **What's measured.** The Fisher–Pearson sample skewness of the target
 column. Positive means right-tailed (many small values, a few big
-ones — classic price distribution shape).
+ones, classic price distribution shape).
 
 **Threshold.** If `scipy.stats.skew(y_train) > 1.0`, the trainer wraps
 the chosen pipeline in `TransformedTargetRegressor(func=np.log,
@@ -556,14 +553,14 @@ trust (Craigslist `posting_date` is sparse and the listings are a
 random crawl), so we don't use the time-aware path.
 
 **Time-aware option (not used here).** If you pass `--time-column DATE`,
-the split becomes chronological — the last 20% of rows after sorting by
-date is the test set — and the CV folds become `TimeSeriesSplit`,
+the split becomes chronological, the last 20% of rows after sorting by
+date is the test set, and the CV folds become `TimeSeriesSplit`,
 which prevents look-ahead bias. The procurement case studies on time-ordered
 purchasing data will use this.
 
 **Source.** `src/p2predict/prepare_data.py::prepare_data`.
 
-### Preprocessor — branched by model family
+### Preprocessor, branched by model family
 
 The preprocessor is *built per algorithm* because linear and tree models
 want different inputs:
@@ -578,7 +575,7 @@ the coefficient magnitudes are uninterpretable and L2 regularisation
 becomes feature-scale-dependent) and one-hot encoded categoricals (so
 the linear combination is well-defined). Trees get **target-encoded**
 categoricals: each category is replaced by its smoothed, cross-fitted
-mean target value — so the code *orders by price*, and a single tree
+mean target value, so the code *orders by price*, and a single tree
 split cleanly separates premium from commodity brands.
 
 <details>
@@ -586,8 +583,7 @@ split cleanly separates premium from commodity brands.
 
 An ordinal encoder assigns arbitrary (alphabetical) integers to
 categories. That means "tesla" (say, code 35) ends up next to
-"toyota" (code 36), so a tree's threshold split groups them together —
-but a $42k EV has nothing in common with a $12k Corolla. The result:
+"toyota" (code 36), so a tree's threshold split groups them together, but a $42k EV has nothing in common with a $12k Corolla. The result:
 the model can't isolate premium brands from commodity ones, and point
 estimates for Tesla, Porsche, and similar outliers are badly wrong.
 
@@ -601,18 +597,18 @@ overfitting on rare categories.
 
 **Source.** `src/p2predict/preprocessing.py::build_preprocessor`.
 
-### Algorithm selection — CV-driven, three candidates
+### Algorithm selection, CV-driven, three candidates
 
 > [!TIP]
 > **💡 What's cross-validation, and why use it?**
 >
 > If you train two algorithms on all of your data and pick the one with
-> the higher score, both will look great — they'll have *memorised* the
+> the higher score, both will look great, they'll have *memorised* the
 > data. Cross-validation gives an honest comparison instead: split the
 > training data into K equal chunks ("folds"), train on K−1 folds,
 > measure performance on the K-th fold, rotate, and average the K
 > scores. The result is an estimate of how the algorithm performs on
-> data it has never seen — which is what actually matters for
+> data it has never seen, which is what actually matters for
 > predictions on a new vehicle. P2Predict uses 5 folds at
 > `--budget thorough` and 3 at `--budget fast`.
 
@@ -631,13 +627,13 @@ fit, evaluated, and discarded in the same run.
 
 **Source.** `src/p2predict/training.py::auto_train`.
 
-### Hyperparameter search — `HalvingRandomSearchCV`
+### Hyperparameter search, `HalvingRandomSearchCV`
 
 <details>
 <summary>💡 <b>What's a hyperparameter, and why do we search?</b></summary>
 
 A hyperparameter is a setting *you* choose before training that the
-algorithm itself doesn't learn from the data — like Ridge's
+algorithm itself doesn't learn from the data, like Ridge's
 regularisation strength, or the depth limit on each XGBoost tree.
 Different settings give meaningfully different models. There's no
 analytical formula for the best setting on a given dataset, so the
@@ -679,14 +675,14 @@ refit on the full training set (`X_train`, `y_train`). The saved
 | `target_feature` | The target column name |
 | `model_name` | `ridge` / `random_forest` / `xgboost` |
 | `r2` | Holdout R² as a string for display |
-| `log_target` | `bool` — was the wrap applied? |
+| `log_target` | `bool`, was the wrap applied? |
 | `training_date`, `scikit_learn_version`, `p2predict_version` | Provenance |
 | `background_sample` | 100-row raw-features DataFrame for SHAP's `LinearExplainer` (no-op for trees) |
-| `calibration` | Dict with `residuals`, `in_log_space`, `n_calibration` — the input to split-conformal |
+| `calibration` | Dict with `residuals`, `in_log_space`, `n_calibration`, the input to split-conformal |
 
 **Source.** `src/p2predict/trained_model_io.py::Serialize_Trained_Model`.
 
-### Conformal intervals — split-conformal on the test residuals
+### Conformal intervals, split-conformal on the test residuals
 
 > [!TIP]
 > **💡 What does "90% likely range" actually mean?**
@@ -696,7 +692,7 @@ refit on the full training set (`X_train`, `y_train`). The saved
 > the true price fall inside the stated range. That's a real
 > guarantee from the math, not a hand-wavy calibration claim. The only
 > assumption is that future vehicles look like the training vehicles in
-> distribution (statisticians call this *exchangeability*) — the same
+> distribution (statisticians call this *exchangeability*), the same
 > assumption R² and every other model-quality metric already rely on.
 > The wider the range, the less the model knows about that part of
 > feature space; that's why the Tesla's interval is much wider than the
@@ -707,8 +703,8 @@ refit on the full training set (`X_train`, `y_train`). The saved
 residuals on the held-out test set; the (1 − α) empirical quantile of
 their absolute values is the interval half-width. The guarantee:
 
-> Under exchangeability of (train ∪ test ∪ new-point) — the *same*
-> assumption the model's R²/MAE numbers already rely on — the
+> Under exchangeability of (train ∪ test ∪ new-point), the *same*
+> assumption the model's R²/MAE numbers already rely on, the
 > probability that the true value of a new point falls inside its
 > predicted interval is at least 1 − α, marginally.
 
@@ -716,7 +712,7 @@ That's a mathematically *real* guarantee, not a heuristic.
 
 **For log-target models.** Residuals are computed in log space; the
 interval is `pred · exp(±q̂)` in price space, which gives constant
-*percentage* width — the natural shape for price-distribution data
+*percentage* width, the natural shape for price-distribution data
 (narrow on cheap parts, wide on expensive parts, same ±% on either).
 
 **For non-log models.** Residuals are computed in target units; the
@@ -728,14 +724,14 @@ interval is `pred ± q̂` (additive). Same conformal math, different scale.
 |---|---|
 | `n_calibration` (test rows used) | 15,680 |
 | `in_log_space` | `True` |
-| Banding | Mondrian — 3 bands by predicted value (low / mid / top) |
+| Banding | Mondrian, 3 bands by predicted value (low / mid / top) |
 | Coverage requested | 90% (`coverage=0.90`) |
 | Quantile method | `np.quantile(absolute_residuals, q, method="higher")` per band for finite-sample correctness |
 
 **Source.** `src/p2predict/intervals.py::compute_calibration_residuals`
 and `predict_interval`.
 
-### SHAP attribution — exact algorithms only
+### SHAP attribution, exact algorithms only
 
 > [!TIP]
 > **💡 What's a Shapley value?**
@@ -747,13 +743,13 @@ and `predict_interval`.
 > Shapley value is the **unique** way to split credit that satisfies
 > four common-sense fairness rules at once:
 >
-> 1. **Efficiency** — the parts add up to the whole (φ₀ + Σ φᵢ = prediction).
-> 2. **Symmetry** — two features that contribute the same get the same credit.
-> 3. **Missingness** — a feature that doesn't matter gets zero.
-> 4. **Consistency** — if the model changes to depend more on a feature, its credit can't go down.
+> 1. **Efficiency**, the parts add up to the whole (φ₀ + Σ φᵢ = prediction).
+> 2. **Symmetry**, two features that contribute the same get the same credit.
+> 3. **Missingness**, a feature that doesn't matter gets zero.
+> 4. **Consistency**, if the model changes to depend more on a feature, its credit can't go down.
 >
 > That uniqueness is why we can say "FWD pulls the price 15% off" and
-> *defend it under scrutiny* — instead of mumbling "feature
+> *defend it under scrutiny*, instead of mumbling "feature
 > importance," which is a heuristic that can violate any of these
 > four rules.
 
@@ -764,8 +760,8 @@ we support):
 
 | Family | Explainer | Cost | Background needed? |
 |---|---|---|---|
-| Linear (Ridge, Lasso) | `shap.LinearExplainer` | Closed-form `φᵢ = βᵢ · (xᵢ − E[xᵢ])`, O(F) | Yes — to estimate `E[xᵢ]`. Persisted with the model. |
-| Tree (RF, XGBoost) | `shap.TreeExplainer(..., feature_perturbation="tree_path_dependent")` | Exact Shapley in O(T · L · D²), `T` = trees, `L` = leaves, `D` = depth | No — estimated from the trees' own node counts |
+| Linear (Ridge, Lasso) | `shap.LinearExplainer` | Closed-form `φᵢ = βᵢ · (xᵢ − E[xᵢ])`, O(F) | Yes, to estimate `E[xᵢ]`. Persisted with the model. |
+| Tree (RF, XGBoost) | `shap.TreeExplainer(..., feature_perturbation="tree_path_dependent")` | Exact Shapley in O(T · L · D²), `T` = trees, `L` = leaves, `D` = depth | No, estimated from the trees' own node counts |
 
 **Source-column rollup.** One-hot dummies contribute one SHAP value per
 dummy. We sum across dummies that came from the same source column
@@ -779,7 +775,7 @@ every explanation; if floating-point drift pushes it past `1e-4`, the
 explanation surfaces a `residual` field for diagnostics. P2Predict's
 test suite locks this in for every supported model family.
 
-**For log-target models** — the multiplicative axiom kicks in as
+**For log-target models**, the multiplicative axiom kicks in as
 described in the log-target section above. The
 `Explanation.strict_multiplicative` flag is `True` when the wrap is
 `log` / `exp`, signalling that
@@ -801,7 +797,7 @@ would give R² = 1. Our holdout R² of 0.781 means the model explains
 about 78% of the variation in used-car prices using the 10 features we
 gave it. The remaining 22% is some mix of noise, missing features
 (trim, options, regional supply, seasonality), and structure the model
-just isn't capturing — which is what the residual-bias test below
+just isn't capturing, which is what the residual-bias test below
 quantifies.
 </details>
 
@@ -818,7 +814,7 @@ Excellent threshold at 80).
 
 **Source.** `src/p2predict/cli/train.py` (search for `quality_label`).
 
-### Residual-bias test — one-sample t-test against zero
+### Residual-bias test, one-sample t-test against zero
 
 <details>
 <summary>💡 <b>What's a p-value, in plain English?</b></summary>
@@ -827,7 +823,7 @@ A p-value is the probability of seeing data this extreme **if the
 thing you're testing for is actually *not* happening**. Here we're
 testing whether the model's average error is meaningfully different
 from zero. Our p-value of ≈ 7.5 × 10⁻¹⁰⁶ is effectively *impossibly
-small* — meaning there's essentially no chance the bias we're seeing is
+small*, meaning there's essentially no chance the bias we're seeing is
 just noise from a fundamentally unbiased model. The model really is
 leaning in one direction.
 
@@ -850,7 +846,7 @@ two unpaired samples); we replaced it in v0.3.
 
 **This case study's p-value ≈ 7.5 × 10⁻¹⁰⁶** is extremely small,
 meaning the Random Forest in log space is still leaving some structured
-variance behind — most likely at the tails of the price distribution.
+variance behind, most likely at the tails of the price distribution.
 With 15,680 test rows even a small systematic lean becomes significant.
 The practical impact is modest: MAE is $3,658 (22% of median), a major
 improvement over the prior Ridge model's $5,381 (39% of median).
@@ -884,14 +880,14 @@ generated from.
 | | |
 |---|---|
 | **Algorithm selected** (auto, CV) | `random_forest` (CV R² 0.749, beat XGBoost 0.732 and Ridge 0.668) |
-| **Log-target wrap** | **Active** — price skew 1.5 > 1.0 threshold |
+| **Log-target wrap** | **Active**, price skew 1.5 > 1.0 threshold |
 | **Rows after outlier handling** | 78,398 of 80,000 (1,602 dropped on `year` / `odometer` IQR bounds) |
-| **Target outliers** | Detected: 1,508 (Tukey upper bound $58,050). **Kept** — they're the right tail the log-target wrap is for. |
+| **Target outliers** | Detected: 1,508 (Tukey upper bound $58,050). **Kept**, they're the right tail the log-target wrap is for. |
 | **Feature outliers (dropped)** | 1,191 rows with `year` outside [1997, 2029]; 458 with `odometer` > 284,069 mi |
 
 > **Why Random Forest won.** With TargetEncoder mapping categoricals to
 > smoothed mean-target codes, the tree models can now isolate premium
-> brands from commodity brands in a single split — unlocking the
+> brands from commodity brands in a single split, unlocking the
 > nonlinear interactions (year × manufacturer × condition) that Ridge
 > can't capture. XGBoost was a close second (CV 0.732 vs RF 0.749);
 > both comfortably outperformed Ridge (0.668) now that the categorical
@@ -902,9 +898,9 @@ generated from.
 | | |
 |---|---|
 | R² | **0.781** |
-| MAE | **$3,658** (≈ 22% of the cleaned-data median price of $16,419 — the model is in the right ballpark on average, improved from the prior Ridge model's 39%) |
+| MAE | **$3,658** (≈ 22% of the cleaned-data median price of $16,419, the model is in the right ballpark on average, improved from the prior Ridge model's 39%) |
 | RMSE | $6,841 |
-| Residual-bias p-value | ≈ 7.5 × 10⁻¹⁰⁶ — one-sample t-test of residuals against zero. Very low with 15,680 test rows; even a small systematic lean becomes detectable. See [Methodology > Residual-bias test](#residual-bias-test--one-sample-t-test-against-zero). |
+| Residual-bias p-value | ≈ 7.5 × 10⁻¹⁰⁶, one-sample t-test of residuals against zero. Very low with 15,680 test rows; even a small systematic lean becomes detectable. See [Methodology > Residual-bias test](#residual-bias-test-one-sample-t-test-against-zero. |
 | Quality label | **Good** (R² × 100 = 78.1, which sits in the (60, 80] "Good" bucket, just shy of the 80 "Excellent" threshold). See [Methodology > Quality label](#quality-label). |
 
 ### Feature importance (Random Forest impurity-based)
@@ -923,7 +919,7 @@ generated from.
 | 10 | transmission | 0.011 |
 
 `year` dominates (46%) because it's the strongest single predictor of
-price in log space — newer cars are exponentially more valuable. The
+price in log space, newer cars are exponentially more valuable. The
 SHAP attribution in the [Worked examples](#worked-examples) section
 shows the per-row picture: for a specific listing, `manufacturer` or
 `type` can outweigh `year` depending on the combination.
@@ -941,20 +937,20 @@ itself produces interactively in expert mode.
 
 Page previews inline:
 
-### Page 1 — Summary
+### Page 1: Summary
 
-![Model quality report — page 1](assets/model_quality_report_page_1.png)
+![Model quality report, page 1](assets/model_quality_report_page_1.png)
 
 Headline: the model is well-calibrated through the core $8k–$40k band
 (most listings hug the perfect-prediction line) and diverges on the
-cheap-car tail — exactly where the residual-bias test was pointing.
+cheap-car tail, exactly where the residual-bias test was pointing.
 The Random Forest's nonlinear splits capture the middle of the
 distribution much better than Ridge did.
 
 > [!TIP]
 > **🧮 Mean vs median for percentage error.** The MAPE on this page is
 > 68.9%, much higher than the median 21.9% or even the P90 59.9%.
-> That's not a bug — MAPE is a *mean* of absolute percentage errors,
+> That's not a bug, MAPE is a *mean* of absolute percentage errors,
 > and a handful of cheap-car predictions (e.g. a $500 listing
 > predicted at $5,000) produce 900%+ errors that drag the mean way
 > above the median. For skewed-target use cases like used-car
@@ -962,26 +958,26 @@ distribution much better than Ridge did.
 > quote. The histogram on page 2 makes the source of MAPE's blow-up
 > visible.
 
-### Page 2 — Error distribution and calibration
+### Page 2: Error distribution and calibration
 
-![Model quality report — page 2](assets/model_quality_report_page_2.png)
+![Model quality report, page 2](assets/model_quality_report_page_2.png)
 
 This is the most insightful page. The bar chart on the right shows
 **median % error by price band**: accuracy is best on the
 $9,000–$12,793 band (17.5% median error) and worst on the
 $500–$4,400 band (61.2%). Bands above the overall median are
-highlighted in amber. The pattern is unmistakable — the model is well
+highlighted in amber. The pattern is unmistakable, the model is well
 calibrated through the middle of the price distribution and struggles
 at both tails (the cheap-car tail dominantly, but also the
 $38k+ specialty-car tail).
 
 For procurement use, this exact chart on a parts dataset answers
 *"where is the model trustworthy and where do I want a quote
-instead?"* — a directly actionable question.
+instead?"*, a directly actionable question.
 
-### Page 3 — Feature importance
+### Page 3: Feature importance
 
-![Model quality report — page 3](assets/model_quality_report_page_3.png)
+![Model quality report, page 3](assets/model_quality_report_page_3.png)
 
 The procurement-shaped feature importance view: **year alone
 explains 46% of the model's decisions** (impurity-based); together
@@ -989,11 +985,11 @@ with odometer (12.5%) and type (11.6%), the top 3 features explain
 **70% of what the model is doing**. This matches the SHAP story:
 year is the dominant lever for any individual listing, while
 manufacturer (8.4% impurity importance) has outsized *per-category*
-impact — as Finding #1 shows (2.7× spread from Porsche to Kia).
+impact, as Finding #1 shows (2.7× spread from Porsche to Kia).
 
 > **How to generate this report yourself.** As of v0.9.2, pass
 > `--report PATH` to `p2predict-train` and the PDF is written in one
-> step — see the train command in the [Reproducing](#reproducing-this-case-study)
+> step, see the train command in the [Reproducing](#reproducing-this-case-study)
 > section. Works in both auto and expert mode, with or without
 > `--interactive`. The same code path runs when you answer *yes* to
 > the legacy expert + interactive "generate the PDF report?" prompt.
@@ -1020,7 +1016,7 @@ python fetch_data.py
 #    data-sample/vehicles_sample.csv (5k-row committed sample)
 python prepare_data.py
 
-# 3. Train. Note --outliers warn (not drop) — we deliberately preserve
+# 3. Train. Note --outliers warn (not drop), we deliberately preserve
 #    the long right tail so the log-target wrap activates. And -tf
 #    overrides auto-mode's default 6-feature cap (see "Notes" below).
 #    --report writes the procurement-style PDF model-quality report in
@@ -1066,12 +1062,12 @@ p2predict-train \
 python predict_examples.py
 ```
 
-## Part 3 — Caveats
+## Part 3: Caveats
 
 ## Notes & footnotes worth knowing
 
 - **The `-tf` flag is here for a reason.** Auto-mode caps features at 6
-  by default — we pass all 10 columns explicitly so the log-target wrap
+  by default, we pass all 10 columns explicitly so the log-target wrap
   and the long-tail signal stay in the model. As of **v0.9.1** you can
   also bypass the cap with `--max-features 10` (auto mode prints a
   one-line notice when columns get dropped, so the loss is no longer
@@ -1087,7 +1083,7 @@ python predict_examples.py
   dataset. Redistribute it freely.
 - **One real bug got found and fixed by this case study.** Before this
   dataset, P2Predict's SHAP integration silently broke on any
-  Ridge/Lasso model whose preprocessor produced a sparse matrix — which
+  Ridge/Lasso model whose preprocessor produced a sparse matrix, which
   happens whenever the one-hot-encoded columns dominate the dense ones.
   The synthetic test fixture had only 10 OHE columns; used-cars has
   ~140. The bug, the fix, and the regression test all landed alongside
@@ -1095,7 +1091,7 @@ python predict_examples.py
 
 ## What this case study does *not* do (and why)
 
-- It doesn't predict resale value over time — we hold a snapshot. Adding
+- It doesn't predict resale value over time, we hold a snapshot. Adding
   time would require the `--time-column` flag and proper TimeSeriesSplit
   CV; that's covered in the procurement case studies, where it actually
   matters.
@@ -1104,7 +1100,7 @@ python predict_examples.py
   trim labels at the granularity that would actually matter, and the
   point of the case study is to demonstrate the toolkit on the columns
   a procurement / fleet user is most likely to have.
-- It doesn't tune for accuracy — the case study is about the *workflow*.
+- It doesn't tune for accuracy, the case study is about the *workflow*.
   R² 0.781 on noisy Craigslist data is a solid "ballpark with honest
   uncertainty"; if you wanted a production-grade Civic appraisal, you'd
   want richer features (trim, regional supply, seasonality) and a model
