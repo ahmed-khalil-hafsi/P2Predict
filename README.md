@@ -31,7 +31,7 @@ It runs on your machine, on your data, through any AI agent your team already us
 
 ## What it is, and what it isn't
 
-P2Predict is **parametric price prediction**. It learns the price patterns in your historical buying data and uses them to price the next part. Being precise about that is the whole point, so here is the honest scope.
+P2Predict is **parametric price prediction**. It learns the fundamental pricing structure in your historical buying data and benchmarks any part against it, the ones you are about to buy and the ones you already do. Being precise about that is the whole point, so here is the honest scope.
 
 **What it does**
 
