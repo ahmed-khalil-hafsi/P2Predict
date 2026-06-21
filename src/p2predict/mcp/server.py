@@ -329,10 +329,19 @@ async def explain(model_id: str, features: dict, top_n: int = 3) -> str:
         return _error("explain_error", str(e))
 
     drivers = top_drivers(expl, n=top_n)
+    # For log-target models expl.prediction is the inner model's output in LOG
+    # space (it satisfies baseline + sum(contributions) = prediction there).
+    # The user-facing prediction must be in price space and match predict() /
+    # predict_batch(), so surface predicted_price for log-target models.
+    user_prediction = (
+        expl.predicted_price
+        if expl.log_target and expl.predicted_price is not None
+        else expl.prediction
+    )
     return _ok({
         "model_id": model_id,
         "target": loaded.get("target_feature"),
-        "prediction": float(expl.prediction),
+        "prediction": float(user_prediction),
         "explanation": explanation_to_dict(expl),
         "top_drivers": [{"feature": f, "value": float(v)} for f, v in drivers],
     })
