@@ -27,6 +27,25 @@ def test_feature_signal_thresholds():
     assert quality.feature_signal(1.2) == "weak"
 
 
+def test_interval_reliability_thresholds():
+    # Tight band (±10% of prediction) → trust.
+    assert quality.interval_reliability(90.0, 100.0, 110.0) == "trust"
+    # Moderate band (±30%) → caution.
+    assert quality.interval_reliability(70.0, 100.0, 130.0) == "caution"
+    # Wide band (>80% of prediction) → quote.
+    assert quality.interval_reliability(40.0, 100.0, 150.0) == "quote"
+    # Lower bound underwater → always quote, regardless of width.
+    assert quality.interval_reliability(-5.0, 10.0, 30.0) == "quote"
+
+
+def test_interval_say_to_user_flags_negative_floor():
+    msg = quality.interval_say_to_user(-5.0, 10.0, 30.0)
+    assert "$0" in msg and "quote" in msg.lower()
+    # No statistical jargon leaks into the plain sentence.
+    for jargon in ("conformal", "coverage", "residual"):
+        assert jargon not in msg.lower()
+
+
 def test_assess_model_modest_but_unbiased_is_usable():
     a = quality.assess_model(r2=0.512, residual_bias_p=0.09, n_holdout=30)
     assert a["accuracy"] == "modest"

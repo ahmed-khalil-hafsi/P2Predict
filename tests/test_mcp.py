@@ -179,6 +179,9 @@ async def test_predict_interval(model_id):
     assert "error" not in result
     iv = result["interval"]
     assert iv["low"] <= result["prediction"] <= iv["high"]
+    # Per-part trust read the agent quotes instead of bare bounds.
+    assert iv["reliability"] in {"trust", "caution", "quote"}
+    assert iv["say_to_user"]
 
 
 @pytest.mark.asyncio
