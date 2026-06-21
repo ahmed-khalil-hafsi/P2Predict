@@ -15,13 +15,18 @@ from p2predict.cmdline_io import print_logo
 from p2predict.explain import Explanation, explain_batch, explain_row, top_drivers
 from p2predict.intervals import coverage_health, predict_interval
 from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
+# NOTE: the JSON serializers (_interval_per_row, _explanation_to_dict,
+# _whatif_to_dict) are defined LOCALLY below, on purpose. They are NOT imported
+# from model_utils. The CLI ``--json`` schema is versioned (JSON_SCHEMA_VERSION)
+# and locked by tests/test_json_output.py, so it stays deliberately lean. The
+# model_utils copies serve the MCP surface and carry extra business-facing
+# fields (price_drivers, starting_point, interval reliability/say_to_user,
+# what_if summary) that the locked CLI schema intentionally omits. Keep these
+# two surfaces independent. Only the pipeline helpers below are shared.
 from p2predict.model_utils import (
     coerce_features as _coerce_features,
-    explanation_to_dict as _explanation_to_dict,
     extract_feature_info as _extract_feature_info,
     inner_pipeline as _inner_pipeline,
-    interval_to_dicts as _interval_per_row,
-    whatif_to_dict as _whatif_to_dict,
 )
 from p2predict.trained_model_io import LoadModel
 from p2predict.whatif import (
