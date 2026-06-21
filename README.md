@@ -17,9 +17,11 @@
 
 ## The problem
 
-Your team negotiates thousands of prices a year on gut feel and last year's PO. The senior category manager who *knew* what a part should cost is retiring. Engineering adds a tolerance and nobody can say what it costs. A supplier quote lands and your category manager has no defensible number to push back with.
+Most of what a part costs is decided upstream, in a design review procurement never sees. An engineer tightens a tolerance beyond what the application needs, or locks the part to a single supplier, and the cost rides downstream with no number attached. By the time the BOM reaches procurement, the expensive decisions are frozen and all that is left to negotiate is the rounding.
 
-The pricing knowledge is sitting in your purchase history, waiting to be used.
+Then the quote arrives. The supplier knows their cost to the cent; you have last year's PO and a few days to respond. Multiply that across every line you buy and the leaks look the same everywhere: premiums no one benchmarked, specs no one costed, a number you cannot defend when finance asks where the savings went.
+
+The answers are already in your purchase history. Nobody has had the time to dig them out.
 
 ## What P2Predict does
 
@@ -77,11 +79,11 @@ Hold the spec fixed, swap the supplier, read the delta.
 >
 > **P2Predict:** *"Down 37.7%, about $2.07 a unit, with the per-feature breakdown to back it up."*
 
-A week of RFQs, answered in thirty seconds. That number is your lever in the room.
+More targeted RFQs, and a faster sourcing decision. That number is your lever in the room.
 
 ### In the design review: "Is this feature worth it?"
 
-Engineering proposes a tighter tolerance. Before it gets locked in, cost it.
+Engineering proposes a tighter tolerance. Before it gets locked in, price it.
 
 > **Engineer:** *"We want to go from ±0.1mm to ±0.05mm."*
 >
@@ -89,7 +91,7 @@ Engineering proposes a tighter tolerance. Before it gets locked in, cost it.
 >
 > **P2Predict:** *"+$0.42 a unit, +18%, likely range $0.30 to $0.55."*
 
-Now the conversation is *"is 18% worth this requirement?"*, a costed trade-off the room decides on numbers.
+Now the conversation is *"is 18% worth this requirement?"*, a priced trade-off the room can settle on numbers.
 
 ### In the cost-down workshop: "What is the design paying for that it doesn't need?"
 
@@ -121,7 +123,7 @@ Point P2Predict at a category and it shows you the levers. These charts come str
 
 The premium supplier is priced at roughly four times the value option for the same part. That is a number you take into a negotiation, backed by your own data.
 
-**Every estimate breaks down spec by spec.** Ask why a part costs what it does and you get the receipt:
+**Every estimate breaks down spec by spec.** Ask why a part is priced the way it is and you get the full breakdown:
 
 ![Per-feature dollar breakdown for one part](./case-studies/battery-management-ics/assets/ev_bms_attribution.png)
 
