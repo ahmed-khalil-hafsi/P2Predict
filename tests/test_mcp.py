@@ -84,6 +84,12 @@ async def test_list_models(registry, model_id):
     assert m["model_id"] == model_id
     assert m["target"] == "Price"
     assert len(m["features"]) == 4
+    # Discovery leads with a plain line and hides the raw stats by default.
+    assert m["say_to_user"]
+    assert "algorithm" not in m and "r2" not in m and "log_target" not in m
+    # Opt-in exposes the internals for the agent's own reasoning.
+    full = _parse(await mcp_server.list_models(include_internal=True))["models"][0]
+    assert "algorithm" in full and "r2" in full
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +106,9 @@ async def test_get_model_info(model_id):
     assert result["feature_types"]["Weight"] == "Numerical"
     assert result["feature_types"]["Region"] == "Categorical"
     assert "categories" in result
+    # Plain line present; raw stats gated out by default.
+    assert result["say_to_user"]
+    assert "algorithm" not in result and "log_target" not in result
 
 
 @pytest.mark.asyncio
@@ -420,6 +429,27 @@ async def test_get_model_quality(model_id):
     for feat in result["feature_importance"]:
         assert feat["signal"] in {"strong", "moderate", "weak"}
         assert feat["say_to_user"]
+    # Default payload is business-only: raw stats gated out, every quotable
+    # string free of the jargon a category manager has never heard.
+    assert "r2" not in result["metrics"]
+    assert "algorithm" not in result["provenance"]
+    assert "log_target" not in result["provenance"]
+    banned = ("shap", "r²", "p-value", "holdout", "residual", "log-target")
+    quotables = [result["assessment"]["headline"]]
+    quotables += [b["say_to_user"] for b in result["calibration_by_price_band"]]
+    quotables += [f["say_to_user"] for f in result["feature_importance"]]
+    for text in quotables:
+        low = text.lower()
+        for term in banned:
+            assert term not in low, f"{term!r} leaked: {text!r}"
+
+
+@pytest.mark.asyncio
+async def test_get_model_quality_include_metrics_restores_raw(model_id):
+    result = _parse(await mcp_server.get_model_quality(model_id, include_metrics=True))
+    assert "error" not in result
+    assert "r2" in result["metrics"]
+    assert "log_target" in result["provenance"]
 
 
 @pytest.mark.asyncio

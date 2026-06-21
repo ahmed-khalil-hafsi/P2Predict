@@ -130,35 +130,41 @@ def _json_default(obj: Any) -> Any:
 
 
 @mcp.tool()
-async def list_models() -> str:
+async def list_models(include_internal: bool = False) -> str:
     """List all trained P2Predict models in the configured models directory.
 
-    Call this first to discover which models are available. Returns each
-    model's ID, algorithm, target, features, and quality metrics.
+    Call this first to discover which models are available. Each model carries
+    a plain `say_to_user` line, its target, and its specs. Lead with
+    `say_to_user`; do NOT read out raw fields like algorithm or R² (and never
+    the words 'SHAP', 'log-target', 'R²') to a category manager. Pass
+    include_internal=true only when you need the algorithm name / R² / log-target
+    flag for your own reasoning.
     """
     registry = _get_registry()
     infos = await asyncio.to_thread(registry.scan)
     return _ok({
         "models_dir": str(registry.models_dir),
-        "models": [info.to_dict() for info in infos],
+        "models": [info.to_dict(include_internal=include_internal) for info in infos],
     })
 
 
 @mcp.tool()
-async def get_model_info(model_id: str) -> str:
+async def get_model_info(model_id: str, include_internal: bool = False) -> str:
     """Get detailed information about a specific model.
 
-    Returns the model's features, their types (Numerical/Categorical),
-    allowed categories for each categorical feature, calibration status,
-    and training metadata. Use this to understand what inputs a model
-    expects before calling predict or explain.
+    Returns a plain `say_to_user` line, the target, and the model's specs with
+    their types (Numerical/Categorical) and allowed categories — everything you
+    need to build a predict/explain call. Use it to understand what inputs a
+    model expects. Lead with `say_to_user`; do NOT surface algorithm / R² /
+    log-target (or the words 'SHAP', 'log-target', 'R²') to the user. Pass
+    include_internal=true for those raw fields when you need them to reason.
     """
     registry = _get_registry()
     try:
         info = await asyncio.to_thread(registry.get_info, model_id)
     except FileNotFoundError as e:
         return _error("model_not_found", str(e))
-    return _ok(info.to_dict())
+    return _ok(info.to_dict(include_internal=include_internal))
 
 
 @mcp.tool()
@@ -909,7 +915,9 @@ async def train(
     return _ok(result)
 
 
-def _quality_report_for(loaded: dict, include_holdout: bool = False) -> dict:
+def _quality_report_for(
+    loaded: dict, include_holdout: bool = False, include_metrics: bool = False
+) -> dict:
     """Build the structured quality report for a loaded model (shared by
     get_model_quality and generate_report). Raises ValueError('no_holdout_data')."""
     from p2predict.quality import build_quality_report
@@ -921,11 +929,16 @@ def _quality_report_for(loaded: dict, include_holdout: bool = False) -> dict:
         )
     except Exception:
         importances = None
-    return build_quality_report(loaded, importances, include_holdout=include_holdout)
+    return build_quality_report(
+        loaded, importances,
+        include_holdout=include_holdout, include_metrics=include_metrics,
+    )
 
 
 @mcp.tool()
-async def get_model_quality(model_id: str, include_holdout: bool = False) -> str:
+async def get_model_quality(
+    model_id: str, include_holdout: bool = False, include_metrics: bool = False
+) -> str:
     """Structured, agent-readable model-quality report — the JSON form of the PDF.
 
     Use this (not just generate_report, which only writes a PDF) when you need
@@ -933,11 +946,11 @@ async def get_model_quality(model_id: str, include_holdout: bool = False) -> str
     don't eyeball thresholds:
 
       - `assessment.verdict` — LEAD WITH THIS. One of: 'trustworthy' | 'usable'
-        | 'unreliable' (biased residuals) | 'unknown' (bias not measurable) |
-        'insufficient_data' (too few holdout points to judge). It folds bias and
-        sample size into the headline — e.g. a modest-R² but unbiased model is
-        'usable', not just 'Needs Improvement'. `assessment.confidence` is
-        'high' | 'limited' | 'insufficient'.
+        | 'unreliable' | 'unknown' | 'insufficient_data'. It folds bias and
+        sample size into a plain `headline` you can quote verbatim — e.g. a
+        modest model that is even-handed reads 'usable', not just 'Needs
+        Improvement'. `assessment.confidence` is 'high' | 'limited' |
+        'insufficient'.
       - `calibration_by_price_band[].reliability` — 'trust' | 'caution' |
         'quote' per price range (with `low_confidence` when a band is thin).
         Each band carries a `say_to_user` sentence in plain words — quote it to
@@ -946,12 +959,15 @@ async def get_model_quality(model_id: str, include_holdout: bool = False) -> str
         with its own `say_to_user` sentence. Only quote findings resting on
         'strong' drivers to a stakeholder.
 
-    Lead with the plain-language `headline` / `say_to_user` strings; the raw
-    `metrics` (R², p-values) are for your reasoning, not for the user's ears.
+    The default payload is deliberately business-only — every string is safe to
+    read to a category manager. NEVER say 'SHAP', 'R²', 'p-value', 'log-target',
+    'residual' to the user. The raw statistics (R², p-value, algorithm,
+    log-target) are NOT in the default response; pass include_metrics=true to
+    add them under `metrics`/`provenance` for your own developer-level reasoning.
 
     Set include_holdout=true to also get the raw actual/predicted arrays, so an
     agent with a code/plotting tool can draw its own charts (predicted-vs-actual,
-    residuals, error-by-band). `metrics` and `provenance` round out the report.
+    residuals, error-by-band).
 
     Requires a model trained via the MCP train tool (which stores holdout data).
     """
@@ -962,7 +978,9 @@ async def get_model_quality(model_id: str, include_holdout: bool = False) -> str
         return _error("model_not_found", str(e))
 
     try:
-        report = await asyncio.to_thread(_quality_report_for, loaded, include_holdout)
+        report = await asyncio.to_thread(
+            _quality_report_for, loaded, include_holdout, include_metrics
+        )
     except ValueError:
         return _error(
             "no_holdout_data",
