@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
 from p2predict.model_utils import extract_feature_info, inner_pipeline
@@ -24,8 +24,50 @@ class ModelInfo:
     calibration_size: int | None
     has_background: bool
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def _say_to_user(self) -> str:
+        """One plain sentence to quote at discovery — no algorithm/R²/log-target.
+
+        Deliberately makes NO trust claim: discovery has no holdout to judge on,
+        so it points the agent at get_model_quality instead of implying a verdict.
+        """
+        n = len(self.features)
+        specs = ", ".join(self.features) if self.features else "its specs"
+        return (
+            f"Estimates '{self.target}' from {n} spec(s) ({specs}). "
+            "I haven't trust-checked this model yet — ask me to run a quality "
+            "check before you benchmark a number against it."
+        )
+
+    def to_dict(self, include_internal: bool = False) -> dict:
+        """Business-safe by default.
+
+        A weaker agent surfaces whatever fields it sees, so the default view
+        carries only what a category manager can hear: a plain `say_to_user`
+        line, the target, the specs (and their types/categories, which the
+        agent needs to build predict calls). The algorithm name, R², log-target
+        flag, and calibration internals are gated behind ``include_internal``.
+        """
+        d = {
+            "model_id": self.model_id,
+            "say_to_user": self._say_to_user(),
+            "target": self.target,
+            "features": self.features,
+            "feature_types": self.feature_types,
+            "categories": self.categories,
+            "training_date": self.training_date,
+            "can_show_price_ranges": self.has_calibration,
+        }
+        if include_internal:
+            d.update({
+                "path": self.path,
+                "algorithm": self.algorithm,
+                "r2": self.r2,
+                "log_target": self.log_target,
+                "p2predict_version": self.p2predict_version,
+                "calibration_size": self.calibration_size,
+                "has_background": self.has_background,
+            })
+        return d
 
 
 def _model_info_from_loaded(model_id: str, path: str, loaded: dict) -> ModelInfo:

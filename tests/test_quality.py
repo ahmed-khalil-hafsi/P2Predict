@@ -52,14 +52,14 @@ def test_assess_model_modest_but_unbiased_is_usable():
     assert a["unbiased"] is True
     assert a["verdict"] == "usable"
     assert a["confidence"] == "limited"
-    assert "unbiased" in a["headline"].lower()
+    assert "even-handed" in a["headline"].lower()
 
 
 def test_assess_model_flags_bias():
     a = quality.assess_model(r2=0.85, residual_bias_p=1e-6, n_holdout=60)
     assert a["unbiased"] is False
     assert a["verdict"] == "unreliable"
-    assert "biased" in a["headline"].lower()
+    assert "systematically" in a["headline"].lower()
 
 
 def test_assess_model_trustworthy_high_confidence():
@@ -126,6 +126,63 @@ def test_build_quality_report_include_holdout():
     rep = quality.build_quality_report(loaded, include_holdout=True)
     assert len(rep["holdout"]["y_actual"]) == 40
     assert len(rep["holdout"]["y_predicted"]) == 40
+
+
+# Terms a category manager has never heard — must never appear in any string
+# the payload hands the agent to quote. Matched case-insensitively as substrings.
+BANNED_USER_TERMS = (
+    "shap", "r²", "r2", "p-value", "p_value", "holdout",
+    "residual", "log-target", "log target",
+)
+
+
+def _assert_clean(text: str):
+    low = text.lower()
+    for term in BANNED_USER_TERMS:
+        assert term not in low, f"jargon {term!r} leaked into a user string: {text!r}"
+
+
+def test_assess_model_headlines_are_jargon_free():
+    # Every verdict's headline is quoted to the user — keep them all clean.
+    cases = [
+        (0.512, 0.09, 30),   # usable
+        (0.85, 1e-6, 60),    # unreliable
+        (0.85, 0.5, 60),     # trustworthy
+        (0.95, 0.9, 8),      # insufficient_data
+        (0.6, float("nan"), 30),  # unknown
+    ]
+    for r2, p, n in cases:
+        _assert_clean(quality.assess_model(r2, p, n)["headline"])
+
+
+def test_quality_report_default_is_business_only():
+    rng = np.random.default_rng(0)
+    y_test = rng.uniform(0.5, 7.0, 60)
+    y_pred = y_test + rng.normal(0, 0.4, 60)
+    loaded = {
+        "holdout_y_test": y_test.tolist(), "holdout_y_pred": y_pred.tolist(),
+        "target_feature": "price", "model_name": "xgboost", "log_target": True,
+        "features": ["manufacturer", "pins"],
+    }
+    importances = [("manufacturer", 40.0), ("pins", 8.0)]
+
+    # Default: raw stats gated out, every emitted string clean.
+    rep = quality.build_quality_report(loaded, importances)
+    assert "r2" not in rep["metrics"]
+    assert "residual_bias_p_value" not in rep["metrics"]
+    assert "algorithm" not in rep["provenance"]
+    assert "log_target" not in rep["provenance"]
+    assert "typical_pct_error" in rep["metrics"]
+    _assert_clean(rep["assessment"]["headline"])
+    for band in rep["calibration_by_price_band"]:
+        _assert_clean(band["say_to_user"])
+    for feat in rep["feature_importance"]:
+        _assert_clean(feat["say_to_user"])
+
+    # Opt-in restores the raw statistics for developer use.
+    rep_full = quality.build_quality_report(loaded, importances, include_metrics=True)
+    assert "r2" in rep_full["metrics"]
+    assert "log_target" in rep_full["provenance"]
 
 
 def test_build_quality_report_thin_holdout_says_so():
