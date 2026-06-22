@@ -50,6 +50,13 @@ HIGH_CONFIDENCE_MIN_N = 50      # at/above → "high" confidence; between → "l
 # noisy to act on, so we flag it rather than dress it up as a verdict.
 MIN_BAND_N = 5
 
+# Per-PART interval trust, judged on the band width relative to the prediction
+# (full width / prediction). This is the model's confidence on THIS specific
+# part, separate from the model-wide verdict.
+INTERVAL_TIGHT_MAX_FRAC = 0.30   # ≤ this  → benchmark with confidence
+INTERVAL_WIDE_MAX_FRAC = 0.80    # ≤ this  → usable, sanity-check the number
+#                                  > this  → get a quote, don't benchmark
+
 
 # ---------------------------------------------------------------------------
 # Verdicts
@@ -102,6 +109,47 @@ def band_say_to_user(band: str, reliability: str, low_confidence: bool = False) 
     if low_confidence:
         phrase += " (Very few parts in this price range, so even this is rough.)"
     return phrase
+
+
+def interval_reliability(low: float, prediction: float, high: float) -> str:
+    """Per-part verdict from the likely-range: 'trust' | 'caution' | 'quote'.
+
+    A lower bound at/below $0 (an additive model underwater on a cheap part) is
+    always 'quote' — a price can't be negative, so the floor is meaningless and
+    the part needs a real quote.
+    """
+    if prediction <= 0 or low <= 0:
+        return "quote"
+    frac = (high - low) / prediction
+    if frac <= INTERVAL_TIGHT_MAX_FRAC:
+        return "trust"
+    if frac <= INTERVAL_WIDE_MAX_FRAC:
+        return "caution"
+    return "quote"
+
+
+def interval_say_to_user(low: float, prediction: float, high: float) -> str:
+    """Plain sentence on how far to trust THIS part's estimate — no 'conformal'."""
+    if prediction > 0 and low <= 0:
+        return (
+            "The likely-range dips to or below $0, which can't be a real price — "
+            "get a quote for this part rather than benchmarking, and the model "
+            "should be rebuilt on a percentage scale so cheap parts stay positive."
+        )
+    reliability = interval_reliability(low, prediction, high)
+    return {
+        "trust": (
+            "Tight range — you can benchmark against this number with confidence."
+        ),
+        "caution": (
+            "Moderate range — usable as a guide, but sanity-check it before you "
+            "hold a supplier to it."
+        ),
+        "quote": (
+            "Wide range — the model is genuinely unsure on this part; get a real "
+            "quote rather than benchmarking off this number."
+        ),
+    }[reliability]
 
 
 def feature_say_to_user(feature: str, signal: str) -> str:

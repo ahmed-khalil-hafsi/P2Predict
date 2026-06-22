@@ -296,12 +296,13 @@ async def predict_interval(
     coverage is an integer 1-99 (default 90). Requires a model trained with
     P2Predict v0.5+ (which stores calibration data).
 
-    Reading it for the user: the band WIDTH is the per-part trust signal. A
-    tight band = predict with confidence; a very wide band — or a lower bound
-    at/below $0 on an additive (non-log) model — means "I'm genuinely unsure
-    on this part; get a quote, don't benchmark." Always surface the range, not
-    just the point estimate, when the user will act on the number. A negative
-    lower bound is a sign the model should have used a log-target.
+    Reading it for the user: the band WIDTH is the per-part trust signal, and
+    the payload computes it for you — `interval.reliability`
+    ('trust' | 'caution' | 'quote') and a plain `interval.say_to_user` sentence
+    you can quote directly. A tight band = predict with confidence; a very wide
+    band — or a lower bound at/below $0 on an additive (non-log) model — means
+    "get a quote, don't benchmark." Always surface the range, not just the point
+    estimate, when the user will act on the number.
     """
     registry = _get_registry()
     try:
