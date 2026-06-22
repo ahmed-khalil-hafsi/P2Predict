@@ -83,6 +83,45 @@ def feature_signal(importance_pct: float) -> str:
     return "weak"
 
 
+def band_say_to_user(band: str, reliability: str, low_confidence: bool = False) -> str:
+    """Plain sentence a category manager understands — no 'median % error'."""
+    phrase = {
+        "trust": (
+            f"For parts priced around {band}, you can benchmark against this "
+            "model with confidence."
+        ),
+        "caution": (
+            f"For parts priced around {band}, use the estimate as a guide and "
+            "sanity-check it before you negotiate on it."
+        ),
+        "quote": (
+            f"For parts priced around {band}, the model is shaky — get a real "
+            "quote rather than benchmarking off it."
+        ),
+    }[reliability]
+    if low_confidence:
+        phrase += " (Very few parts in this price range, so even this is rough.)"
+    return phrase
+
+
+def feature_say_to_user(feature: str, signal: str) -> str:
+    """Plain sentence on how much weight to put on a driver — no 'importance share'."""
+    return {
+        "strong": (
+            f"'{feature}' is a major price driver here — solid enough to quote "
+            "in a negotiation."
+        ),
+        "moderate": (
+            f"'{feature}' moves the price somewhat — treat it as directional, "
+            "not a hard number."
+        ),
+        "weak": (
+            f"'{feature}' barely moves the price in this data — treat any "
+            "finding about it as a hypothesis, not a number to negotiate against."
+        ),
+    }[signal]
+
+
 def confidence_for(n_holdout: int) -> str:
     """How much to trust the quality verdict, from holdout size."""
     if n_holdout < MIN_HOLDOUT_FOR_JUDGMENT:
@@ -270,13 +309,16 @@ def build_quality_report(loaded: dict, importances=None, include_holdout=False) 
     calibration_note = None
     if bands:
         for label, med, n in zip(*bands):
+            reliability = band_reliability(med)
+            low_conf = n < MIN_BAND_N
             entry = {
                 "band": label,
                 "median_pct_error": round(med, 1),
                 "n": n,
-                "reliability": band_reliability(med),
+                "reliability": reliability,
+                "say_to_user": band_say_to_user(label, reliability, low_conf),
             }
-            if n < MIN_BAND_N:
+            if low_conf:
                 # Honest about thin bands: the verdict is computed but shaky.
                 entry["low_confidence"] = True
                 entry["note"] = f"only {n} point(s) in this band — verdict is noisy"
@@ -292,10 +334,12 @@ def build_quality_report(loaded: dict, importances=None, include_holdout=False) 
         total = sum(abs(float(v)) for _, v in importances) or 1.0
         for name, value in importances:
             pct = abs(float(value)) / total * 100
+            signal = feature_signal(pct)
             fi_block.append({
                 "feature": name,
                 "importance_pct": round(pct, 1),
-                "signal": feature_signal(pct),
+                "signal": signal,
+                "say_to_user": feature_say_to_user(name, signal),
             })
     feature_note = None if fi_block else (
         "Feature importance unavailable for this model."
