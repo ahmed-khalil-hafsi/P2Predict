@@ -57,16 +57,28 @@ def coerce_features(features_df, feature_types):
 
 
 def interval_to_dicts(intervals) -> list[dict]:
-    """Serialize a list of IntervalResult to JSON-ready dicts."""
-    return [
-        {
-            "low": float(ir.low),
-            "prediction": float(ir.prediction),
-            "high": float(ir.high),
+    """Serialize a list of IntervalResult to JSON-ready dicts.
+
+    Each dict carries the raw bounds AND a per-part trust read the agent can
+    quote: ``reliability`` ('trust' | 'caution' | 'quote') and a plain
+    ``say_to_user`` sentence derived from how wide the band is relative to the
+    prediction. Lead with ``say_to_user``; don't make the user infer trust from
+    the bare low/high numbers.
+    """
+    from p2predict.quality import interval_reliability, interval_say_to_user
+
+    out = []
+    for ir in intervals:
+        low, pred, high = float(ir.low), float(ir.prediction), float(ir.high)
+        out.append({
+            "low": low,
+            "prediction": pred,
+            "high": high,
             "band": ir.band,
-        }
-        for ir in intervals
-    ]
+            "reliability": interval_reliability(low, pred, high),
+            "say_to_user": interval_say_to_user(low, pred, high),
+        })
+    return out
 
 
 def explanation_to_dict(explanation: Explanation) -> dict:
