@@ -43,17 +43,19 @@ pip install -e ".[dev,mcp]"    # development with all extras
 
 ## MCP server
 
-The primary interface. See the [README quick start](README.md#quick-start) for setup.
+The primary interface. See [INSTALL.md](INSTALL.md) for client setup.
 
 Entry point: `p2predict-mcp --models-dir /path/to/models`
 
-All 10 tools are documented in the README. The server runs over stdio — no network, no data leaves disk. CPU-bound calls (predict, explain, train) run via `asyncio.to_thread()` to keep the event loop responsive.
+All 12 tools are documented in [INSTALL.md](INSTALL.md#what-the-agent-can-do-mcp-tools). The server runs over stdio — no network, no data leaves disk. CPU-bound calls (predict, explain, train) run via `asyncio.to_thread()` to keep the event loop responsive.
 
 Source: [`src/p2predict/mcp/server.py`](src/p2predict/mcp/server.py)
 
 ---
 
 ## CLI reference
+
+Both commands ship full `--help` (`p2predict-train --help`, `p2predict --help`), which is the always-current source of truth for flags and defaults. The tables below mirror it.
 
 ### Train
 
@@ -70,6 +72,7 @@ Auto-mode cross-validates Ridge, Random Forest, and XGBoost, picks the best, and
 | `--expert`, `-x` | Expert mode — control algorithm and HPO |
 | `--algorithm`, `-a` | Algorithm in expert mode: `ridge`, `xgboost`, `random_forest` |
 | `--interactive`, `-c` | Guided interactive mode |
+| `--verbose`, `-v` | Verbose progress output |
 | `--training_features`, `-tf` | Comma-separated features to use |
 | `--max-features` | Max features in auto mode (default 6) |
 | `--budget`, `-b` | HPO budget: `fast` (default) or `thorough` |
