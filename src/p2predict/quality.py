@@ -199,45 +199,52 @@ def assess_model(r2: float, residual_bias_p: float | None, n_holdout: int) -> di
     bias_known = residual_bias_p is not None and not np.isnan(residual_bias_p)
     unbiased = bias_known and residual_bias_p > UNBIASED_P
 
+    # NOTE: `headline` is quoted to the user (often verbatim by a weaker agent),
+    # so it must stay in plain procurement language — no 'SHAP', 'R²', 'holdout',
+    # 'residual', 'p-value', 'log-target'. The banned-term test in
+    # tests/test_quality.py enforces this; keep it green.
     if confidence == "insufficient":
         verdict = "insufficient_data"
         headline = (
-            f"Only {n_holdout} holdout point(s) — too few to judge quality "
-            "reliably. Treat every metric below as indicative at best; collect "
-            "more data before trusting this model to benchmark."
+            f"Only {n_holdout} part(s) were kept back to check this model — too "
+            "few to judge it reliably. Treat the numbers below as rough, and "
+            "gather more price history before benchmarking against it."
         )
     elif not bias_known:
         verdict = "unknown"
         headline = (
-            "Could not measure residual bias, so trustworthiness is unknown — "
-            "judge with caution and prefer relative comparisons."
+            "Couldn't tell whether this model runs systematically high or low, so "
+            "how far to trust it is unknown — judge with caution and stick to "
+            "relative comparisons."
         )
     elif not unbiased:
         verdict = "unreliable"
         headline = (
-            f"{accuracy.capitalize()} accuracy but residuals are biased "
-            "(systematically high or low) — point estimates are not trustworthy; "
-            "use only for relative comparisons, not absolute targets."
+            f"{accuracy.capitalize()} accuracy, but the model runs systematically "
+            "high or low — its single-number estimates aren't trustworthy. Use it "
+            "only to compare options, not to set an absolute target."
         )
     elif accuracy in ("excellent", "good"):
         verdict = "trustworthy"
         headline = (
-            f"{accuracy.capitalize()} accuracy and statistically unbiased — "
-            "trustworthy for benchmarking."
+            f"{accuracy.capitalize()} accuracy and even-handed (it doesn't run "
+            "systematically high or low) — trustworthy to benchmark against."
         )
     else:
         verdict = "usable"
         headline = (
-            "Modest accuracy but statistically unbiased — usable as a benchmark "
-            "and for relative comparisons (supplier premiums, what-ifs), not as a "
-            "single-part appraisal. Lean on the interval and SHAP, not the bare "
-            "point estimate."
+            "Modest accuracy but even-handed (it doesn't run systematically high "
+            "or low) — usable as a benchmark and for comparisons like supplier "
+            "premiums and what-ifs, but not to appraise a single part. Lean on the "
+            "likely-range and the price-driver breakdown, not the bare single "
+            "number."
         )
 
-    # Even a positive verdict carries a caveat when the holdout is small.
+    # Even a positive verdict carries a caveat when few parts were held back.
     if verdict in ("trustworthy", "usable") and confidence == "limited":
         headline += (
-            f" (Based on a small {n_holdout}-point holdout — treat as indicative.)"
+            f" (Based on only {n_holdout} parts kept back for checking — treat as "
+            "indicative.)"
         )
 
     return {
@@ -333,7 +340,9 @@ def residual_bias_p(y_test, y_pred) -> float:
     return float(ttest_1samp(resid, 0.0).pvalue)
 
 
-def build_quality_report(loaded: dict, importances=None, include_holdout=False) -> dict:
+def build_quality_report(
+    loaded: dict, importances=None, include_holdout=False, include_metrics=False
+) -> dict:
     """Assemble the structured quality report from a loaded model dict.
 
     ``loaded`` is the dict returned by ``load_model`` (needs
@@ -341,6 +350,13 @@ def build_quality_report(loaded: dict, importances=None, include_holdout=False) 
     list of ``(feature, value)`` pairs. Set ``include_holdout=True`` to attach
     the raw actual/predicted arrays so a caller can draw its own charts.
     Raises ``ValueError("no_holdout_data")`` when the holdout isn't stored.
+
+    ``include_metrics`` (default False) gates the raw statistics — R²,
+    p-value, MAE/RMSE, algorithm name, log-target flag. They stay OUT of the
+    default payload on purpose: a weaker agent surfaces whatever fields it
+    sees, so the default carries only business-safe numbers (typical % error,
+    how many parts were checked) plus the plain-language assessment. Pass
+    ``include_metrics=True`` for the developer/debug view.
     """
     y_test = loaded.get("holdout_y_test")
     y_pred = loaded.get("holdout_y_pred")
@@ -369,12 +385,14 @@ def build_quality_report(loaded: dict, importances=None, include_holdout=False) 
             if low_conf:
                 # Honest about thin bands: the verdict is computed but shaky.
                 entry["low_confidence"] = True
-                entry["note"] = f"only {n} point(s) in this band — verdict is noisy"
+                entry["note"] = (
+                    f"only {n} part(s) in this price range — this read is noisy"
+                )
             band_block.append(entry)
     else:
         calibration_note = (
-            "Too few holdout points to calibrate by price band — no per-band "
-            "reliability available."
+            "Too few parts were kept back to break reliability down by price "
+            "range — no per-range read available."
         )
 
     fi_block = []
@@ -393,26 +411,36 @@ def build_quality_report(loaded: dict, importances=None, include_holdout=False) 
         "Feature importance unavailable for this model."
     )
 
-    report = {
-        "provenance": {
-            "target": loaded.get("target_feature"),
-            "algorithm": loaded.get("model_name"),
-            "log_target": loaded.get("log_target"),
-            "features": loaded.get("features"),
-            "n_features": len(loaded.get("features") or []),
-            "training_date": loaded.get("training_date"),
-        },
-        "metrics": {
+    # Business-safe by default. provenance/metrics carry only what a category
+    # manager can hear; the raw statistics are added only when include_metrics.
+    provenance = {
+        "target": loaded.get("target_feature"),
+        "features": loaded.get("features"),
+        "n_features": len(loaded.get("features") or []),
+        "training_date": loaded.get("training_date"),
+    }
+    metrics_block = {
+        "typical_pct_error": round(metrics["median_ape"], 1),
+        "parts_checked_against": n_holdout,
+        "quality_label": assessment["quality_label"],
+    }
+    if include_metrics:
+        provenance["algorithm"] = loaded.get("model_name")
+        provenance["log_target"] = loaded.get("log_target")
+        metrics_block.update({
             "r2": round(metrics["r2"], 4),
             "mae": round(metrics["mae"], 4),
             "rmse": round(metrics["rmse"], 4),
-            "median_pct_error": round(metrics["median_ape"], 1),
             "mape": round(metrics["mape"], 1),
             "p90_pct_error": round(metrics["p90_ape"], 1),
-            "residual_bias_p_value": round(bias_p, 4) if not np.isnan(bias_p) else None,
-            "n_holdout": n_holdout,
-            "quality_label": assessment["quality_label"],
-        },
+            "residual_bias_p_value": (
+                round(bias_p, 4) if not np.isnan(bias_p) else None
+            ),
+        })
+
+    report = {
+        "provenance": provenance,
+        "metrics": metrics_block,
         "assessment": assessment,
         "calibration_by_price_band": band_block,
         "calibration_note": calibration_note,
