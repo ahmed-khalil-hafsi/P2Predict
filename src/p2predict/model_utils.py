@@ -70,7 +70,19 @@ def interval_to_dicts(intervals) -> list[dict]:
 
 
 def explanation_to_dict(explanation: Explanation) -> dict:
-    """Serialize an Explanation to a JSON-ready dict."""
+    """Serialize an Explanation to a JSON-ready dict.
+
+    The dict carries TWO views of the same attribution:
+
+      - A business view the agent can quote to a category manager verbatim:
+        ``starting_point`` (the baseline price every part starts from) and
+        ``price_drivers`` (each spec/supplier's effect in dollars AND percent,
+        biggest mover first). This is the view to lead with.
+      - The technical view (``baseline``, ``contributions``,
+        ``multiplicative_factors``, ``dollar_attribution``, ``residual``) for
+        callers that need the raw SHAP numbers. Do NOT surface these key names
+        to a procurement user.
+    """
     out = {
         "baseline": float(explanation.baseline),
         "prediction": float(explanation.prediction),
@@ -107,12 +119,75 @@ def explanation_to_dict(explanation: Explanation) -> dict:
     else:
         out["multiplicative_factors"] = None
         out["dollar_attribution"] = None
+
+    out["starting_point"] = _business_starting_point(explanation)
+    out["price_drivers"] = _business_price_drivers(explanation)
     return out
 
 
+def _business_starting_point(explanation: Explanation) -> float:
+    """The baseline price every part 'starts from' before its specs apply, in
+    dollars (price space for log-target models)."""
+    if explanation.log_target and explanation.baseline_price is not None:
+        return float(explanation.baseline_price)
+    return float(explanation.baseline)
+
+
+def _business_price_drivers(explanation: Explanation) -> list[dict]:
+    """A single plain-language attribution list the agent can quote directly.
+
+    Each entry is one spec/supplier and its effect on the price, expressed in
+    BOTH dollars and percent, biggest absolute mover first:
+        {"driver": "Supplier ADI", "effect_dollars": 0.72, "effect_pct": 18.0}
+    Works for additive and log-target models alike, so the caller never has to
+    branch on the model's internal scale.
+    """
+    drivers: list[dict] = []
+    if explanation.log_target and explanation.multiplicative_factors is not None:
+        dollars = explanation.dollar_attribution or {}
+        for feature, factor in explanation.multiplicative_factors.items():
+            drivers.append({
+                "driver": feature,
+                "effect_dollars": (
+                    round(float(dollars[feature]), 4) if feature in dollars else None
+                ),
+                "effect_pct": round((float(factor) - 1.0) * 100.0, 1),
+            })
+    else:
+        # Additive model: contributions are already dollars; percent is the
+        # share of the baseline each driver moves the price by.
+        base = float(explanation.baseline) or 1.0
+        for feature, value in explanation.contributions.items():
+            drivers.append({
+                "driver": feature,
+                "effect_dollars": round(float(value), 4),
+                "effect_pct": round(float(value) / base * 100.0, 1),
+            })
+    drivers.sort(key=lambda d: abs(d["effect_dollars"] or 0.0), reverse=True)
+    return drivers
+
+
 def whatif_to_dict(result: WhatIfResult) -> dict:
-    """Serialize a WhatIfResult to a JSON-ready dict."""
+    """Serialize a WhatIfResult to a JSON-ready dict.
+
+    ``summary`` is the plain-language headline the agent can quote to a category
+    manager ("Switching to Microchip saves $0.41 per part, -12%"); the
+    remaining keys are the technical detail behind it. Lead with ``summary``.
+    """
+    delta = float(result.delta)
+    direction = "no change"
+    if delta > 0:
+        direction = "adds"
+    elif delta < 0:
+        direction = "saves"
     return {
+        "summary": {
+            "direction": direction,  # "adds" | "saves" | "no change"
+            "effect_dollars": round(abs(delta), 4),
+            "effect_pct": round(abs(float(result.delta_pct)), 1),
+            "new_price": round(float(result.counterfactual_prediction), 4),
+            "old_price": round(float(result.base_prediction), 4),
+        },
         "changes": {
             col: {"from": base_val, "to": cf_val}
             for col, (base_val, cf_val) in result.changes.items()

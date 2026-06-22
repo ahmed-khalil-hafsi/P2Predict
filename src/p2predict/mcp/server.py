@@ -32,6 +32,21 @@ mcp = FastMCP(
         "procurement language ('this supplier adds $0.72', not 'feature "
         "importance 0.4').\n"
         "\n"
+        "SPEAK BUSINESS, NOT STATISTICS. Never say these words to the user — "
+        "translate every one:\n"
+        "  • 'SHAP' / 'attribution' / 'contribution' -> 'what's driving the "
+        "price' (the JSON gives you `price_drivers` and `starting_point` "
+        "already in dollars and percent — quote those).\n"
+        "  • 'log-target' -> 'I'm modelling on a percentage scale so the likely-"
+        "range never goes negative on cheap parts'.\n"
+        "  • 'R²' / 'p-value' / 'residual bias' / 'feature importance' -> use the "
+        "computed verdicts instead: every quality block carries a `headline` and "
+        "per-band / per-feature `say_to_user` sentence written in plain words. "
+        "Quote those; do not read raw metrics aloud.\n"
+        "  • 'feature' / 'target' -> 'spec' / 'the price'.\n"
+        "The raw statistical keys stay in the JSON for your reasoning — just "
+        "don't surface their names to a category manager.\n"
+        "\n"
         "DISCOVER & ANALYSE: use list_models to find trained models, then "
         "predict, explain, predict_interval, or what_if on parts. Use "
         "get_model_quality to judge whether a model is trustworthy before "
@@ -215,19 +230,22 @@ async def predict_batch(model_id: str, rows: list[dict]) -> str:
 
 @mcp.tool()
 async def explain(model_id: str, features: dict, top_n: int = 3) -> str:
-    """Explain why a prediction has its value using SHAP attribution.
+    """Explain what is driving a part's predicted price, spec by spec.
 
-    Shows each feature's contribution to moving the prediction from the
-    baseline. For log-target models, also shows multiplicative factors.
-    top_n controls how many top drivers are highlighted (default 3).
+    Returns a business-ready view to quote directly — `starting_point` (the
+    baseline price every part starts from) and `price_drivers` (each spec /
+    supplier's effect in BOTH dollars and percent, biggest mover first) — plus
+    the underlying technical attribution for your own reasoning. top_n controls
+    how many top drivers are highlighted (default 3).
 
     Reading it for the user: the explanation carries an axiom check
     (baseline +/x contributions = prediction); if it fails the explanation is
     unsound. SIGN-CHECK the drivers against intuition — a counterintuitive
-    sign (e.g. "more cells -> cheaper") on a LOW-importance feature means that
-    feature is under-sampled, not that the world is upside-down. Quote the
+    sign (e.g. "more cells -> cheaper") on a LOW-importance driver means that
+    spec is under-sampled, not that the world is upside-down. Quote the
     high-importance, correctly-signed drivers; flag the rest as noise. State
-    contributions in the user's terms ("this supplier adds $0.72" / "+18%").
+    effects in the user's terms ("this supplier adds $0.72" / "+18%") — never
+    say "SHAP", "contribution", or "baseline" to a category manager.
     """
     registry = _get_registry()
     try:
@@ -343,9 +361,11 @@ async def what_if(
 ) -> str:
     """Compare a base scenario with a counterfactual where features change.
 
-    Shows both predictions, the delta (dollars and percent), and SHAP
-    attribution of each change. Answers questions like "what if we switch
-    from supplier A to B?" Set coverage to null to skip intervals.
+    Returns a plain `summary` to quote directly (does the change add or save,
+    how many dollars, what percent, old vs. new price), plus both predictions,
+    the delta, and per-driver attribution of each change for your reasoning.
+    Answers "what if we switch from supplier A to B?" Set coverage to null to
+    skip intervals.
     """
     registry = _get_registry()
     try:
@@ -919,9 +939,14 @@ async def get_model_quality(model_id: str, include_holdout: bool = False) -> str
         'high' | 'limited' | 'insufficient'.
       - `calibration_by_price_band[].reliability` — 'trust' | 'caution' |
         'quote' per price range (with `low_confidence` when a band is thin).
-        Tell the user which prices to benchmark vs. get a quote on.
-      - `feature_importance[].signal` — 'strong' | 'moderate' | 'weak'. Only
-        quote findings resting on 'strong' features to a stakeholder.
+        Each band carries a `say_to_user` sentence in plain words — quote it to
+        tell the user which prices to benchmark vs. get a quote on.
+      - `feature_importance[].signal` — 'strong' | 'moderate' | 'weak', each
+        with its own `say_to_user` sentence. Only quote findings resting on
+        'strong' drivers to a stakeholder.
+
+    Lead with the plain-language `headline` / `say_to_user` strings; the raw
+    `metrics` (R², p-values) are for your reasoning, not for the user's ears.
 
     Set include_holdout=true to also get the raw actual/predicted arrays, so an
     agent with a code/plotting tool can draw its own charts (predicted-vs-actual,

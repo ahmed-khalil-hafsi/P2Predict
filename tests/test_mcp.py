@@ -158,6 +158,14 @@ async def test_explain(model_id):
     total = sum(c["value"] for c in expl["contributions"])
     assert abs(total - (expl["prediction"] - expl["baseline"])) < 0.5
     assert len(result["top_drivers"]) <= 3
+    # Business-facing view the agent quotes to a category manager.
+    assert "starting_point" in expl
+    assert expl["price_drivers"], "price_drivers must be populated"
+    top = expl["price_drivers"][0]
+    assert {"driver", "effect_dollars", "effect_pct"} <= set(top)
+    # Sorted biggest-mover-first by absolute dollar effect.
+    effects = [abs(d["effect_dollars"] or 0.0) for d in expl["price_drivers"]]
+    assert effects == sorted(effects, reverse=True)
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +200,11 @@ async def test_what_if(model_id):
     assert "error" not in result
     wi = result["whatif"]
     assert abs(wi["delta"] - (wi["counterfactual_prediction"] - wi["base_prediction"])) < 0.01
+    # Plain-language summary the agent quotes directly.
+    summary = wi["summary"]
+    assert summary["direction"] in {"adds", "saves", "no change"}
+    assert summary["effect_dollars"] >= 0
+    assert abs(summary["effect_dollars"] - abs(wi["delta"])) < 0.01
 
 
 @pytest.mark.asyncio
@@ -398,8 +411,12 @@ async def test_get_model_quality(model_id):
     assert a["unbiased"] in (True, False, None)
     for band in result["calibration_by_price_band"]:
         assert band["reliability"] in {"trust", "caution", "quote"}
+        # Plain sentence the agent quotes — no "median % error" leaks through.
+        assert band["say_to_user"]
+        assert "% error" not in band["say_to_user"]
     for feat in result["feature_importance"]:
         assert feat["signal"] in {"strong", "moderate", "weak"}
+        assert feat["say_to_user"]
 
 
 @pytest.mark.asyncio
