@@ -92,6 +92,46 @@ mcp = FastMCP(
     ),
 )
 
+def _compute_server_build() -> dict:
+    """Identity of the build THIS process loaded — captured once at import time.
+
+    MCP servers are long-lived: a process started before a code change keeps
+    serving the old code until it is restarted. We capture the version + git
+    short-SHA at import (NOT at call time) on purpose — a stale process then
+    honestly reports the build it actually loaded, instead of reading the repo's
+    current HEAD off disk and falsely claiming to be up to date. That lets a
+    caller tell, at a glance, whether the server needs a restart after a change
+    was shipped.
+    """
+    import importlib.metadata
+    import subprocess
+    from pathlib import Path as _Path
+
+    try:
+        version = importlib.metadata.version("p2predict")
+    except Exception:
+        version = "unknown"
+
+    pkg_dir = _Path(__file__).resolve().parent  # .../p2predict/mcp
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(pkg_dir), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=2,
+        )
+        git_sha = proc.stdout.strip() or None
+    except Exception:
+        git_sha = None
+
+    return {
+        "version": version,
+        "git_sha": git_sha,                 # None for a non-git (e.g. PyPI) install
+        "source": str(pkg_dir.parent),      # where the running code is loaded from
+    }
+
+
+# Captured at import = at process spawn. Do not recompute per call.
+_SERVER_BUILD = _compute_server_build()
+
 _registry: ModelRegistry | None = None
 
 
@@ -139,10 +179,16 @@ async def list_models(include_internal: bool = False) -> str:
     the words 'SHAP', 'log-target', 'R²') to a category manager. Pass
     include_internal=true only when you need the algorithm name / R² / log-target
     flag for your own reasoning.
+
+    The response also carries a `server` block (version + git short-SHA + source
+    path) identifying the build this server process loaded — useful to confirm a
+    code change actually took effect (MCP servers are long-lived; a stale process
+    serves old code until restarted).
     """
     registry = _get_registry()
     infos = await asyncio.to_thread(registry.scan)
     return _ok({
+        "server": _SERVER_BUILD,
         "models_dir": str(registry.models_dir),
         "models": [info.to_dict(include_internal=include_internal) for info in infos],
     })
@@ -1113,5 +1159,16 @@ def main():
 
     global _registry
     _registry = ModelRegistry(Path(args.models_dir).resolve())
+
+    # stderr is safe on stdio transport (stdout is the MCP protocol channel) and
+    # shows up in the client's server logs — a quick way to confirm which build
+    # is actually running.
+    import sys
+    print(
+        f"P2Predict MCP server v{_SERVER_BUILD['version']} "
+        f"({_SERVER_BUILD['git_sha'] or 'no-git'}) loaded from "
+        f"{_SERVER_BUILD['source']}",
+        file=sys.stderr,
+    )
 
     mcp.run(transport="stdio")
