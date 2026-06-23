@@ -80,6 +80,10 @@ async def test_list_models(registry, model_id):
     result = _parse(await mcp_server.list_models())
     assert "models" in result
     assert len(result["models"]) == 1
+    # Build stamp so a caller can confirm which server build is running.
+    assert "server" in result
+    assert result["server"]["version"]
+    assert "git_sha" in result["server"] and "source" in result["server"]
     m = result["models"][0]
     assert m["model_id"] == model_id
     assert m["target"] == "Price"
