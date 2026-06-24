@@ -2,7 +2,7 @@
 
 # P2Predict
 
-### Know what every part should cost, before you walk into the room.
+### Uncover the hidden structure in your category pricing.
 
 **P2Predict turns your purchasing history into a price model your team can talk to. Ask what a part should cost, why, and how sure the answer is, in plain language, through the AI agent you already use.**
 
