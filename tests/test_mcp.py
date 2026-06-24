@@ -49,6 +49,40 @@ def mcp_registry(tmp_path, synthetic_parts):
 
 
 @pytest.fixture
+def log_target_model_id(tmp_path, synthetic_parts_skewed):
+    """Train and wire a LOG-TARGET model (skewed prices trigger the log wrap).
+
+    The explain/predict price-space agreement regression test needs a model
+    whose inner estimator predicts log(price); the default mcp_registry model
+    is additive and would not exercise that path.
+    """
+    features = ["Weight", "Region", "Supplier", "Size"]
+    X_train, X_test, y_train, y_test, num, cat = prepare_data(
+        synthetic_parts_skewed, features, "Price"
+    )
+    model, algo, scores, log_t = auto_train(
+        X_train, y_train, num, cat, budget="fast"
+    )
+    assert log_t, "skewed fixture expected to yield a log-target model"
+    bg = X_train.sample(min(100, len(X_train)), random_state=0).reset_index(drop=True)
+    cal = compute_calibration_residuals(model, X_test, y_test)
+
+    meta = Serialize_Trained_Model(
+        algo, features, "Price", model, scores[algo],
+        log_target=log_t, background_sample=bg, calibration=cal,
+    )
+    models_dir = tmp_path / "log_models"
+    models_dir.mkdir()
+    model_path = models_dir / f"{algo}_Price_log_test.model"
+    save_model(meta, str(model_path))
+
+    registry = ModelRegistry(models_dir)
+    mcp_server._registry = registry
+    yield model_path.stem
+    mcp_server._registry = None
+
+
+@pytest.fixture
 def model_id(mcp_registry):
     return mcp_registry[1]
 
@@ -179,6 +213,33 @@ async def test_explain(model_id):
     # Sorted biggest-mover-first by absolute dollar effect.
     effects = [abs(d["effect_dollars"] or 0.0) for d in expl["price_drivers"]]
     assert effects == sorted(effects, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_explain_prediction_matches_predict_log_target(log_target_model_id):
+    """Regression: for a log-target model, explain's top-level `prediction`
+    must be in price space and equal predict()/predict_batch(), not the inner
+    model's log-space output. (Previously explain surfaced log(price).)"""
+    predict_res = _parse(await mcp_server.predict(log_target_model_id, SAMPLE_FEATURES))
+    explain_res = _parse(await mcp_server.explain(log_target_model_id, SAMPLE_FEATURES))
+    batch_res = _parse(
+        await mcp_server.predict_batch(log_target_model_id, [SAMPLE_FEATURES])
+    )
+
+    assert "error" not in predict_res and "error" not in explain_res
+    assert explain_res["explanation"]["log_target"] is True
+
+    predict_price = predict_res["prediction"]
+    batch_price = batch_res["predictions"][0]["prediction"]
+    explain_price = explain_res["prediction"]
+
+    assert explain_price == pytest.approx(predict_price, rel=1e-6)
+    assert explain_price == pytest.approx(batch_price, rel=1e-6)
+    # The price-space prediction must differ from the raw log-space inner value
+    # that the technical view still carries (guards against a no-op "fix").
+    assert explain_price == pytest.approx(
+        np.exp(explain_res["explanation"]["prediction"]), rel=1e-6
+    )
 
 
 # ---------------------------------------------------------------------------
