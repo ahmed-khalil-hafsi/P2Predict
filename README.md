@@ -27,6 +27,24 @@ P2Predict learns from your own purchasing data what drives the price of a part: 
 
 It runs on your machine, on your data, through any AI agent your team already uses. Nothing is uploaded. No vendor catalog, no cloud, no per-seat data-sharing.
 
+## What it is, and what it isn't
+
+P2Predict is **parametric price prediction**. It learns the price patterns in your historical buying data and uses them to price the next part. Being precise about that is the whole point, so here is the honest scope.
+
+**What it does**
+
+- Learns from the prices you have actually paid and predicts what a similar part should cost.
+- Attributes that predicted price to each spec and to the supplier, so you can see what is moving the number.
+- Puts a calibrated likely-range on every estimate and flags where the data is too thin to trust.
+- Improves as you give it more of your own purchase history.
+
+**What it does not do**
+
+- **It is not a should-cost tool.** It does not build a part up from raw material, labor, and machine time, and it cannot tell you a supplier's true cost or margin.
+- It only knows what your data has shown it. Ask about a part unlike anything in your history and it will widen the range or tell you to get a quote rather than guess.
+- The per-spec breakdown shows what is *associated* with price in your data. It is a read on your market, not a causal or engineering model of why a part costs what it does.
+- It does not invent data. No relevant history, no model.
+
 ## The conversations it changes
 
 This is where P2Predict earns its keep. Every one of these is a real question your team can now answer in seconds, with a number and the confidence behind it.
@@ -93,7 +111,7 @@ Three real parts, three different confidence ranges. The model is tight on the p
 - **An honest map of where the model is strong and where it is thin.** P2Predict flags which parts of your category it can benchmark with confidence and which need a real quote, so nobody negotiates off a number the data can't support.
 - **A reason for every number.** Every estimate breaks down into what each spec and the supplier contribute, so you argue the components line by line.
 
-## See what actually drives the cost
+## See what actually drives the price
 
 Point P2Predict at a category and it shows you the levers. These charts come straight out of the [Battery Management ICs case study](case-studies/battery-management-ics/), built on public catalog data anyone can reproduce.
 
@@ -115,7 +133,7 @@ P2Predict speaks to **any AI agent**: Claude, and any other assistant your team 
 
 Everything runs **locally**. Your purchasing data is your most sensitive commercial asset, so it stays on your machine. No upload, no third-party model training on your spend, no data-residency conversation with legal.
 
-It complements should-cost tools. Bottom-up should-costing builds a part up from material, labor, and machine time. P2Predict answers the other question every category manager actually asks: *what has the market charged us for parts like this, and what should the next one cost?*
+It complements should-cost tools, it does not replace them. Bottom-up should-costing builds a part up from material, labor, and machine time to estimate what it *should cost to make*. P2Predict does not do that and is not trying to. It answers the other question every category manager actually asks: *what has the market charged us for parts like this, and what should we expect to pay for the next one?*
 
 ## Proof on public data
 
