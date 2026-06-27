@@ -187,6 +187,41 @@ async def test_predict_batch(model_id):
     assert len(result["predictions"]) == 2
     for p in result["predictions"]:
         assert isinstance(p["prediction"], float)
+    # Plain point predictions by default — no enrichment unless asked.
+    assert all("interval" not in p for p in result["predictions"])
+    assert all("explanation" not in p for p in result["predictions"])
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_with_interval(model_id):
+    rows = [SAMPLE_FEATURES, {**SAMPLE_FEATURES, "Region": "CN"}]
+    result = _parse(await mcp_server.predict_batch(model_id, rows, coverage=90))
+    assert "error" not in result
+    assert result["coverage_pct"] == 90
+    for p in result["predictions"]:
+        iv = p["interval"]
+        assert iv["low"] <= p["prediction"] <= iv["high"]
+        assert iv["reliability"] in {"trust", "caution", "quote"}
+        assert iv["say_to_user"]
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_with_explanation(model_id):
+    rows = [SAMPLE_FEATURES, {**SAMPLE_FEATURES, "Region": "CN"}]
+    result = _parse(
+        await mcp_server.predict_batch(model_id, rows, with_explanation=True)
+    )
+    assert "error" not in result
+    for p in result["predictions"]:
+        assert p["explanation"]["contributions"]
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_bad_coverage(model_id):
+    result = _parse(
+        await mcp_server.predict_batch(model_id, [SAMPLE_FEATURES], coverage=0)
+    )
+    assert result["error"]["code"] == "bad_coverage"
 
 
 # ---------------------------------------------------------------------------
@@ -308,6 +343,26 @@ async def test_predict_from_csv(model_id, tmp_path, synthetic_parts):
     assert result["n_rows"] == 5
     assert len(result["predictions"]) == 5
     assert "interval" in result["predictions"][0]
+
+
+@pytest.mark.asyncio
+async def test_predict_from_csv_default_is_point_only(model_id, tmp_path, synthetic_parts):
+    # Default coverage is None: plain point predictions, no intervals, parity
+    # with predict_batch's default.
+    csv = tmp_path / "batch.csv"
+    synthetic_parts.head(3).to_csv(csv, index=False)
+    result = _parse(await mcp_server.predict_from_csv(model_id, str(csv)))
+    assert "error" not in result
+    assert "coverage_pct" not in result
+    assert all("interval" not in p for p in result["predictions"])
+
+
+@pytest.mark.asyncio
+async def test_predict_from_csv_bad_coverage(model_id, tmp_path, synthetic_parts):
+    csv = tmp_path / "batch.csv"
+    synthetic_parts.head(3).to_csv(csv, index=False)
+    result = _parse(await mcp_server.predict_from_csv(model_id, str(csv), coverage=0))
+    assert result["error"]["code"] == "bad_coverage"
 
 
 @pytest.mark.asyncio
