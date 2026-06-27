@@ -43,11 +43,8 @@ FEATURE_TYPES = {
 
 
 def _find_latest_model() -> Path:
-    """Pick the most recently saved ``ridge_price_*.model`` in models/.
-
-    Falls back to any ``*_price_*.model`` if no ridge model exists, since
-    a curious user might re-run training under expert mode with a
-    different algorithm.
+    """Pick the most recently trained ``*_price_*.model`` in models/,
+    regardless of which algorithm the trainer selected.
     """
     if not MODELS_DIR.exists():
         sys.exit(

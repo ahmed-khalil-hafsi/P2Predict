@@ -50,10 +50,9 @@ COLOR_NEUTRAL = "#7f7f7f" # tab:gray
 COLOR_INTERVAL = "#1f77b4"
 
 
-def _latest_ridge_model() -> Path:
-    candidates = sorted(MODELS_DIR.glob("ridge_price_*.model"))
-    if not candidates:
-        candidates = sorted(MODELS_DIR.glob("*_price_*.model"))
+def _latest_price_model() -> Path:
+    candidates = sorted(MODELS_DIR.glob("*_price_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         raise SystemExit(
             f"No price models in {MODELS_DIR}. Train first — see README."
@@ -208,7 +207,8 @@ def chart_mileage_curve(model_data: dict, out: Path) -> None:
     model = model_data["model"]
     cal = model_data["calibration"]
 
-    miles_grid = np.linspace(0, 250_000, 60)
+    miles_grid = np.sort(np.union1d(np.linspace(0, 250_000, 60),
+                                     [45_000, 90_000]))
     rows = []
     civic = _civic_row().iloc[0].to_dict()
     for m in miles_grid:
@@ -265,7 +265,7 @@ def chart_mileage_curve(model_data: dict, out: Path) -> None:
 
 
 def main() -> None:
-    model_path = _latest_ridge_model()
+    model_path = _latest_price_model()
     print(f"Loading {model_path.name} ...")
     model_data = load_model(model_path)
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)

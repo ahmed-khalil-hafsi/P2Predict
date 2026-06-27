@@ -1,7 +1,7 @@
 """Generate the procurement-style model-quality PDF report.
 
 This calls P2Predict's built-in ``plotting.plot_results_pdf`` on the
-trained Ridge model and writes a multi-page PDF to ``assets/``. It also
+latest trained price model and writes a multi-page PDF to ``assets/``. It also
 shells out to ``sips`` (macOS) to produce PNG previews of each page so
 they can be embedded inline in the README.
 
@@ -45,11 +45,12 @@ ASSETS_DIR = HERE / "assets"
 TRAINING_CSV = HERE / "data" / "vehicles_training.csv"
 
 
-def _latest_ridge() -> Path:
-    candidates = sorted(MODELS_DIR.glob("ridge_price_*.model"))
+def _latest_price_model() -> Path:
+    candidates = sorted(MODELS_DIR.glob("*_price_*.model"),
+                        key=lambda p: p.stat().st_mtime)
     if not candidates:
         sys.exit(
-            f"No ridge_price_*.model in {MODELS_DIR}. Train one first — see "
+            f"No *_price_*.model in {MODELS_DIR}. Train one first — see "
             "the case study README's Reproducing section."
         )
     return candidates[-1]
@@ -160,7 +161,7 @@ def _convert_pdf_to_png(pdf_path: Path) -> list[Path]:
 
 
 def main() -> None:
-    model_path = _latest_ridge()
+    model_path = _latest_price_model()
     print(f"Loading {model_path.name} ...")
     loaded = load_model(model_path)
     model = loaded["model"]

@@ -949,7 +949,7 @@ distribution much better than Ridge did.
 
 > [!TIP]
 > **🧮 Mean vs median for percentage error.** The MAPE on this page is
-> 68.9%, much higher than the median 21.9% or even the P90 59.9%.
+> 48.7%, much higher than the median 14.2% or even the P90 52.0%.
 > That's not a bug, MAPE is a *mean* of absolute percentage errors,
 > and a handful of cheap-car predictions (e.g. a $500 listing
 > predicted at $5,000) produce 900%+ errors that drag the mean way
@@ -964,12 +964,11 @@ distribution much better than Ridge did.
 
 This is the most insightful page. The bar chart on the right shows
 **median % error by price band**: accuracy is best on the
-$9,000–$12,793 band (17.5% median error) and worst on the
-$500–$4,400 band (61.2%). Bands above the overall median are
+$30,991–$38,590 band (6.4% median error) and worst on the
+$500–$4,400 band (44.8%). Bands above the overall median are
 highlighted in amber. The pattern is unmistakable, the model is well
 calibrated through the middle of the price distribution and struggles
-at both tails (the cheap-car tail dominantly, but also the
-$38k+ specialty-car tail).
+at the cheap-car tail.
 
 For procurement use, this exact chart on a parts dataset answers
 *"where is the model trustworthy and where do I want a quote
