@@ -422,7 +422,7 @@ the ceiling and 1.0, that's the catalog's noise, not the model's shortcoming.
 
 ![Model quality report, page 1](assets/model_quality_report_page_1.png)
 
-Headline: **median prediction error 79.8%**, P90 error 487%. The
+Headline: **median prediction error 79.7%**, P90 error 601%. The
 predicted-vs-actual scatter is diffuse rather than hugging the perfect-prediction
 line, the visual signature of a target the features can only weakly explain. This
 is the page that tells you, honestly, not to use the point estimate for pricing.
@@ -442,9 +442,10 @@ benchmark even roughly trustworthy?"*, the mid-tier, and only directionally.
 ![Model quality report, page 3](assets/model_quality_report_page_3.png)
 
 The procurement-shaped importance view. Unlike a clean dataset where one driver
-dominates, here importance is **spread across thread diameter, thread series,
-material, and strength** with no single feature above ~0.18, visual confirmation
-that the signal is weak and diffuse, consistent with the measured noise floor.
+dominates, here importance is **spread across thread series, thread diameter,
+material, and strength**, the top feature (`thread_series`) carries only
+**21.4%**, visual confirmation that the signal is weak and diffuse, consistent
+with the measured noise floor.
 
 > **How to generate this report yourself.** Run
 > `python generate_quality_report.py` after training (it re-derives the holdout
