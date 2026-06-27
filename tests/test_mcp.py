@@ -187,6 +187,41 @@ async def test_predict_batch(model_id):
     assert len(result["predictions"]) == 2
     for p in result["predictions"]:
         assert isinstance(p["prediction"], float)
+    # Plain point predictions by default — no enrichment unless asked.
+    assert all("interval" not in p for p in result["predictions"])
+    assert all("explanation" not in p for p in result["predictions"])
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_with_interval(model_id):
+    rows = [SAMPLE_FEATURES, {**SAMPLE_FEATURES, "Region": "CN"}]
+    result = _parse(await mcp_server.predict_batch(model_id, rows, coverage=90))
+    assert "error" not in result
+    assert result["coverage_pct"] == 90
+    for p in result["predictions"]:
+        iv = p["interval"]
+        assert iv["low"] <= p["prediction"] <= iv["high"]
+        assert iv["reliability"] in {"trust", "caution", "quote"}
+        assert iv["say_to_user"]
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_with_explanation(model_id):
+    rows = [SAMPLE_FEATURES, {**SAMPLE_FEATURES, "Region": "CN"}]
+    result = _parse(
+        await mcp_server.predict_batch(model_id, rows, with_explanation=True)
+    )
+    assert "error" not in result
+    for p in result["predictions"]:
+        assert p["explanation"]["contributions"]
+
+
+@pytest.mark.asyncio
+async def test_predict_batch_bad_coverage(model_id):
+    result = _parse(
+        await mcp_server.predict_batch(model_id, [SAMPLE_FEATURES], coverage=0)
+    )
+    assert result["error"]["code"] == "bad_coverage"
 
 
 # ---------------------------------------------------------------------------

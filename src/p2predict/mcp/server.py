@@ -247,11 +247,26 @@ async def predict(model_id: str, features: dict) -> str:
 
 
 @mcp.tool()
-async def predict_batch(model_id: str, rows: list[dict]) -> str:
+async def predict_batch(
+    model_id: str,
+    rows: list[dict],
+    with_explanation: bool = False,
+    coverage: int | None = None,
+) -> str:
     """Predict the target value for multiple parts at once.
 
     More efficient than calling predict repeatedly. Pass a list of
     feature dictionaries, one per part. Returns one prediction per row.
+
+    Optionally enriches every row with the same views the single-part tools
+    give, so you don't have to fan out to explain / predict_interval:
+      - coverage (1-99): adds a likely-price range per row (conformal interval)
+        when the model carries calibration data; read `interval.reliability`
+        and `interval.say_to_user` per row exactly as predict_interval does.
+        Left None (default) for plain point predictions.
+      - with_explanation: adds the per-row price drivers (same `explanation`
+        shape as explain). Surface the high-importance, correctly-signed
+        drivers in dollars/percent; never say 'SHAP' to a category manager.
     """
     registry = _get_registry()
     try:
@@ -259,8 +274,16 @@ async def predict_batch(model_id: str, rows: list[dict]) -> str:
     except FileNotFoundError as e:
         return _error("model_not_found", str(e))
 
+    if coverage is not None and not (1 <= coverage <= 99):
+        return _error("bad_coverage", "coverage must be between 1 and 99")
+
     from p2predict.mcp.conversions import rows_to_dataframe
-    from p2predict.model_utils import extract_feature_info, inner_pipeline
+    from p2predict.model_utils import (
+        explanation_to_dict,
+        extract_feature_info,
+        inner_pipeline,
+        interval_to_dicts,
+    )
 
     pipeline = inner_pipeline(loaded["model"])
     feature_types, _ = extract_feature_info(pipeline)
@@ -270,14 +293,49 @@ async def predict_batch(model_id: str, rows: list[dict]) -> str:
         return _error("missing_feature", str(e))
 
     preds = await asyncio.to_thread(loaded["model"].predict, df)
-    return _ok({
+    rows_out = [
+        {"input": row, "prediction": float(p)}
+        for row, p in zip(rows, preds)
+    ]
+
+    result: dict[str, Any] = {
         "model_id": model_id,
         "target": loaded.get("target_feature"),
-        "predictions": [
-            {"input": row, "prediction": float(p)}
-            for row, p in zip(rows, preds)
-        ],
-    })
+        "predictions": rows_out,
+    }
+
+    if coverage is not None:
+        calibration = loaded.get("calibration")
+        if not calibration or not calibration.get("residuals"):
+            return _error(
+                "no_calibration",
+                "This model has no calibration data, so no likely-range can be "
+                "produced. Retrain with P2Predict v0.5+, or call predict_batch "
+                "without coverage for point predictions.",
+            )
+        from p2predict import predict_interval as pi_fn
+
+        intervals = await asyncio.to_thread(
+            pi_fn, loaded["model"], df, calibration, coverage=coverage / 100.0
+        )
+        for row_out, iv in zip(rows_out, interval_to_dicts(intervals)):
+            row_out["interval"] = iv
+        result["coverage_pct"] = coverage
+
+    if with_explanation:
+        from p2predict import explain_batch
+
+        background = loaded.get("background_sample")
+        try:
+            explanations = await asyncio.to_thread(
+                explain_batch, loaded["model"], df, background_X=background
+            )
+        except ValueError as e:
+            return _error("explain_error", str(e))
+        for row_out, expl in zip(rows_out, explanations):
+            row_out["explanation"] = explanation_to_dict(expl)
+
+    return _ok(result)
 
 
 @mcp.tool()
