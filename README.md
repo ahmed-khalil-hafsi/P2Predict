@@ -131,9 +131,9 @@ Package size, supplier premium, multi-cell architecture: each one in dollars, ea
 
 ## How it fits your stack
 
-P2Predict speaks to **any AI agent**: Claude, and any other assistant your team runs, through a standard connector. Your category managers don't learn a new tool. They ask the assistant they already use, and it does the analysis.
+**You don't use P2Predict; your agent does.** It speaks to **any AI agent** through a standard connector — Claude, GPT, or a local model — so your category managers never learn a new tool. They ask the assistant they already use, and it runs the analysis for them. This is agentic-first: there is no dashboard and no app, the interface is the agent you already have.
 
-Everything runs **locally**. Your purchasing data is your most sensitive commercial asset, so it stays on your machine. No upload, no third-party model training on your spend, no data-residency conversation with legal.
+Everything runs **on your own machine**. Your purchasing data is your most sensitive commercial asset, so P2Predict never uploads it and no third party trains on it. Pair it with a local model to keep the whole loop offline, or with a cloud agent if you prefer; either way your raw spend stays put, with no data-residency conversation to have with legal.
 
 It complements should-cost tools, it does not replace them. Bottom-up should-costing builds a part up from material, labor, and machine time to estimate what it *should cost to make*. P2Predict does not do that and is not trying to. It answers the other question every category manager actually asks: *what has the market charged us for parts like this, and what should we expect to pay for the next one?*
 
