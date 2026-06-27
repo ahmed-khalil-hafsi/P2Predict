@@ -346,6 +346,26 @@ async def test_predict_from_csv(model_id, tmp_path, synthetic_parts):
 
 
 @pytest.mark.asyncio
+async def test_predict_from_csv_default_is_point_only(model_id, tmp_path, synthetic_parts):
+    # Default coverage is None: plain point predictions, no intervals, parity
+    # with predict_batch's default.
+    csv = tmp_path / "batch.csv"
+    synthetic_parts.head(3).to_csv(csv, index=False)
+    result = _parse(await mcp_server.predict_from_csv(model_id, str(csv)))
+    assert "error" not in result
+    assert "coverage_pct" not in result
+    assert all("interval" not in p for p in result["predictions"])
+
+
+@pytest.mark.asyncio
+async def test_predict_from_csv_bad_coverage(model_id, tmp_path, synthetic_parts):
+    csv = tmp_path / "batch.csv"
+    synthetic_parts.head(3).to_csv(csv, index=False)
+    result = _parse(await mcp_server.predict_from_csv(model_id, str(csv), coverage=0))
+    assert result["error"]["code"] == "bad_coverage"
+
+
+@pytest.mark.asyncio
 async def test_predict_from_csv_not_found(registry, model_id):
     result = _parse(await mcp_server.predict_from_csv(
         model_id, "/nonexistent.csv"

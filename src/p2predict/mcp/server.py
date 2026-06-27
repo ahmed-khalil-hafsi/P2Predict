@@ -546,13 +546,23 @@ async def predict_from_csv(
     model_id: str,
     csv_path: str,
     with_explanation: bool = False,
-    coverage: int | None = 90,
+    coverage: int | None = None,
 ) -> str:
     """Batch-predict from a CSV file on the local filesystem.
 
-    Equivalent to: p2predict -m model.model -i parts.csv
-    Optionally includes SHAP explanations and/or likely-range intervals
-    for every row. Use this when the user drops a spreadsheet of parts.
+    The file-based sibling of predict_batch — use it when the user drops a
+    spreadsheet of parts. Reads csv_path, predicts every row, and returns one
+    prediction per row (point estimates by default).
+
+    The same opt-in enrichments as predict_batch apply per row:
+      - coverage (1-99): adds a likely-price range per row (conformal interval)
+        with its `interval.reliability` / `interval.say_to_user` read. Requires
+        a model with calibration data; an explicit coverage on an uncalibrated
+        model returns a no_calibration error. Left None (default) for plain
+        point predictions.
+      - with_explanation: adds the per-row price drivers (same `explanation`
+        shape as explain). State drivers in dollars/percent; never say 'SHAP'
+        to a category manager.
     """
     registry = _get_registry()
     try:
@@ -609,18 +619,25 @@ async def predict_from_csv(
         "predictions": rows_out,
     }
 
-    if coverage and loaded.get("calibration"):
+    if coverage is not None:
+        if not (1 <= coverage <= 99):
+            return _error("bad_coverage", "coverage must be between 1 and 99")
+        calibration = loaded.get("calibration")
+        if not calibration or not calibration.get("residuals"):
+            return _error(
+                "no_calibration",
+                "This model has no calibration data, so no likely-range can be "
+                "produced. Retrain with P2Predict v0.5+, or call "
+                "predict_from_csv without coverage for point predictions.",
+            )
         from p2predict import predict_interval as pi_fn
 
-        calibration = loaded["calibration"]
-        if 1 <= coverage <= 99:
-            intervals = await asyncio.to_thread(
-                pi_fn, loaded["model"], X, calibration, coverage=coverage / 100.0
-            )
-            interval_dicts = interval_to_dicts(intervals)
-            for i, iv in enumerate(interval_dicts):
-                rows_out[i]["interval"] = iv
-            result["coverage_pct"] = coverage
+        intervals = await asyncio.to_thread(
+            pi_fn, loaded["model"], X, calibration, coverage=coverage / 100.0
+        )
+        for i, iv in enumerate(interval_to_dicts(intervals)):
+            rows_out[i]["interval"] = iv
+        result["coverage_pct"] = coverage
 
     if with_explanation:
         from p2predict import explain_batch
@@ -630,10 +647,10 @@ async def predict_from_csv(
             explanations = await asyncio.to_thread(
                 explain_batch, loaded["model"], X, background_X=background
             )
-            for i, expl in enumerate(explanations):
-                rows_out[i]["explanation"] = explanation_to_dict(expl)
-        except Exception:
-            pass
+        except ValueError as e:
+            return _error("explain_error", str(e))
+        for i, expl in enumerate(explanations):
+            rows_out[i]["explanation"] = explanation_to_dict(expl)
 
     return _ok(result)
 
