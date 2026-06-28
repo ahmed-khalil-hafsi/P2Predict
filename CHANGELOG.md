@@ -35,6 +35,14 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 ### Compatibility
 - No model-format change; `p2predict_version` unchanged. The `--json` train schema only gains fields (`rows_dropped_target_na`, `rows_used`); existing fields are unchanged. Python-API default behaviour is preserved except that the log-target CV scorer and full-resource HPO now produce better, reproducible selections.
 
+## [v0.9.4] — 2026-07
+
+### Fixed
+- **`matplotlib>=3.7` floor let pip resolve a pre-NumPy-2.0 wheel alongside NumPy 2.x, breaking `p2predict-train` on fresh installs.** matplotlib's compiled `_path` extension needs 3.9+ for NumPy 2.x C-API compatibility; older wheels crash on import with `AttributeError: _ARRAY_API not found`, surfacing as `ImportError: numpy.core.multiarray failed to import`. Only `p2predict-train` was affected — it imports `p2predict.plotting` → `matplotlib.pyplot`; the `p2predict` predict-side CLI never touches matplotlib. Floor raised to `matplotlib>=3.9`.
+
+### Compatibility
+- No model-format change, no behavior change for anyone already on matplotlib ≥3.9 (the common case). `p2predict_version` unchanged.
+
 ## [v0.9.3] — 2026-06
 
 ### Added

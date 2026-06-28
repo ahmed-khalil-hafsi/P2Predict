@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "p2predict"
-version = "0.9.0"
-description = "Parametric price benchmarking for procurement and engineering — exact SHAP attribution, conformal likely-range intervals, what-if comparisons, all CLI- and agent-callable."
+version = "0.9.4"
+description = "Parametric price benchmarking for engineering and procurement trade-offs. Agentic first, runs on your data, stays on your machine."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
@@ -39,7 +39,7 @@ classifiers = [
 dependencies = [
     "click>=8.1",
     "joblib>=1.2",
-    "matplotlib>=3.7",
+    "matplotlib>=3.9",
     "mpld3>=0.5",
     "numpy>=1.24",
     "pandas>=2.0,<3.0",
