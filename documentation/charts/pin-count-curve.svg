@@ -1,0 +1,25 @@
+<svg viewBox="0 0 560 444" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Predicted unit price rising with package pin count on the baseline TI single-cell BMIC, from $2.31 at 8 pins to $4.88 at 48 pins, with a constant 90% likely range. Real model output.">
+  <rect width="560" height="444" rx="18" fill="#161a20" stroke="#262b34"/>
+  <text x="20" y="25" font-family="Inter,sans-serif" font-size="13" font-weight="600" fill="#eef1f4">Package complexity, priced</text>
+  <text x="20" y="44" font-family="'JetBrains Mono',monospace" font-size="10.5" fill="#717a86">every pin adds cost · baseline 1-cell BMIC</text>
+  <g stroke="#1c2129" stroke-width="1">
+    <line x1="70" y1="312" x2="530" y2="312"/>
+    <line x1="70" y1="224" x2="530" y2="224"/>
+    <line x1="70" y1="136" x2="530" y2="136"/>
+  </g>
+  <path d="M70 213.9 L530 95.1 L530 275.5 L70 394.3 Z" fill="rgba(198,242,78,0.13)"/>
+  <line x1="70" y1="304.1" x2="530" y2="185.3" stroke="#c6f24e" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="91.9" cy="298.4" r="5" fill="#c6f24e" stroke="#0c0d10" stroke-width="1.5"/>
+  <circle cx="530" cy="185.3" r="5" fill="#c6f24e" stroke="#0c0d10" stroke-width="1.5"/>
+  <text x="102" y="289" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#cdd4dd">8-pin · $2.31</text>
+  <text x="524" y="172" text-anchor="end" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#cdd4dd">48-pin · $4.88</text>
+  <line x1="70" y1="70" x2="70" y2="400" stroke="#262b34" stroke-width="1"/>
+  <line x1="70" y1="400" x2="530" y2="400" stroke="#262b34" stroke-width="1"/>
+  <g font-family="'JetBrains Mono',monospace" font-size="9" fill="#5e6670" text-anchor="middle">
+    <text x="91.9" y="416">8</text><text x="179.6" y="416">16</text><text x="267.2" y="416">24</text><text x="354.9" y="416">32</text><text x="442.5" y="416">40</text><text x="530" y="416">48</text>
+  </g>
+  <g font-family="'JetBrains Mono',monospace" font-size="9" fill="#5e6670" text-anchor="end">
+    <text x="62" y="315">$2</text><text x="62" y="227">$4</text><text x="62" y="139">$6</text>
+  </g>
+  <text x="300" y="434" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9.5" fill="#717a86">package pin count · shaded band = 90% range</text>
+</svg>
