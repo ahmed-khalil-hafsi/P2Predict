@@ -74,6 +74,32 @@ Full reference for the CLI, Python API, JSON output schema, and CSV data format:
 - Don't commit raw vendor data or credentials to a shared repo — keep raw pulls and API keys outside version control.
 - Respect the terms of service of any catalog or data source you pull from.
 
+## Troubleshooting
+
+**`p2predict-mcp` / `p2predict-train` not recognized (Windows)**
+
+`pip install` places console scripts in a `Scripts\` folder that isn't always on `PATH` — this is a Windows/PATH issue, not a broken install. If `python -m p2predict` works but the console commands don't, use the module form instead, which doesn't depend on `PATH` at all:
+
+```bash
+python -m p2predict.mcp --models-dir C:\path\to\models   # instead of p2predict-mcp
+python -m p2predict.cli.train -i data.csv -t Price        # instead of p2predict-train
+```
+
+For your MCP client config, point `command` at Python directly:
+
+```json
+{
+  "mcpServers": {
+    "p2predict": {
+      "command": "python",
+      "args": ["-m", "p2predict.mcp", "--models-dir", "C:\\path\\to\\your\\models"]
+    }
+  }
+}
+```
+
+Use the full path to `python.exe` if you have more than one Python install, so the MCP client resolves the same environment P2Predict was installed into. To fix `PATH` permanently instead: if you installed inside a virtual environment, activate it (this puts `Scripts\` on `PATH` automatically); for a global or `--user` install, add the reported `Scripts` folder from `pip show -f p2predict` to your `PATH`.
+
 ## Contributing
 
 Bug reports, feature requests, and dataset suggestions — [open an issue](https://github.com/ahmed-khalil-hafsi/P2Predict/issues).
