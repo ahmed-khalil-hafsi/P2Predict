@@ -1,0 +1,92 @@
+============================================================================
+FASTENERS — bolts_clean.csv
+============================================================================
+----------------------------------------------------------------------------
+[fasteners] EXPERIMENT 1 — retransformation (smearing) bias
+----------------------------------------------------------------------------
+rows: train 22,000 / cal 7,334 / eval 7,334   trained in 12s
+smearing factor S — Duan (calibration): 4.0528   lognormal exp(sigma^2/2): 3.7627   same factor measured on eval: 3.8996   (1.0 = no retransformation bias)
+                                naive exp()  x S (smeared)
+mean residual $ (pred-act)         -49.3807        15.3724
+median residual $                    0.2427        29.6599
+MAE $                               59.8763        84.2201
+median APE %                        81.1849       314.8019
+R^2 (price space)                   -0.0074         0.0711
+bias t-test p (price)                0.0000         0.0000
+
+----------------------------------------------------------------------------
+[fasteners] EXPERIMENT 3 — residual-bias test space (naive predictions)
+----------------------------------------------------------------------------
+test                                      p-value  verdict (gate at p<=0.05)
+t-test, price space (product today)        0.0000  unreliable
+t-test, log space                          0.9553  usable
+Wilcoxon signed-rank, price space          0.0000  unreliable
+
+----------------------------------------------------------------------------
+[fasteners] EXPERIMENT 2 — pre-split leakage (fixed untuned XGBoost)
+----------------------------------------------------------------------------
+
+n=400 rows, 10 seed(s)  (11s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): -0.0405 ± 0.3444   [top-6 set differed in 8/10 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): -0.0862
+                   leaky bounds, raw eval:                     -0.0984   (bounds leakage alone: -0.0122)
+                   leaky bounds, CLEANED eval (product today): -0.3864   (reported-vs-honest gap: -0.3002)
+
+n=2,000 rows, 5 seed(s)  (7s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): -0.0257 ± 0.0311   [top-6 set differed in 3/5 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): -0.0869
+                   leaky bounds, raw eval:                     -0.0860   (bounds leakage alone: +0.0009)
+                   leaky bounds, CLEANED eval (product today): -0.1160   (reported-vs-honest gap: -0.0291)
+
+n=36,668 rows, 2 seed(s)  (21s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): +0.0109 ± 0.0109   [top-6 set differed in 0/2 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): -0.0692
+                   leaky bounds, raw eval:                     -0.0759   (bounds leakage alone: -0.0066)
+                   leaky bounds, CLEANED eval (product today): 0.0303   (reported-vs-honest gap: +0.0996)
+
+============================================================================
+CARS — vehicles_training.csv
+============================================================================
+----------------------------------------------------------------------------
+[cars] EXPERIMENT 1 — retransformation (smearing) bias
+----------------------------------------------------------------------------
+rows: train 48,000 / cal 16,000 / eval 16,000   trained in 11s
+smearing factor S — Duan (calibration): 1.0786   lognormal exp(sigma^2/2): 1.1164   same factor measured on eval: 1.0831   (1.0 = no retransformation bias)
+                                naive exp()  x S (smeared)
+mean residual $ (pred-act)      -1,419.3064         2.1688
+median residual $                 -348.8113       631.1590
+MAE $                            4,387.7833     4,410.7872
+median APE %                        18.1418        18.7224
+R^2 (price space)                    0.7408         0.7536
+bias t-test p (price)                0.0000         0.9700
+
+----------------------------------------------------------------------------
+[cars] EXPERIMENT 3 — residual-bias test space (naive predictions)
+----------------------------------------------------------------------------
+test                                      p-value  verdict (gate at p<=0.05)
+t-test, price space (product today)        0.0000  unreliable
+t-test, log space                          0.5023  trustworthy
+Wilcoxon signed-rank, price space          0.0000  unreliable
+
+----------------------------------------------------------------------------
+[cars] EXPERIMENT 2 — pre-split leakage (fixed untuned XGBoost)
+----------------------------------------------------------------------------
+
+n=400 rows, 10 seed(s)  (12s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): +0.0125 ± 0.0383   [top-6 set differed in 4/10 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): 0.5227
+                   leaky bounds, raw eval:                     0.5129   (bounds leakage alone: -0.0098)
+                   leaky bounds, CLEANED eval (product today): 0.5145   (reported-vs-honest gap: -0.0082)
+
+n=2,000 rows, 5 seed(s)  (8s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): +0.0001 ± 0.0047   [top-6 set differed in 0/5 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): 0.6505
+                   leaky bounds, raw eval:                     0.6521   (bounds leakage alone: +0.0016)
+                   leaky bounds, CLEANED eval (product today): 0.6768   (reported-vs-honest gap: +0.0263)
+
+n=80,000 rows, 2 seed(s)  (44s)
+  selection: eval R^2 (leaky top-6) − (clean top-6): +0.0000 ± 0.0000   [top-6 set differed in 0/2 seeds]
+  outliers (drop): eval R^2 — honest (clean bounds, raw eval): 0.7325
+                   leaky bounds, raw eval:                     0.7293   (bounds leakage alone: -0.0032)
+                   leaky bounds, CLEANED eval (product today): 0.7922   (reported-vs-honest gap: +0.0597)
+
