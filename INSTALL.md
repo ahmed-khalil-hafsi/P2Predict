@@ -1,8 +1,8 @@
 # Install & set up P2Predict
 
-This guide assumes you have **never used a terminal, never installed Python, and don't know what an API is**. That's fine — you don't need to. Follow the steps for your computer and copy-paste each command exactly.
+This guide assumes you have **never used a terminal, never installed Python, and don't know what an API is**. That's fine, you don't need to. Follow the steps for your computer and copy-paste each command exactly.
 
-**What you're actually doing:** installing a small program on your laptop, then telling your AI assistant (Claude) that it exists. After that you never touch the terminal again — you just talk to Claude in plain English about your pricing data.
+**What you're actually doing:** installing a small program on your laptop, then telling your AI agent assistant (Claude or others) that it exists. After that you never touch the terminal again — you just talk to Claude in plain English about your pricing data. You can actually just give your agent the URL to this page and it will install p2predict for you in a folder of your choosing.
 
 **Time:** about 15 minutes, once.
 
@@ -12,7 +12,7 @@ This guide assumes you have **never used a terminal, never installed Python, and
 
 ## Do I need admin rights?
 
-Most business laptops are locked down, so this matters.
+I am assuming that most users are managers and analysts in large global companies, so I wrote this install guide for you. I know that most business machines are locked and admin mode is not easy to get. If you have windows, you dont need admin mode - however on a mac, you do need it to install a modern version of python.
 
 | | Admin password needed? |
 |---|---|
@@ -21,9 +21,9 @@ Most business laptops are locked down, so this matters.
 
 Why the Mac needs it: macOS ships with Python 3.9, which is too old for P2Predict (it needs 3.10 or newer), so you have to install a current version, and Apple's installer asks for an admin password.
 
-If you don't have an admin password on your Mac, ask IT to install **Python 3.12 from python.org** — that's the entire ask, and it's a standard, signed installer. Then start at step 2.
+If you don't have an admin password on your Mac, ask IT to install **Python 3.12 from python.org** — this is a standard, signed installer. Then start at step 2.
 
-> **A note on jargon.** *Terminal* (Mac) / *PowerShell* (Windows) is a window where you type commands instead of clicking. *Python* is the language P2Predict is written in — you'll never write any. *MCP* is just the plug that lets Claude talk to programs on your computer. That's the whole vocabulary.
+> **A note on jargon.** *Terminal* (Mac) / *PowerShell* (Windows) is a window where you type commands instead of clicking. *Python* is the language P2Predict is written in — you'll never write any code. *MCP* is just the plug that lets Claude or an AI agent talk to programs on your computer.
 
 ---
 
@@ -148,7 +148,7 @@ If it prints `p2predict 0.9.5` (or a higher number), you're done installing.
 
 ---
 
-# Connect it to Claude
+# Connect it to Claude (example here is claude. For copilot and other agentic models, refer to the vendor as MCP is standard format)
 
 Claude needs to be told where P2Predict lives. You'll paste a small block of settings into one file.
 
@@ -209,7 +209,7 @@ If the file is empty or brand new, paste this whole thing, replacing the two pat
 Three rules that cause almost every failure here:
 
 1. **Use the full path, not just `p2predict-mcp`.** Claude Desktop doesn't search the same folders your terminal does, so the short name usually fails even when it works fine in the terminal.
-2. **Windows: every backslash must be doubled** (`\\`). That's a JSON requirement, not a typo.
+2. **Windows: every backslash must be doubled** (`\\`).
 3. **If the file already has other things in it**, don't replace them — add `"p2predict": { ... }` alongside whatever is already inside `"mcpServers"`, separated by a comma.
 
 Save the file, then **quit Claude Desktop completely and reopen it**. On Mac that means **Cmd + Q**, not just closing the window.
