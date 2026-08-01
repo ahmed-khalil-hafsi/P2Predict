@@ -35,6 +35,21 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 ### Compatibility
 - No model-format change; `p2predict_version` unchanged. The `--json` train schema only gains fields (`rows_dropped_target_na`, `rows_used`); existing fields are unchanged. Python-API default behaviour is preserved except that the log-target CV scorer and full-resource HPO now produce better, reproducible selections.
 
+## [v0.9.5] — 2026-08
+
+### Fixed
+- **Unbounded `mcp>=1.0` floor let pip install `mcp` 2.x, breaking `p2predict-mcp` on every fresh install.** The `mcp` package's 2.0 release moved `mcp.server.fastmcp`, so `from mcp.server.fastmcp import FastMCP` at `p2predict/mcp/server.py:14` raised `ModuleNotFoundError: No module named 'mcp.server.fastmcp'` and the server died at startup. Since the MCP server is the primary interface, this blocked new users at setup — `pip install "p2predict[mcp]"` produced a package that could not start. Existing installs with an already-resolved `mcp` 1.x were unaffected, and no prediction path was involved, so no numbers were ever wrong. Extra pinned to `mcp>=1.0,<2` (verified against `mcp` 1.29.0).
+
+### Added
+- **`--version` on all three entry points.** `p2predict --version`, `p2predict-train --version`, and `p2predict-mcp --version` now report the installed release. Previously there was no way to tell which version you were on without `pip show`, which made version-dependent troubleshooting advice circular.
+
+### Changed
+- **[INSTALL.md](INSTALL.md) rewritten for non-technical users**, with separate step-by-step Mac and Windows walkthroughs, an admin-rights summary, and troubleshooting organized by literal error message. The install now uses a self-contained folder (`~/P2Predict`) and absolute paths, which sidesteps three failure modes the old one-line `pip install` hit: zsh globbing unquoted `p2predict[mcp]`, PEP 668 `externally-managed-environment` on Homebrew Python, and MCP clients not inheriting the shell `PATH`.
+- Quoted the `"p2predict[mcp]"` extra in [TECHNICAL.md](TECHNICAL.md) for the same zsh globbing reason.
+
+### Compatibility
+- No model-format change, no behavior change, no API change. `p2predict_version` unchanged. Anyone whose environment already resolved `mcp` 1.x sees no difference.
+
 ## [v0.9.4] — 2026-07
 
 ### Fixed

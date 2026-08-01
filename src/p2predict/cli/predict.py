@@ -412,6 +412,7 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
 
 
 @click.command()
+@click.version_option(package_name="p2predict", message="%(prog)s %(version)s")
 @click.option("-m", "--model", type=click.Path(exists=True),
               help="Path to the trained model file (.model)")
 @click.option("-p", "--predict_using",

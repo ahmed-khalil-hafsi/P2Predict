@@ -95,6 +95,7 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
 
 
 @click.command()
+@click.version_option(package_name="p2predict", message="%(prog)s %(version)s")
 @click.option("-i", "--input", type=click.Path(exists=True), default=None,
               help="Path to the CSV file containing the training dataset.")
 @click.option("-t", "--target",

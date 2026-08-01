@@ -1239,6 +1239,11 @@ def main():
         default="models",
         help="Directory containing .model files (default: models)",
     )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"p2predict-mcp {_SERVER_BUILD['version']}",
+    )
     args = parser.parse_args()
 
     global _registry

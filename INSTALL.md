@@ -1,47 +1,269 @@
 # Install & set up P2Predict
 
-P2Predict runs locally and connects to your AI agent over the Model Context Protocol (MCP). Below is the fast path to a working setup; for the full CLI, Python API, and data-format reference see **[TECHNICAL.md](TECHNICAL.md)**.
+This guide assumes you have **never used a terminal, never installed Python, and don't know what an API is**. That's fine — you don't need to. Follow the steps for your computer and copy-paste each command exactly.
 
-## 1. Install
+**What you're actually doing:** installing a small program on your laptop, then telling your AI assistant (Claude) that it exists. After that you never touch the terminal again — you just talk to Claude in plain English about your pricing data.
+
+**Time:** about 15 minutes, once.
+
+**Your data never leaves your machine.** P2Predict reads your spreadsheet, does its maths, and answers — all locally. Nothing is uploaded anywhere.
+
+---
+
+## Do I need admin rights?
+
+Most business laptops are locked down, so this matters.
+
+| | Admin password needed? |
+|---|---|
+| **Windows** | **No.** Python installs "just for you", into your own user folder. |
+| **Mac** | **Once**, to install Python itself. Everything after that is admin-free. |
+
+Why the Mac needs it: macOS ships with Python 3.9, which is too old for P2Predict (it needs 3.10 or newer), so you have to install a current version, and Apple's installer asks for an admin password.
+
+If you don't have an admin password on your Mac, ask IT to install **Python 3.12 from python.org** — that's the entire ask, and it's a standard, signed installer. Then start at step 2.
+
+> **A note on jargon.** *Terminal* (Mac) / *PowerShell* (Windows) is a window where you type commands instead of clicking. *Python* is the language P2Predict is written in — you'll never write any. *MCP* is just the plug that lets Claude talk to programs on your computer. That's the whole vocabulary.
+
+---
+
+# Mac: step by step
+
+## Step 1 — Install Python
+
+1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
+2. Click the big yellow **Download Python 3.12.x** button. (3.12 or 3.13 are the safest choices. Avoid the newest release for a few months after it comes out — some components lag behind.)
+3. Open the downloaded `.pkg` file and click **Continue → Continue → Agree → Install**.
+4. Enter your Mac password when asked.
+5. When it finishes, a Finder window may pop open. You can close it.
+
+## Step 2 — Open Terminal
+
+Press **Cmd + Space**, type `Terminal`, press **Enter**.
+
+A window with text appears. This is where the next commands go. To run a command: copy it, click into the Terminal window, press **Cmd + V**, press **Enter**, and wait until the text stops scrolling and you get a fresh line.
+
+Check Python arrived:
 
 ```bash
-pip install p2predict[mcp]
+python3 --version
 ```
 
-This installs the engine, the command-line tools (`p2predict`, `p2predict-train`), and the MCP server (`p2predict-mcp`).
+You want `Python 3.12.x` (or any number 3.10 and above). If you get an error, see [Troubleshooting](#troubleshooting).
 
-## 2. Connect your AI agent
+## Step 3 — Create a home for P2Predict
 
-Add P2Predict to your MCP client (Claude Desktop, Claude Code, Cursor, or any MCP-capable assistant):
+This makes a folder called `P2Predict` in your home folder and puts a self-contained Python setup inside it. Self-contained means it can't break anything else on your Mac, and deleting the folder removes it completely.
+
+```bash
+mkdir -p ~/P2Predict/models
+```
+
+```bash
+python3 -m venv ~/P2Predict/venv
+```
+
+The second command takes a few seconds and prints nothing. Silence means success.
+
+## Step 4 — Install P2Predict
+
+```bash
+~/P2Predict/venv/bin/pip install "p2predict[mcp]"
+```
+
+This downloads P2Predict and everything it needs. It takes 1–3 minutes and prints a lot of scrolling text. The last line should say `Successfully installed ...` with a long list.
+
+> **Why the quotation marks?** Without them the Mac terminal treats `[mcp]` as a wildcard and fails with `zsh: no matches found`. The quotes are required — don't drop them.
+
+Check it worked:
+
+```bash
+~/P2Predict/venv/bin/p2predict --version
+```
+
+If it prints `p2predict 0.9.5` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
+
+---
+
+# Windows: step by step
+
+## Step 1 — Install Python
+
+1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
+2. Click the big yellow **Download Python 3.12.x** button. (3.12 or 3.13 are the safest choices. Avoid the newest release for a few months after it comes out — some components lag behind.)
+3. Open the downloaded `.exe`.
+4. **⚠️ This is the step everyone gets wrong.** At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
+
+   *PATH is just a list of folders Windows searches when you type a command. If Python isn't on it, Windows says "python is not recognized" even though Python is sitting right there.*
+5. Click **Install Now** (not "Customize"). This installs into your own user folder and does **not** need an admin password.
+6. If it offers **"Disable path length limit"** at the end, click it. Then click **Close**.
+
+## Step 2 — Open PowerShell
+
+Press the **Windows key**, type `PowerShell`, press **Enter**. Use the normal one — you do *not* need "Run as administrator".
+
+To run a command: copy it, right-click inside the PowerShell window (that pastes), press **Enter**, and wait for a fresh line.
+
+Check Python arrived:
+
+```powershell
+python --version
+```
+
+You want `Python 3.12.x` (or any number 3.10 and above). If nothing happens, or the Microsoft Store opens, see [Troubleshooting](#troubleshooting).
+
+## Step 3 — Create a home for P2Predict
+
+This makes a `P2Predict` folder in your user folder with a self-contained Python setup inside. It can't affect anything else on your PC, and deleting the folder removes it completely.
+
+```powershell
+mkdir $HOME\P2Predict\models
+```
+
+```powershell
+python -m venv $HOME\P2Predict\venv
+```
+
+The second command takes a few seconds and prints nothing. Silence means success.
+
+## Step 4 — Install P2Predict
+
+```powershell
+cd $HOME\P2Predict
+```
+
+```powershell
+.\venv\Scripts\pip.exe install "p2predict[mcp]"
+```
+
+This takes 1–3 minutes and prints a lot of scrolling text. The last line should say `Successfully installed ...` with a long list.
+
+Check it worked:
+
+```powershell
+.\venv\Scripts\p2predict.exe --version
+```
+
+If it prints `p2predict 0.9.5` (or a higher number), you're done installing.
+
+---
+
+# Connect it to Claude
+
+Claude needs to be told where P2Predict lives. You'll paste a small block of settings into one file.
+
+### Get your exact paths
+
+Run this and keep the window open — you'll copy from it in a moment.
+
+**Mac:**
+
+```bash
+echo ~/P2Predict/venv/bin/p2predict-mcp; echo ~/P2Predict/models
+```
+
+**Windows:**
+
+```powershell
+echo "$HOME\P2Predict\venv\Scripts\p2predict-mcp.exe"; echo "$HOME\P2Predict\models"
+```
+
+### Open Claude's config file
+
+In **Claude Desktop**: menu **Claude → Settings → Developer → Edit Config**. That opens the right file directly — much easier than hunting for it.
+
+If you need the file manually:
+- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+### Paste the settings
+
+If the file is empty or brand new, paste this whole thing, replacing the two paths with the ones you just printed.
+
+**Mac** — replace `YOURNAME` with your Mac username:
 
 ```json
 {
   "mcpServers": {
     "p2predict": {
-      "command": "p2predict-mcp",
-      "args": ["--models-dir", "/path/to/your/models"]
+      "command": "/Users/YOURNAME/P2Predict/venv/bin/p2predict-mcp",
+      "args": ["--models-dir", "/Users/YOURNAME/P2Predict/models"]
     }
   }
 }
 ```
 
-Point `--models-dir` at the folder where your trained models live (or will live). The agent discovers models and tools from there automatically.
+**Windows** — replace `YOURNAME` with your Windows username:
 
-## 3. Talk to it
+```json
+{
+  "mcpServers": {
+    "p2predict": {
+      "command": "C:\\Users\\YOURNAME\\P2Predict\\venv\\Scripts\\p2predict-mcp.exe",
+      "args": ["--models-dir", "C:\\Users\\YOURNAME\\P2Predict\\models"]
+    }
+  }
+}
+```
 
-Once connected, just ask:
+Three rules that cause almost every failure here:
 
-> *"Train a model on my purchasing data at ~/data/parts.csv, predicting Price."*
+1. **Use the full path, not just `p2predict-mcp`.** Claude Desktop doesn't search the same folders your terminal does, so the short name usually fails even when it works fine in the terminal.
+2. **Windows: every backslash must be doubled** (`\\`). That's a JSON requirement, not a typo.
+3. **If the file already has other things in it**, don't replace them — add `"p2predict": { ... }` alongside whatever is already inside `"mcpServers"`, separated by a comma.
+
+Save the file, then **quit Claude Desktop completely and reopen it**. On Mac that means **Cmd + Q**, not just closing the window.
+
+### Using Claude Code or Cursor instead?
+
+Same server, different way to register it. For Claude Code, run this once (with your real path):
+
+```bash
+claude mcp add p2predict -- ~/P2Predict/venv/bin/p2predict-mcp --models-dir ~/P2Predict/models
+```
+
+For Cursor and other clients, add the same JSON block through that client's own MCP settings screen.
+
+### Check it connected
+
+In Claude Desktop, look for the tools/plug icon near the message box — `p2predict` should be listed. Or just ask:
+
+> *"Do you have P2Predict available? List any models you can see."*
+
+It should answer that it's connected and that there are no models yet. That's the correct answer on a fresh install — you haven't trained one.
+
+---
+
+# Your first conversation
+
+You need a spreadsheet saved as **CSV** with one row per part: some columns describing the part, and one column with the price you paid.
+
+```csv
+Part,Weight,Region,Supplier,Size,Price
+CP17-17921595,17,EU,supplier A,Standard,1.41
+CP2-5580430,2,CN,supplier A,Small,0.18
+CP30-19674030,30,SG,supplier A,Large,2.15
+```
+
+In Excel: **File → Save As → CSV**. Aim for at least a few hundred rows. Now just talk to Claude:
+
+> *"Train a pricing model on my file at ~/P2Predict/parts.csv, predicting Price."*
 >
-> *"What would a 25 kg EU part from Supplier A cost?"*
+> *"What should a 25 kg part from Supplier A in the EU cost?"*
+>
+> *"Supplier B quoted me $4.10 for that. Is that fair?"*
 >
 > *"What happens to the price if we switch to Supplier B?"*
 >
 > *"Benchmark these 200 RFQ line items against the model."*
 
-## What the agent can do (MCP tools)
+Claude will look at your data, tell you in plain language what it found, and ask before training. You don't need to know which algorithm it picked — ask *"how much should I trust this?"* and it will tell you honestly where the model is reliable and where it isn't.
 
-The agent has the full surface available and picks the right tool for the question:
+---
+
+## What the agent can do
+
+Claude picks the right tool for your question automatically. You never call these by name.
 
 | Tool | What it does |
 |---|---|
@@ -58,47 +280,109 @@ The agent has the full surface available and picks the right tool for the questi
 | `train` | Train a new model from a CSV |
 | `generate_report` | Model-quality PDF report |
 
+---
+
+## Updating
+
+**Mac:**
+
+```bash
+~/P2Predict/venv/bin/pip install --upgrade "p2predict[mcp]"
+```
+
+**Windows:**
+
+```powershell
+& "$HOME\P2Predict\venv\Scripts\pip.exe" install --upgrade "p2predict[mcp]"
+```
+
+(The leading `&` is PowerShell's way of running a program from a quoted path. It's required — don't drop it.)
+
+Quit and reopen Claude Desktop afterwards so it picks up the new version. Your trained models in the `models` folder are untouched.
+
+## Uninstalling
+
+Delete the `P2Predict` folder from your home folder, and remove the `"p2predict"` block from Claude's config file. That's it — nothing else was touched. (Your trained models are inside that folder, so move them out first if you want to keep them.)
+
+---
+
+## Troubleshooting
+
+Find your exact error message below.
+
+### `zsh: no matches found: p2predict[mcp]` (Mac)
+
+You left out the quotation marks. Use `"p2predict[mcp]"`, with the quotes.
+
+### `error: externally-managed-environment` (Mac)
+
+You ran `pip` directly instead of the one inside your P2Predict folder. Modern Macs block that on purpose. Use the full path — `~/P2Predict/venv/bin/pip` — exactly as written in step 4.
+
+### `python is not recognized...` (Windows)
+
+You missed the **"Add python.exe to PATH"** tickbox during install. Easiest fix: re-run the Python installer, choose **Modify**, click through to the last screen and make sure the PATH option is on. Or uninstall Python and reinstall, this time ticking the box.
+
+### Typing `python` opens the Microsoft Store (Windows)
+
+That's a Windows placeholder, not real Python. Install Python from [python.org](https://www.python.org/downloads/) with the PATH box ticked. If it still happens: **Settings → Apps → Advanced app settings → App execution aliases**, and turn off both `python.exe` and `python3.exe`.
+
+### `command not found: python3` (Mac)
+
+Python didn't install, or Terminal was open before you installed it. Quit Terminal completely (**Cmd + Q**) and reopen it, then try again. If it still fails, re-run the python.org installer.
+
+### `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`
+
+You're on version 0.9.4 or older, which could pull in an incompatible component. [Update](#updating) to 0.9.5 or newer, which pins the working version.
+
+### `ModuleNotFoundError: No module named 'mcp'`
+
+You installed P2Predict without the `[mcp]` part. Re-run step 4 exactly as written.
+
+### `p2predict-train` crashes with `numpy.core.multiarray failed to import`
+
+An old version paired itself with an incompatible component. [Update](#updating) to 0.9.4 or newer.
+
+### Claude doesn't show P2Predict in its tools
+
+Work through these in order:
+
+1. Did you **fully quit** Claude Desktop and reopen it? On Mac, **Cmd + Q** — closing the window isn't enough.
+2. Is the `command` in your config the **full path** (starting `/Users/...` or `C:\\Users\\...`), not just `p2predict-mcp`? Claude doesn't search the same folders your terminal does.
+3. **Windows only:** are all backslashes **doubled** (`\\`)?
+4. Is the JSON valid? A missing comma or bracket makes Claude ignore the whole file silently. Paste it into [jsonlint.com](https://jsonlint.com) to check.
+5. Does the path actually exist? Run the exact `command` path from your terminal, with `--models-dir` and your models folder. If it prints `P2Predict MCP server v... loaded from ...` and then sits there waiting, that's correct — press **Ctrl + C** to stop it. If it errors instead, the error tells you what's wrong.
+
+### The console commands work in Terminal but not elsewhere
+
+That's a PATH issue, and the full-path approach in this guide avoids it entirely. If you installed a different way and want the short commands to work everywhere, the alternative is to call Python directly, which never depends on PATH:
+
+```bash
+python -m p2predict.mcp --models-dir /path/to/models
+```
+
+```bash
+python -m p2predict.cli.train -i data.csv -t Price
+```
+
+Run `pip show -f p2predict` to see where the console scripts were actually placed.
+
+---
+
+## Keeping your data safe
+
+- P2Predict reads your CSV, trains, and predicts entirely on your machine over a local connection. Nothing is uploaded.
+- Don't commit raw vendor data or credentials to a shared repository — keep raw pulls and API keys outside version control.
+- Respect the terms of service of any catalog or data source you pull from.
+
 ## Other surfaces
 
-The same engine is available three ways, all calling the same math:
+The same engine is available three ways, all calling the same maths:
 
 - **AI agent (MCP)** — the primary interface, described above.
 - **Command line** — `p2predict` and `p2predict-train` for scripted or interactive use.
 - **Python API** — `from p2predict import auto_train, explain, predict_interval, what_if` for embedding in a notebook or pipeline.
 
 Full reference for the CLI, Python API, JSON output schema, and CSV data format: **[TECHNICAL.md](TECHNICAL.md)**.
-
-## Keeping your data safe
-
-- P2Predict reads your CSV, trains, and predicts entirely on your machine over local (stdio) transport. Nothing is uploaded.
-- Don't commit raw vendor data or credentials to a shared repo — keep raw pulls and API keys outside version control.
-- Respect the terms of service of any catalog or data source you pull from.
-
-## Troubleshooting
-
-**`p2predict-mcp` / `p2predict-train` not recognized (Windows)**
-
-`pip install` places console scripts in a `Scripts\` folder that isn't always on `PATH` — this is a Windows/PATH issue, not a broken install. If `python -m p2predict` works but the console commands don't, use the module form instead, which doesn't depend on `PATH` at all:
-
-```bash
-python -m p2predict.mcp --models-dir C:\path\to\models   # instead of p2predict-mcp
-python -m p2predict.cli.train -i data.csv -t Price        # instead of p2predict-train
-```
-
-For your MCP client config, point `command` at Python directly:
-
-```json
-{
-  "mcpServers": {
-    "p2predict": {
-      "command": "python",
-      "args": ["-m", "p2predict.mcp", "--models-dir", "C:\\path\\to\\your\\models"]
-    }
-  }
-}
-```
-
-Use the full path to `python.exe` if you have more than one Python install, so the MCP client resolves the same environment P2Predict was installed into. To fix `PATH` permanently instead: if you installed inside a virtual environment, activate it (this puts `Scripts\` on `PATH` automatically); for a global or `--user` install, add the reported `Scripts` folder from `pip show -f p2predict` to your `PATH`.
 
 ## Contributing
 

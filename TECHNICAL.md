@@ -29,9 +29,11 @@ See [`examples/example.csv`](examples/example.csv) for a working dataset.
 ## Install
 
 ```bash
-pip install p2predict          # core: CLI + Python API
-pip install p2predict[mcp]     # adds the MCP server for AI agents
+pip install p2predict            # core: CLI + Python API
+pip install "p2predict[mcp]"     # adds the MCP server for AI agents
 ```
+
+Quote the extra — zsh (the macOS default shell) globs unquoted square brackets and fails with `no matches found`.
 
 From a clone:
 
