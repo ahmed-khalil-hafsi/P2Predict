@@ -8,6 +8,8 @@ import argparse
 import asyncio
 import datetime
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -1230,6 +1232,73 @@ async def model_resource(model_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _launch_command() -> list[str]:
+    """The command an MCP client should use to start this server.
+
+    MCP clients do not inherit the shell's PATH, so a bare ``p2predict-mcp``
+    usually fails in the client even when it works in the terminal. Resolve an
+    absolute path instead: prefer the console script sitting next to the
+    running interpreter (the venv layout INSTALL.md builds), and fall back to
+    ``<python> -m p2predict.mcp``, which works even where the console script
+    was never placed on disk or never landed on PATH.
+    """
+    script = Path(sys.executable).parent / (
+        "p2predict-mcp.exe" if os.name == "nt" else "p2predict-mcp"
+    )
+    if script.exists():
+        return [str(script)]
+    # Deliberately NOT resolve()d: sys.executable is already absolute, and
+    # resolving it follows the venv's python symlink out to the base
+    # interpreter — which does not have p2predict on its path, so the emitted
+    # config would fail with ModuleNotFoundError.
+    return [sys.executable, "-m", "p2predict.mcp"]
+
+
+def _client_config_path() -> str:
+    """Where Claude Desktop keeps its config, per platform."""
+    if sys.platform == "darwin":
+        return "~/Library/Application Support/Claude/claude_desktop_config.json"
+    if os.name == "nt":
+        return r"%APPDATA%\Claude\claude_desktop_config.json"
+    return "~/.config/Claude/claude_desktop_config.json"
+
+
+def _print_config(models_dir: Path) -> None:
+    """Print a ready-to-paste MCP client config for this exact install.
+
+    Hand-writing this block is the most error-prone step of setup: the path
+    has to be absolute, and on Windows every backslash has to be doubled.
+    ``json.dumps`` does both correctly, so the user never escapes anything.
+    """
+    command, *extra_args = _launch_command()
+    blob = {
+        "mcpServers": {
+            "p2predict": {
+                "command": command,
+                "args": [*extra_args, "--models-dir", str(models_dir)],
+            }
+        }
+    }
+
+    print("Add this to your Claude Desktop config file:")
+    print(f"  {_client_config_path()}")
+    print()
+    print(json.dumps(blob, indent=2))
+    print()
+    if not models_dir.exists():
+        print(
+            f"Note: {models_dir} doesn't exist yet. That's fine — it's created "
+            "when you train your first model."
+        )
+        print()
+    print(
+        "If the file already has other servers in it, add only the "
+        '"p2predict" block, inside the existing "mcpServers".'
+    )
+    quit_hint = "completely (Cmd+Q)" if sys.platform == "darwin" else "completely"
+    print(f"Then quit Claude Desktop {quit_hint} and reopen it.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="P2Predict MCP server — parametric price benchmarking for AI agents"
@@ -1244,15 +1313,28 @@ def main():
         action="version",
         version=f"p2predict-mcp {_SERVER_BUILD['version']}",
     )
+    parser.add_argument(
+        "--print-config",
+        action="store_true",
+        help=(
+            "Print a ready-to-paste Claude Desktop config for this install "
+            "(absolute paths, correctly escaped) and exit."
+        ),
+    )
     args = parser.parse_args()
 
+    models_dir = Path(args.models_dir).resolve()
+
+    if args.print_config:
+        _print_config(models_dir)
+        return
+
     global _registry
-    _registry = ModelRegistry(Path(args.models_dir).resolve())
+    _registry = ModelRegistry(models_dir)
 
     # stderr is safe on stdio transport (stdout is the MCP protocol channel) and
     # shows up in the client's server logs — a quick way to confirm which build
     # is actually running.
-    import sys
     print(
         f"P2Predict MCP server v{_SERVER_BUILD['version']} "
         f"({_SERVER_BUILD['git_sha'] or 'no-git'}) loaded from "

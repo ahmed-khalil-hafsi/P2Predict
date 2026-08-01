@@ -49,6 +49,8 @@ The primary interface. See [INSTALL.md](INSTALL.md) for client setup.
 
 Entry point: `p2predict-mcp --models-dir /path/to/models`
 
+`p2predict-mcp --print-config` emits a ready-to-paste client config for the running install — absolute command path (MCP clients don't inherit `PATH`) with JSON escaping handled, so it is also the reliable way for an agent to register the server on a user's machine.
+
 All 12 tools are documented in [INSTALL.md](INSTALL.md#what-the-agent-can-do-mcp-tools). The server runs over stdio — no network, no data leaves disk. CPU-bound calls (predict, explain, train) run via `asyncio.to_thread()` to keep the event loop responsive.
 
 Source: [`src/p2predict/mcp/server.py`](src/p2predict/mcp/server.py)

@@ -4,10 +4,6 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
-### Changed
-- **Package license metadata now reflects the internal-use exception.** `LICENSE` grants any organization — explicitly including for-profit corporations — the right to use P2Predict internally for its own operations, procurement, and benchmarking at no cost, but `pyproject.toml` still declared the bare SPDX id `PolyForm-Noncommercial-1.0.0`. That is the string PyPI displays and that corporate license scanners read, so the package advertised "Noncommercial" to exactly the enterprise users the exception is meant to welcome — a policy auto-block in many compliance workflows. Changed to `LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception`, a valid PEP 639 custom identifier that routes scanners to read the bundled `LICENSE` instead of matching a restrictive id. No change to the license terms themselves.
-- **README and INSTALL state the internal-use grant plainly.** The license badge read "PolyForm Noncommercial"; the licensing section and FAQ said "free for internal use" without saying that for-profit companies are covered. Both now say so explicitly, and INSTALL gains a "Do I need to pay for this?" section for the non-technical reader.
-
 ### Added
 - **MCP server — 10 typed tools for AI agent integration.** `pip install p2predict[mcp]` adds the `p2predict-mcp` command, a local stdio-transport MCP server that lets Claude, Cursor, and custom agents call P2Predict as typed tools. The procurement user talks to their agent; the agent calls P2Predict; the answer flows back in plain English. Tools: `list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`. Trained models are also exposed as MCP resources (`model://{model_id}`). All data stays on the user's machine — nothing leaves disk.
   - **`ModelRegistry`** (`p2predict.mcp.registry`) scans a models directory, lazy-loads `.model` files with an LRU cache (max 5), and exposes `ModelInfo` metadata (algorithm, target, features, feature types, categories, calibration status).
@@ -38,6 +34,19 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ### Compatibility
 - No model-format change; `p2predict_version` unchanged. The `--json` train schema only gains fields (`rows_dropped_target_na`, `rows_used`); existing fields are unchanged. Python-API default behaviour is preserved except that the log-target CV scorer and full-resource HPO now produce better, reproducible selections.
+
+## [v0.9.6] — 2026-08
+
+### Added
+- **`p2predict-mcp --print-config` writes your MCP client config for you.** Hand-writing the Claude Desktop block was the most error-prone step of setup, and it fails silently: the client needs an *absolute* command path (MCP clients don't inherit the shell's `PATH`, so a bare `p2predict-mcp` resolves in the terminal but not in the client), and on Windows every backslash has to be doubled because the config is JSON. The flag prints the whole block with the running install's real paths already filled in, escaped by `json.dumps` rather than by the user. It resolves the command by preferring the `p2predict-mcp` console script next to the running interpreter, falling back to `<python> -m p2predict.mcp` where the console script was never placed on disk or never landed on `PATH`. Also flags a models directory that doesn't exist yet (harmless — it's created at first train). Six tests in `tests/test_mcp.py`.
+
+### Changed
+- **Package license metadata now reflects the internal-use exception.** `LICENSE` grants any organization — explicitly including for-profit corporations — the right to use P2Predict internally for its own operations, procurement, and benchmarking at no cost, but `pyproject.toml` still declared the bare SPDX id `PolyForm-Noncommercial-1.0.0`. That is the string PyPI displays and that corporate license scanners read, so the package advertised "Noncommercial" to exactly the enterprise users the exception is meant to welcome — a policy auto-block in many compliance workflows. Changed to `LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception`, a valid PEP 639 custom identifier that routes scanners to read the bundled `LICENSE` instead of matching a restrictive id. No change to the license terms themselves.
+- **README and INSTALL state the internal-use grant plainly.** The license badge read "PolyForm Noncommercial"; the licensing section and FAQ said "free for internal use" without saying that for-profit companies are covered. Both now say so explicitly, and INSTALL gains a "Do I need to pay for this?" section for the non-technical reader.
+- **INSTALL's client-setup step now leads with `--print-config`**, replacing the manual "copy these two paths, then substitute YOURNAME into this JSON" flow. The three hand-editing rules it required (absolute path, doubled backslashes, merge don't replace) collapse to one instruction plus a note about merging into an existing file.
+
+### Compatibility
+- No model-format change, no API change, no change to any existing flag. `--print-config` prints and exits without starting the server or touching the registry. `p2predict_version` unchanged.
 
 ## [v0.9.5] — 2026-08
 

@@ -81,7 +81,7 @@ Check it worked:
 ~/P2Predict/venv/bin/p2predict --version
 ```
 
-If it prints `p2predict 0.9.5` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
+If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
 
 ---
 
@@ -144,7 +144,7 @@ Check it worked:
 .\venv\Scripts\p2predict.exe --version
 ```
 
-If it prints `p2predict 0.9.5` (or a higher number), you're done installing.
+If it prints `p2predict 0.9.6` (or a higher number), you're done installing.
 
 ---
 
@@ -152,21 +152,25 @@ If it prints `p2predict 0.9.5` (or a higher number), you're done installing.
 
 Claude needs to be told where P2Predict lives. You'll paste a small block of settings into one file.
 
-### Get your exact paths
+### Get your settings block
 
-Run this and keep the window open — you'll copy from it in a moment.
+P2Predict can write this for you. Run the command for your computer, and keep the window open.
 
 **Mac:**
 
 ```bash
-echo ~/P2Predict/venv/bin/p2predict-mcp; echo ~/P2Predict/models
+~/P2Predict/venv/bin/p2predict-mcp --models-dir ~/P2Predict/models --print-config
 ```
 
 **Windows:**
 
 ```powershell
-echo "$HOME\P2Predict\venv\Scripts\p2predict-mcp.exe"; echo "$HOME\P2Predict\models"
+& "$HOME\P2Predict\venv\Scripts\p2predict-mcp.exe" --models-dir "$HOME\P2Predict\models" --print-config
 ```
+
+It prints the exact block to paste, with your real folder locations already filled in and everything spelled correctly for your machine. Copy everything from the first `{` to the last `}`.
+
+This is worth using rather than typing the paths yourself. Getting them slightly wrong is the most common reason Claude doesn't find P2Predict, and the mistakes are invisible: a folder name that doesn't match, or a Windows path that needs every `\` written twice.
 
 ### Open Claude's config file
 
@@ -178,9 +182,7 @@ If you need the file manually:
 
 ### Paste the settings
 
-If the file is empty or brand new, paste this whole thing, replacing the two paths with the ones you just printed.
-
-**Mac** — replace `YOURNAME` with your Mac username:
+If the file is empty or brand new, paste in the block you just copied. It looks like this, but with your real folders instead of `YOURNAME`:
 
 ```json
 {
@@ -193,24 +195,7 @@ If the file is empty or brand new, paste this whole thing, replacing the two pat
 }
 ```
 
-**Windows** — replace `YOURNAME` with your Windows username:
-
-```json
-{
-  "mcpServers": {
-    "p2predict": {
-      "command": "C:\\Users\\YOURNAME\\P2Predict\\venv\\Scripts\\p2predict-mcp.exe",
-      "args": ["--models-dir", "C:\\Users\\YOURNAME\\P2Predict\\models"]
-    }
-  }
-}
-```
-
-Three rules that cause almost every failure here:
-
-1. **Use the full path, not just `p2predict-mcp`.** Claude Desktop doesn't search the same folders your terminal does, so the short name usually fails even when it works fine in the terminal.
-2. **Windows: every backslash must be doubled** (`\\`).
-3. **If the file already has other things in it**, don't replace them — add `"p2predict": { ... }` alongside whatever is already inside `"mcpServers"`, separated by a comma.
+**If the file already has something in it**, don't replace it. Add just the `"p2predict": { ... }` part alongside whatever is already inside `"mcpServers"`, separated by a comma.
 
 Save the file, then **quit Claude Desktop completely and reopen it**. On Mac that means **Cmd + Q**, not just closing the window.
 
@@ -347,10 +332,9 @@ An old version paired itself with an incompatible component. [Update](#updating)
 Work through these in order:
 
 1. Did you **fully quit** Claude Desktop and reopen it? On Mac, **Cmd + Q** — closing the window isn't enough.
-2. Is the `command` in your config the **full path** (starting `/Users/...` or `C:\\Users\\...`), not just `p2predict-mcp`? Claude doesn't search the same folders your terminal does.
-3. **Windows only:** are all backslashes **doubled** (`\\`)?
-4. Is the JSON valid? A missing comma or bracket makes Claude ignore the whole file silently. Paste it into [jsonlint.com](https://jsonlint.com) to check.
-5. Does the path actually exist? Run the exact `command` path from your terminal, with `--models-dir` and your models folder. If it prints `P2Predict MCP server v... loaded from ...` and then sits there waiting, that's correct — press **Ctrl + C** to stop it. If it errors instead, the error tells you what's wrong.
+2. **Re-run the `--print-config` command from [Get your settings block](#get-your-settings-block) and paste its output over what's in the file.** That rules out every path and spelling mistake at once, which is what almost all of these turn out to be.
+3. Is the JSON valid? A missing comma or bracket makes Claude ignore the whole file silently. Paste it into [jsonlint.com](https://jsonlint.com) to check — this is the one thing `--print-config` can't fix for you, because it happens when you merge its output with settings that were already there.
+4. Does the server actually start? Run the `command` from your config in the terminal, followed by `--models-dir` and your models folder. If it prints `P2Predict MCP server v... loaded from ...` and then sits there waiting, that's correct — press **Ctrl + C** to stop it. If it errors instead, the error tells you what's wrong.
 
 ### The console commands work in Terminal but not elsewhere
 

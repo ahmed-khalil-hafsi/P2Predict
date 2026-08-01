@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -603,3 +604,75 @@ def test_registry_scan(registry, model_id):
 def test_registry_model_not_found(registry):
     with pytest.raises(FileNotFoundError):
         registry.load("nonexistent_model")
+
+
+# ---------------------------------------------------------------------------
+# --print-config
+# ---------------------------------------------------------------------------
+
+
+def _emitted_config(capsys, models_dir: Path) -> dict:
+    """Run _print_config and parse the JSON block out of what it printed."""
+    mcp_server._print_config(models_dir)
+    text = capsys.readouterr().out
+    return json.loads(text[text.index("{"):text.rindex("}") + 1])
+
+
+def test_print_config_emits_valid_pasteable_json(capsys, tmp_path):
+    """The whole point: the user never hand-escapes anything."""
+    models = tmp_path / "models"
+    models.mkdir()
+    blob = _emitted_config(capsys, models)
+
+    entry = blob["mcpServers"]["p2predict"]
+    assert Path(entry["command"]).is_absolute()
+    assert entry["args"][-2] == "--models-dir"
+    assert entry["args"][-1] == str(models)
+
+
+def test_print_config_uses_absolute_command_not_bare_name(capsys, tmp_path):
+    """MCP clients don't inherit PATH, so a bare command name would fail."""
+    blob = _emitted_config(capsys, tmp_path / "models")
+    command = blob["mcpServers"]["p2predict"]["command"]
+    assert command != "p2predict-mcp"
+    assert Path(command).is_absolute()
+
+
+def test_print_config_flags_missing_models_dir(capsys, tmp_path):
+    mcp_server._print_config(tmp_path / "not_there")
+    assert "doesn't exist yet" in capsys.readouterr().out
+
+
+def test_print_config_stays_quiet_when_models_dir_exists(capsys, tmp_path):
+    models = tmp_path / "models"
+    models.mkdir()
+    mcp_server._print_config(models)
+    assert "doesn't exist yet" not in capsys.readouterr().out
+
+
+def test_launch_command_prefers_console_script(tmp_path, monkeypatch):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    name = "p2predict-mcp.exe" if os.name == "nt" else "p2predict-mcp"
+    script = fake_bin / name
+    script.touch()
+    monkeypatch.setattr(mcp_server.sys, "executable", str(fake_bin / "python"))
+
+    assert mcp_server._launch_command() == [str(script)]
+
+
+def test_launch_command_falls_back_to_unresolved_interpreter(tmp_path, monkeypatch):
+    """Regression: resolve() followed a venv's python symlink out to the base
+    interpreter, which has no p2predict on its path — the emitted config then
+    died with ModuleNotFoundError. sys.executable must be used as-is."""
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    real_python = tmp_path / "real_python"
+    real_python.touch()
+    venv_python = venv_bin / "python"
+    venv_python.symlink_to(real_python)
+    monkeypatch.setattr(mcp_server.sys, "executable", str(venv_python))
+
+    command = mcp_server._launch_command()
+    assert command == [str(venv_python), "-m", "p2predict.mcp"]
+    assert command[0] != str(real_python)

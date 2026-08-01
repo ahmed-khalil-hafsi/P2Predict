@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "p2predict"
-version = "0.9.5"
+version = "0.9.6"
 description = "Parametric price benchmarking for engineering and procurement trade-offs. Agentic first, runs on your data, stays on your machine."
 readme = "README.md"
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception"
