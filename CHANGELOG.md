@@ -4,6 +4,10 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Changed
+- **Package license metadata now reflects the internal-use exception.** `LICENSE` grants any organization — explicitly including for-profit corporations — the right to use P2Predict internally for its own operations, procurement, and benchmarking at no cost, but `pyproject.toml` still declared the bare SPDX id `PolyForm-Noncommercial-1.0.0`. That is the string PyPI displays and that corporate license scanners read, so the package advertised "Noncommercial" to exactly the enterprise users the exception is meant to welcome — a policy auto-block in many compliance workflows. Changed to `LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception`, a valid PEP 639 custom identifier that routes scanners to read the bundled `LICENSE` instead of matching a restrictive id. No change to the license terms themselves.
+- **README and INSTALL state the internal-use grant plainly.** The license badge read "PolyForm Noncommercial"; the licensing section and FAQ said "free for internal use" without saying that for-profit companies are covered. Both now say so explicitly, and INSTALL gains a "Do I need to pay for this?" section for the non-technical reader.
+
 ### Added
 - **MCP server — 10 typed tools for AI agent integration.** `pip install p2predict[mcp]` adds the `p2predict-mcp` command, a local stdio-transport MCP server that lets Claude, Cursor, and custom agents call P2Predict as typed tools. The procurement user talks to their agent; the agent calls P2Predict; the answer flows back in plain English. Tools: `list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`. Trained models are also exposed as MCP resources (`model://{model_id}`). All data stays on the user's machine — nothing leaves disk.
   - **`ModelRegistry`** (`p2predict.mcp.registry`) scans a models directory, lazy-loads `.model` files with an LRU cache (max 5), and exposes `ModelInfo` metadata (algorithm, target, features, feature types, categories, calibration status).

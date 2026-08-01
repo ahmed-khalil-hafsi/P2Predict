@@ -384,6 +384,12 @@ The same engine is available three ways, all calling the same maths:
 
 Full reference for the CLI, Python API, JSON output schema, and CSV data format: **[TECHNICAL.md](TECHNICAL.md)**.
 
+## Do I need to pay for this?
+
+No. Any company — including a for-profit one — can use P2Predict internally for its own operations, procurement, and benchmarking at no cost. There's nothing to buy, no licence key, no trial period, and no one to call.
+
+A paid licence is only needed if you use P2Predict to serve third-party clients (consulting or advisory work) or build it into a product you sell. Full terms in [LICENSE](LICENSE); commercial enquiries via [ahmedhafsi.com/contact](https://ahmedhafsi.com/contact/).
+
 ## Contributing
 
 Bug reports, feature requests, and dataset suggestions — [open an issue](https://github.com/ahmed-khalil-hafsi/P2Predict/issues).

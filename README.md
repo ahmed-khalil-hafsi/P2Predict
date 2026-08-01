@@ -9,7 +9,7 @@
 ![Works with any AI agent](https://img.shields.io/badge/works%20with-any%20AI%20agent-6E56CF) &nbsp;
 ![Local first](https://img.shields.io/badge/local--first-your%20data%20never%20leaves-1F8A4C) &nbsp;
 ![Built for procurement](https://img.shields.io/badge/built%20for-procurement-0B6BCB) &nbsp;
-![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-555)
+![License](https://img.shields.io/badge/free%20for%20internal%20company%20use-1F8A4C)
 
 ![P2Predict MCP Demo](./documentation/p2predict_mcp_demo.gif)
 
@@ -166,7 +166,7 @@ Each one leads with results, shows where to trust them, and points to exactly wh
 ## FAQ
 
 **Is it really free?**
-Yes, for internal use. P2Predict is source-available under the PolyForm Noncommercial License. No seats, no trial period, no sales call. A commercial license is only needed if you deploy it for clients or embed it in a paid product.
+Yes — including for for-profit companies. Any organization can use P2Predict internally for its own operations, procurement, and benchmarking at no cost. No seats, no trial period, no sales call. A commercial license is only needed if you use it to serve third-party clients (consulting or advisory work) or embed it in a paid product or service.
 
 **How reliable are the numbers?**
 Every estimate comes with a range, not just a number, and the range is honest about how thin your data is: wide where history is sparse, tight where it's deep. On the public case studies, predictions land within roughly 16% of the actual price half the time, and within 73% nine times in ten. That's the model showing its work, not asking you to trust it blind.
@@ -213,10 +213,12 @@ P2Predict comes out of that work: the tools a procurement team actually needs to
 
 ## Licensing
 
-Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Source-available under the [PolyForm Noncommercial License 1.0.0, with an additional grant of permission for internal company use](LICENSE).
 
-- **Free for internal use:** use P2Predict inside your own organization at no cost.
-- **Commercial use requires a license:** deploying for clients, embedding it in a paid service, or consulting engagements.
+- **Free for internal use, including for-profit companies.** Any organization may use P2Predict internally for its own operations, procurement, and benchmarking at no cost. You do not need to buy anything, ask permission, or talk to anyone.
+- **A commercial license is only required if you** (1) provide consulting, advisory, or procurement services to third-party clients using P2Predict, or (2) embed or integrate it into a paid product or service.
+
+Despite the "Noncommercial" in the underlying license name, commercial *companies* are explicitly covered by the additional grant — the restriction is on selling P2Predict's use to others, not on being a business.
 
 For a commercial license, a partnership, or to share a procurement dataset, reach out: **[ahmedhafsi.com/contact](https://ahmedhafsi.com/contact/)**.
 

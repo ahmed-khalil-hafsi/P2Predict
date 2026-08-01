@@ -7,7 +7,7 @@ name = "p2predict"
 version = "0.9.5"
 description = "Parametric price benchmarking for engineering and procurement trade-offs. Agentic first, runs on your data, stays on your machine."
 readme = "README.md"
-license = "PolyForm-Noncommercial-1.0.0"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception"
 license-files = ["LICENSE"]
 authors = [{name = "Ahmed Khalil Hafsi"}]
 requires-python = ">=3.10"
