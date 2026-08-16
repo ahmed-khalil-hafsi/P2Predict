@@ -19,7 +19,7 @@
 **Set up in one command:**
 
 ```bash
-pip install p2predict[mcp]
+pip install "p2predict[mcp]"
 ```
 
 Built for procurement and engineering teams in automotive, semiconductors, electronics, industrials, pharma, and chemicals.
