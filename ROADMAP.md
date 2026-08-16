@@ -124,6 +124,24 @@ Built on `ModelRegistry` (lazy-load + LRU cache), shared `model_utils.py` (extra
 - Landing page live at the registered domain.
 - Three meetings booked with procurement leaders from the inbound link.
 
+### 5. Graceful XGBoost fallback on Mac (the no-admin "seatbelt")
+
+**Why it matters.** XGBoost's macOS wheel loads `libomp` from `/opt/homebrew/opt/libomp/lib`, and `libomp` isn't a pip package — it comes from Homebrew, whose installer needs an **admin password**. Because `training.py` imports xgboost at module top level, a Mac without libomp doesn't just lose XGBoost — the whole package (CLI *and* MCP server) crashes on startup. That locks out exactly the audience INSTALL.md targets: category managers on locked-down corporate Macs with no admin rights and no Homebrew. Today they're told to install libomp (INSTALL.md Step 5), which they often *can't* do without IT. The seatbelt makes P2Predict start and work for them on the algorithms that need nothing extra.
+
+**Scope**
+- Make the xgboost import non-fatal: move `from xgboost import XGBRegressor` out of `training.py` module top into a lazy import inside `_make_estimator`, wrapped so a missing native library raises a clear, actionable message instead of a startup crash.
+- `auto_train` skips xgboost when it can't load, so auto-mode still returns the best of ridge / random_forest.
+- An explicit `--algorithm xgboost` request that can't load gives the one-line fix (`brew install libomp`), not a traceback.
+- No change to the dependency list or defaults: xgboost stays installed and preferred everywhere it can run. Windows/Linux and libomp-equipped Macs are unaffected.
+- Smoke test gains a macOS leg *without* libomp asserting the package still imports and runs on ridge/random_forest.
+
+**Acceptance**
+- On a fresh Mac with no Homebrew and no admin rights, `pip install "p2predict[mcp]"` then `p2predict --version` and the MCP server both start and run.
+- ridge / random_forest train and predict there; requesting xgboost prints the libomp fix, not a crash.
+- Nothing changes on machines that already have libomp.
+
+**Deferred (2026-08-17).** Shipping the docs-only prerequisite (INSTALL.md Step 5) for now; revisit if the Homebrew/admin barrier proves to cost real Mac installs.
+
 ---
 
 ## Still deliberately left out
