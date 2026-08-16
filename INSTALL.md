@@ -23,7 +23,70 @@ Why the Mac needs it: macOS ships with Python 3.9, which is too old for P2Predic
 
 If you don't have an admin password on your Mac, ask IT to install **Python 3.12 from python.org** — this is a standard, signed installer. Then start at step 2.
 
-> **A note on jargon.** *Terminal* (Mac) / *PowerShell* (Windows) is a window where you type commands instead of clicking. *Python* is the language P2Predict is written in — you'll never write any code. *MCP* is just the plug that lets Claude or an AI agent talk to programs on your computer.
+> **A note on jargon.** *PowerShell* (Windows) / *Terminal* (Mac) is a window where you type commands instead of clicking. *Python* is the language P2Predict is written in — you'll never write any code. *MCP* is just the plug that lets Claude or an AI agent talk to programs on your computer.
+
+---
+
+# Windows: step by step
+
+## Step 1 — Install Python
+
+1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
+2. Click the big yellow **Download Python 3.12.x** button. (3.12 or 3.13 are the safest choices. Avoid the newest release for a few months after it comes out — some components lag behind.)
+3. Open the downloaded `.exe`.
+4. At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
+
+   *PATH is just a list of folders Windows searches when you type a command. If Python isn't on it, Windows says "python is not recognized" even though Python is sitting right there.*
+5. Click **Install Now** (not "Customize"). This installs into your own user folder and does **not** need an admin password.
+6. If it offers **"Disable path length limit"** at the end, click it. Then click **Close**.
+
+## Step 2 — Open PowerShell
+
+Press the **Windows key**, type `PowerShell`, press **Enter**. Use the normal one — you do *not* need "Run as administrator".
+
+To run a command: copy it, right-click inside the PowerShell window (that pastes), press **Enter**, and wait for a fresh line.
+
+Check Python arrived:
+
+```powershell
+python --version
+```
+
+You want `Python 3.12.x` (or any number 3.10 and above). If nothing happens, or the Microsoft Store opens, see [Troubleshooting](#troubleshooting).
+
+## Step 3 — Create a home for P2Predict
+
+This makes a `P2Predict` folder in your user folder with a self-contained Python setup inside. It can't affect anything else on your PC, and deleting the folder removes it completely.
+
+```powershell
+mkdir $HOME\P2Predict\models
+```
+
+```powershell
+python -m venv $HOME\P2Predict\venv
+```
+
+The second command takes a few seconds and prints nothing. Silence means success.
+
+## Step 4 — Install P2Predict
+
+```powershell
+cd $HOME\P2Predict
+```
+
+```powershell
+.\venv\Scripts\pip.exe install "p2predict[mcp]"
+```
+
+This takes 1–3 minutes and prints a lot of scrolling text. The last line should say `Successfully installed ...` with a long list.
+
+Check it worked:
+
+```powershell
+.\venv\Scripts\p2predict.exe --version
+```
+
+If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
 
 ---
 
@@ -110,69 +173,6 @@ If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now
 
 ---
 
-# Windows: step by step
-
-## Step 1 — Install Python
-
-1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
-2. Click the big yellow **Download Python 3.12.x** button. (3.12 or 3.13 are the safest choices. Avoid the newest release for a few months after it comes out — some components lag behind.)
-3. Open the downloaded `.exe`.
-4. At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
-
-   *PATH is just a list of folders Windows searches when you type a command. If Python isn't on it, Windows says "python is not recognized" even though Python is sitting right there.*
-5. Click **Install Now** (not "Customize"). This installs into your own user folder and does **not** need an admin password.
-6. If it offers **"Disable path length limit"** at the end, click it. Then click **Close**.
-
-## Step 2 — Open PowerShell
-
-Press the **Windows key**, type `PowerShell`, press **Enter**. Use the normal one — you do *not* need "Run as administrator".
-
-To run a command: copy it, right-click inside the PowerShell window (that pastes), press **Enter**, and wait for a fresh line.
-
-Check Python arrived:
-
-```powershell
-python --version
-```
-
-You want `Python 3.12.x` (or any number 3.10 and above). If nothing happens, or the Microsoft Store opens, see [Troubleshooting](#troubleshooting).
-
-## Step 3 — Create a home for P2Predict
-
-This makes a `P2Predict` folder in your user folder with a self-contained Python setup inside. It can't affect anything else on your PC, and deleting the folder removes it completely.
-
-```powershell
-mkdir $HOME\P2Predict\models
-```
-
-```powershell
-python -m venv $HOME\P2Predict\venv
-```
-
-The second command takes a few seconds and prints nothing. Silence means success.
-
-## Step 4 — Install P2Predict
-
-```powershell
-cd $HOME\P2Predict
-```
-
-```powershell
-.\venv\Scripts\pip.exe install "p2predict[mcp]"
-```
-
-This takes 1–3 minutes and prints a lot of scrolling text. The last line should say `Successfully installed ...` with a long list.
-
-Check it worked:
-
-```powershell
-.\venv\Scripts\p2predict.exe --version
-```
-
-If it prints `p2predict 0.9.6` (or a higher number), you're done installing.
-
----
-
 # Connect it to Claude (example here is claude. For copilot and other agentic models, refer to the vendor as MCP is standard format)
 
 Claude needs to be told where P2Predict lives. You'll paste a small block of settings into one file.
@@ -181,16 +181,16 @@ Claude needs to be told where P2Predict lives. You'll paste a small block of set
 
 P2Predict can write this for you. Run the command for your computer, and keep the window open.
 
-**Mac:**
-
-```bash
-~/P2Predict/venv/bin/p2predict-mcp --models-dir ~/P2Predict/models --print-config
-```
-
 **Windows:**
 
 ```powershell
 & "$HOME\P2Predict\venv\Scripts\p2predict-mcp.exe" --models-dir "$HOME\P2Predict\models" --print-config
+```
+
+**Mac:**
+
+```bash
+~/P2Predict/venv/bin/p2predict-mcp --models-dir ~/P2Predict/models --print-config
 ```
 
 It prints the exact block to paste, with your real folder locations already filled in and everything spelled correctly for your machine. Copy everything from the first `{` to the last `}`.
@@ -202,8 +202,8 @@ This is worth using rather than typing the paths yourself. Getting them slightly
 In **Claude Desktop**: menu **Claude → Settings → Developer → Edit Config**. That opens the right file directly — much easier than hunting for it.
 
 If you need the file manually:
-- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ### Paste the settings
 
@@ -213,12 +213,14 @@ If the file is empty or brand new, paste in the block you just copied. It looks 
 {
   "mcpServers": {
     "p2predict": {
-      "command": "/Users/YOURNAME/P2Predict/venv/bin/p2predict-mcp",
-      "args": ["--models-dir", "/Users/YOURNAME/P2Predict/models"]
+      "command": "C:\\Users\\YOURNAME\\P2Predict\\venv\\Scripts\\p2predict-mcp.exe",
+      "args": ["--models-dir", "C:\\Users\\YOURNAME\\P2Predict\\models"]
     }
   }
 }
 ```
+
+(On Mac the `command` is a path like `/Users/YOURNAME/P2Predict/venv/bin/p2predict-mcp` instead — but let `--print-config` fill it in either way.)
 
 **If the file already has something in it**, don't replace it. Add just the `"p2predict": { ... }` part alongside whatever is already inside `"mcpServers"`, separated by a comma.
 
