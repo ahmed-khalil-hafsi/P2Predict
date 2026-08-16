@@ -1,0 +1,64 @@
+# Reproduces exactly what a customer does: install the *published* package from
+# PyPI into a fresh venv, on every OS people actually run, then prove it not only
+# installs but RUNS (compiled deps like xgboost and shap can install fine yet
+# fail at import time — a missing runtime, a wheel/ABI mismatch, a source build
+# that fell over).
+#
+# The main CI (p2predict_train.yml) tests an *editable local* install on Linux
+# only. This workflow covers the real "pip install p2predict" path across
+# Linux, macOS and Windows — which is where "some customers can't install" lives.
+
+name: Install smoke test
+
+on:
+  workflow_dispatch: {}        # run on demand from the Actions tab
+  release:
+    types: [published]         # every release, before customers hit it
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"        # weekly — catches upstream wheel breakage (e.g. a
+                               # new Python that shap has no wheel for yet)
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false         # one leg failing must not hide the others
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Bookends of the supported range: the newest Python is where wheels go
+        # missing first, the oldest is where behaviour breaks first.
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install from PyPI into a fresh venv, exactly like a customer
+        shell: bash
+        run: |
+          python -m venv venv
+          # venv layout differs by OS: Scripts/ on Windows, bin/ elsewhere.
+          if [ -d venv/Scripts ]; then BIN=venv/Scripts; else BIN=venv/bin; fi
+          echo "BIN=$BIN" >> "$GITHUB_ENV"
+          "$BIN/python" -m pip install --upgrade pip
+          "$BIN/python" -m pip install "p2predict[mcp]"
+
+      - name: Verify it RUNS, not just installs
+        shell: bash
+        run: |
+          "$BIN/p2predict" --version
+          # Import the compiled deps — pip install can succeed while these fail
+          # at import (missing VC++ runtime, wheel/ABI mismatch, bad source build).
+          "$BIN/python" -c "import xgboost, shap, sklearn, scipy, pandas, numpy, matplotlib; print('imports OK')"
+          # Console scripts must be wired, including the MCP entry point.
+          "$BIN/p2predict" --help
+          "$BIN/p2predict-train" --help
+          "$BIN/p2predict-mcp" --help
