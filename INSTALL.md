@@ -311,6 +311,38 @@ You missed the **"Add python.exe to PATH"** tickbox during install. Easiest fix:
 
 That's a Windows placeholder, not real Python. Install Python from [python.org](https://www.python.org/downloads/) with the PATH box ticked. If it still happens: **Settings → Apps → Advanced app settings → App execution aliases**, and turn off both `python.exe` and `python3.exe`.
 
+### `SSLError`, `Could not fetch URL`, `Retrying...`, or `Connection timed out` during install (usually a work computer)
+
+This is the **most common reason an install fails on a locked-down company laptop**, and it has nothing to do with P2Predict. Your company network sends all internet traffic through a security gateway (a "proxy"). The install command doesn't know that gateway exists, so it can't reach the internet to download anything.
+
+How to tell that's what this is: try the exact same install command on a **different network** — your home wifi, or your phone's hotspot. If it works there, the company network is the cause.
+
+To make it work on the company network, you'll need one of two things from your **IT department** (this is a normal request — copy them the line below):
+
+> *"To install a Python tool, I need either the company's pip proxy setting, or the address of our internal PyPI mirror (Artifactory / Nexus). Which should I use?"*
+
+- If they give you an **internal mirror address**, add it to the install command like this (Windows shown, with your real address):
+
+  ```powershell
+  .\venv\Scripts\pip.exe install --index-url https://your-company-mirror/simple "p2predict[mcp]"
+  ```
+
+- If they give you a **proxy address**, set it first, then re-run the normal install in the *same* window:
+
+  ```powershell
+  $env:HTTPS_PROXY = "http://proxy.yourcompany.com:8080"
+  ```
+
+### The install downloads for a while, then stops or times out
+
+One of the pieces (XGBoost) is about 100 MB, and a slow or throttled work connection can drop the download partway. **Just run the exact same install command again** — it picks up where it left off. If it keeps stopping at the same place every time, it's the proxy issue directly above, not a bad connection.
+
+### `ImportError: DLL load failed while importing ...` (Windows) — when Claude uses P2Predict, or when you run a command
+
+P2Predict installed correctly, but one of its maths engines needs a small, standard Microsoft system library that some fresh or stripped-down Windows machines are missing. It's called the **Microsoft Visual C++ Redistributable** — think of it as a shared toolbox that lots of Windows programs rely on. (Most machines already have it, which is why this one is rare.)
+
+Install it once from Microsoft's official page: **[aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)** (a signed Microsoft installer). This one **may ask for an admin password** — if your machine is locked down, send that link to IT and ask them to install *"the latest Visual C++ x64 Redistributable."* Then quit and reopen Claude.
+
 ### `command not found: python3` (Mac)
 
 Python didn't install, or Terminal was open before you installed it. Quit Terminal completely (**Cmd + Q**) and reopen it, then try again. If it still fails, re-run the python.org installer.
