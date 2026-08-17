@@ -11,6 +11,9 @@
 ![Built for procurement](https://img.shields.io/badge/built%20for-procurement-0B6BCB) &nbsp;
 ![License](https://img.shields.io/badge/free%20for%20internal%20company%20use-1F8A4C)
 
+[![CI](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/p2predict_train.yml) &nbsp;
+[![Install: Linux · macOS · Windows](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/install_smoke.yml/badge.svg)](https://github.com/ahmed-khalil-hafsi/P2Predict/actions/workflows/install_smoke.yml)
+
 ![P2Predict MCP Demo](./documentation/p2predict_mcp_demo.gif)
 
 **Set up in one command:**
