@@ -92,7 +92,7 @@ Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.
 
 ### ~~2. MCP server (v1.0 — the agentic-first headliner)~~ ✅ Shipped in v1.0
 
-`pip install p2predict[mcp]` adds the `p2predict-mcp` console script — a local stdio-transport MCP server with 10 typed tools (`list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`) and model resources (`model://{model_id}`). Claude, Cursor, and custom agents call P2Predict directly — the procurement user talks to their agent, the agent calls the math, the answer flows back in plain English. All data stays local; nothing leaves the machine.
+`pip install "p2predict[mcp]"` adds the `p2predict-mcp` console script — a local stdio-transport MCP server with 10 typed tools (`list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`) and model resources (`model://{model_id}`). Claude, Cursor, and custom agents call P2Predict directly — the procurement user talks to their agent, the agent calls the math, the answer flows back in plain English. All data stays local; nothing leaves the machine.
 
 Built on `ModelRegistry` (lazy-load + LRU cache), shared `model_utils.py` (extracted from `cli/predict.py` so CLI and MCP call identical code), and `asyncio.to_thread()` for CPU-bound sklearn/SHAP calls. 18 integration tests in `tests/test_mcp.py`. CI installs and smoke-checks the MCP entry point on every push.
 

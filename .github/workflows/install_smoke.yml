@@ -41,6 +41,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # XGBoost needs the OpenMP runtime on macOS, and it is NOT a pip package —
+      # so INSTALL.md Step 5 has Mac users run `brew install libomp`. We do the
+      # same here so this leg tests the documented, supported Mac install path.
+      # If this step is ever removed, the Mac leg fails at `import xgboost` —
+      # which is exactly what a Mac user who skips Step 5 experiences.
+      - name: Install libomp (macOS prerequisite for XGBoost, per INSTALL.md Step 5)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
       - name: Install from PyPI into a fresh venv, exactly like a customer
         shell: bash
         run: |

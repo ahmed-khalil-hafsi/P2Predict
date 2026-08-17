@@ -75,7 +75,32 @@ This downloads P2Predict and everything it needs. It takes 1–3 minutes and pri
 
 > **Why the quotation marks?** Without them the Mac terminal treats `[mcp]` as a wildcard and fails with `zsh: no matches found`. The quotes are required — don't drop them.
 
-Check it worked:
+## Step 5 — Install the XGBoost helper (Mac only)
+
+P2Predict's most accurate model, **XGBoost**, needs one small shared maths library on Mac called **libomp**. It doesn't come with Python, and without it P2Predict won't start. (Windows and Linux include it automatically — this step is Mac-only, but on Mac it is not optional.)
+
+libomp is installed with **Homebrew**, the standard Mac tool for this kind of thing. First check whether you already have Homebrew:
+
+```bash
+brew --version
+```
+
+- **If it prints a version number**, you have Homebrew. Skip straight to the `brew install libomp` command below.
+- **If it says `command not found`**, install Homebrew first. Paste this, press Enter, and follow its prompts (it will ask for your Mac password, and takes a few minutes):
+
+  ```bash
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  ```
+
+  When it finishes, **close Terminal completely (Cmd + Q) and reopen it** — Homebrew isn't on your PATH until you do.
+
+Now install the helper. This is one command, once:
+
+```bash
+brew install libomp
+```
+
+Check everything worked:
 
 ```bash
 ~/P2Predict/venv/bin/p2predict --version
@@ -342,6 +367,16 @@ One of the pieces (XGBoost) is about 100 MB, and a slow or throttled work connec
 P2Predict installed correctly, but one of its maths engines needs a small, standard Microsoft system library that some fresh or stripped-down Windows machines are missing. It's called the **Microsoft Visual C++ Redistributable** — think of it as a shared toolbox that lots of Windows programs rely on. (Most machines already have it, which is why this one is rare.)
 
 Install it once from Microsoft's official page: **[aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)** (a signed Microsoft installer). This one **may ask for an admin password** — if your machine is locked down, send that link to IT and ask them to install *"the latest Visual C++ x64 Redistributable."* Then quit and reopen Claude.
+
+### `Library not loaded: @rpath/libomp.dylib` or `XGBoostError ... OpenMP runtime is not installed` (Mac)
+
+P2Predict installed fine, but its XGBoost model can't find the **libomp** helper — you skipped [Step 5](#step-5--install-the-xgboost-helper-mac-only), or it didn't finish. Go back and run it:
+
+```bash
+brew install libomp
+```
+
+If `brew` itself says `command not found`, install Homebrew first — the two commands are in [Step 5](#step-5--install-the-xgboost-helper-mac-only). Then quit and reopen Claude.
 
 ### `command not found: python3` (Mac)
 
