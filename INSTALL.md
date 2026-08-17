@@ -1,10 +1,10 @@
-# Install & set up P2Predict
+# Install P2Predict
 
 This guide assumes you have **never used a terminal, never installed Python, and don't know what an API is**. That's fine, you don't need to. Follow the steps for your computer and copy-paste each command exactly.
 
 **What you're actually doing:** installing a small program on your laptop, then telling your AI agent assistant (Claude or others) that it exists. After that you never touch the terminal again — you just talk to Claude in plain English about your pricing data. You can actually just give your agent the URL to this page and it will install p2predict for you in a folder of your choosing.
 
-**Time:** about 15 minutes, once.
+**Time:** about 15 minutes
 
 **Your data never leaves your machine.** P2Predict reads your spreadsheet, does its maths, and answers — all locally. Nothing is uploaded anywhere.
 
@@ -12,7 +12,7 @@ This guide assumes you have **never used a terminal, never installed Python, and
 
 ## Do I need admin rights?
 
-I am assuming that most users are managers and analysts in large global companies, so I wrote this install guide for you. I know that most business machines are locked and admin mode is not easy to get. If you have windows, you dont need admin mode - however on a mac, you do need it to install a modern version of python.
+I am assuming that most users are managers and analysts in large global companies, so I wrote this install guide for you. Most business machines are locked and admin mode is not easy to get. If you have windows, you dont need admin mode - however on a mac, you do need it to install a modern version of python.
 
 | | Admin password needed? |
 |---|---|
@@ -117,7 +117,7 @@ If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now
 1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
 2. Click the big yellow **Download Python 3.12.x** button. (3.12 or 3.13 are the safest choices. Avoid the newest release for a few months after it comes out — some components lag behind.)
 3. Open the downloaded `.exe`.
-4. **⚠️ This is the step everyone gets wrong.** At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
+4. At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
 
    *PATH is just a list of folders Windows searches when you type a command. If Python isn't on it, Windows says "python is not recognized" even though Python is sitting right there.*
 5. Click **Install Now** (not "Customize"). This installs into your own user folder and does **not** need an admin password.
