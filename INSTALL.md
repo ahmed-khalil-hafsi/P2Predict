@@ -86,7 +86,7 @@ Check it worked:
 .\venv\Scripts\p2predict.exe --version
 ```
 
-If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
+If it prints `p2predict 1.0.0` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
 
 ---
 
@@ -169,7 +169,7 @@ Check everything worked:
 ~/P2Predict/venv/bin/p2predict --version
 ```
 
-If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
+If it prints `p2predict 1.0.0` (or a higher number), you're done installing. Now jump to [**Connect it to Claude**](#connect-it-to-claude).
 
 ---
 

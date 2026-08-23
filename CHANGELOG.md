@@ -4,6 +4,8 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.0.0] — 2026-08
+
 ### Added
 - **MCP server — 10 typed tools for AI agent integration.** `pip install p2predict[mcp]` adds the `p2predict-mcp` command, a local stdio-transport MCP server that lets Claude, Cursor, and custom agents call P2Predict as typed tools. The procurement user talks to their agent; the agent calls P2Predict; the answer flows back in plain English. Tools: `list_models`, `get_model_info`, `predict`, `predict_batch`, `explain`, `predict_interval`, `what_if`, `predict_from_csv`, `train`, `generate_report`. Trained models are also exposed as MCP resources (`model://{model_id}`). All data stays on the user's machine — nothing leaves disk.
   - **`ModelRegistry`** (`p2predict.mcp.registry`) scans a models directory, lazy-loads `.model` files with an LRU cache (max 5), and exposes `ModelInfo` metadata (algorithm, target, features, feature types, categories, calibration status).
@@ -31,11 +33,11 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
   - The train `--json` `input` block gains `rows_dropped_target_na` and `rows_used` fields (additive; `rows_loaded` and `rows_after_outlier_handling` keep their meaning).
   - Regression tests in `tests/test_cli.py` (`test_train_keeps_rows_with_feature_only_nas`, `test_train_drops_only_target_na_rows`, `test_train_json_stdout_is_pure_json_with_nas`, `test_train_auto_mode_handles_feature_nas_across_all_algorithms`), `tests/test_input_checks.py`, and `tests/test_preprocessing.py`. (PR #14.)
 
-### Fixed
 - **`TargetEncoder` cross-fitting no longer crashes on scikit-learn 1.5–1.8.** The initial `_AdaptiveTargetEncoder` passed a `KFold` splitter object as `cv`, which works on sklearn ≥ 1.9 but raises `TypeError` on 1.5–1.8 (where `cv` must be a plain `int`). Now sets `cv` as an int and seeds the fold shuffle via `random_state` instead. CI runs Python 3.10 with older sklearn, which caught this. (PR #19.)
 
 ### Compatibility
 - No model-format change; `p2predict_version` unchanged. The `--json` train schema only gains fields (`rows_dropped_target_na`, `rows_used`); existing fields are unchanged. Python-API default behaviour is preserved except that the log-target CV scorer and full-resource HPO now produce better, reproducible selections.
+- Supported Python is now **3.10–3.14** (`requires-python` capped to `>=3.10,<3.15`), so a newer interpreter fails fast with a clear pip message instead of a source build. No API or behaviour change; models trained on any supported Python are interchangeable.
 
 ## [v0.9.6] — 2026-08
 
