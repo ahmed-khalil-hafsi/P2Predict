@@ -32,7 +32,7 @@ If you don't have an admin password on your Mac, ask IT to install **Python 3.12
 ## Step 1 — Install Python
 
 1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
-2. **Do not click the big yellow button.** It downloads the *newest* Python (right now that's 3.14), and P2Predict's components don't all have ready-made packages for it yet — the install fails partway with a compiler error. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** (3.13 is fine too). 3.12 is the safe, well-supported choice.
+2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.10 to 3.14 works, and 3.12 is the safest, best-tested choice.
 3. Open the downloaded `.exe`.
 4. At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
 
@@ -95,7 +95,7 @@ If it prints `p2predict 0.9.6` (or a higher number), you're done installing. Now
 ## Step 1 — Install Python
 
 1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
-2. **Do not click the big yellow button.** It downloads the *newest* Python (right now that's 3.14), and P2Predict's components don't all have ready-made packages for it yet — the install fails partway with a compiler error. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** (3.13 is fine too). 3.12 is the safe, well-supported choice.
+2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.10 to 3.14 works, and 3.12 is the safest, best-tested choice.
 3. Open the downloaded `.pkg` file and click **Continue → Continue → Agree → Install**.
 4. Enter your Mac password when asked.
 5. When it finishes, a Finder window may pop open. You can close it.
@@ -338,14 +338,16 @@ You missed the **"Add python.exe to PATH"** tickbox during install. Easiest fix:
 
 That's a Windows placeholder, not real Python. Install Python from [python.org](https://www.python.org/downloads/) with the PATH box ticked. If it still happens: **Settings → Apps → Advanced app settings → App execution aliases**, and turn off both `python.exe` and `python3.exe`.
 
-### `Failed building wheel for shap` / `Microsoft Visual C++ 14.0 or greater is required` (Windows)
+### `requires a different Python` / `Could not find a version that satisfies the requirement p2predict` — or `Failed building wheel for shap` / `Microsoft Visual C++ 14.0 or greater is required`
 
-You installed too **new** a version of Python — almost certainly **3.14**, which is what python.org's big yellow button installs right now. P2Predict's components don't all have ready-made packages for the newest Python yet, so pip tried to *build* one from source, which needs a C++ compiler your machine doesn't have.
+You installed too **new** a version of Python — the big yellow button on python.org always installs the very newest release, and P2Predict supports **Python 3.10 to 3.14** (not newer yet). Depending on your pip version you'll see either a clean *"requires a different Python"* refusal, or — on older pip — pip trying to *build* a component from source and failing for lack of a C++ compiler. Same cause either way.
 
-**Don't install the compiler.** Use a supported Python instead (3.10–3.13; **3.12 is safest**):
+**Don't install a compiler.** Use a supported Python (**3.12 is safest**):
 
 1. Install **Python 3.12** — on [python.org/downloads](https://www.python.org/downloads/), scroll to **"Looking for a specific release?"** and pick the latest 3.12, *not* the big yellow button.
 2. Rebuild the folder's Python against 3.12 and re-install:
+
+   **Windows:**
 
    ```powershell
    Remove-Item -Recurse -Force $HOME\P2Predict\venv
@@ -354,7 +356,15 @@ You installed too **new** a version of Python — almost certainly **3.14**, whi
    .\venv\Scripts\pip.exe install "p2predict[mcp]"
    ```
 
-`py -3.12` picks Python 3.12 even if 3.14 is still installed. Check what you have with `python --version` — anything 3.10 to 3.13 works; 3.14 does not yet.
+   **Mac:**
+
+   ```bash
+   rm -rf ~/P2Predict/venv
+   python3.12 -m venv ~/P2Predict/venv
+   ~/P2Predict/venv/bin/pip install "p2predict[mcp]"
+   ```
+
+Check what you have with `python --version` (Mac: `python3 --version`). Anything from 3.10 to 3.14 works; newer does not yet.
 
 ### `SSLError`, `Could not fetch URL`, `Retrying...`, or `Connection timed out` during install (usually a work computer)
 
