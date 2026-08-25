@@ -10,7 +10,7 @@ readme = "README.md"
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception"
 license-files = ["LICENSE"]
 authors = [{name = "Ahmed Khalil Hafsi"}]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.15"
 keywords = [
     "procurement",
     "price-prediction",
@@ -33,6 +33,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -50,7 +52,7 @@ dependencies = [
     "xgboost>=1.7",
     "halo>=0.0.31",
     "questionary>=1.10",
-    "shap>=0.44,<0.50",
+    "shap>=0.44,<0.53",
 ]
 
 [project.optional-dependencies]
