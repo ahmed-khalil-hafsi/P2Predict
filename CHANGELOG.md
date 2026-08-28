@@ -4,6 +4,11 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.0.1] — 2026-08
+
+### Changed
+- **`what_if` now grades how far to trust the *direction* of a change, closing a gap where it was the only MCP action shipping a result with no reliability flag.** `predict_interval` and `get_model_quality` already self-flag; `what_if` did not, so a change landing on a thinly-sampled spec — or a swing driven by knock-on interaction effects rather than the change itself — came back as a confident `"direction": "saves"` with no caveat, leaving the safeguard to the driving agent rather than the data. The `what_if` summary now carries a `reliability` verdict (`trust` | `caution` | `quote`) and a plain-language `say_to_user` line, mirroring the interval verdict. The judgment reuses the quality report's per-feature signal thresholds (thin-data check) and the already-computed changed-vs-interaction decomposition (an interaction-dominance check and a sign-flip check where the changed spec's own effect opposes the headline) — no new tunables. On the battery-management-IC model this flags the two silent failure cases (a multi-cell change whose swing is interaction-driven → `caution`; a chemistry change whose headline "saves" contradicts its own driver → `quote`) while a clean, well-sampled driver stays `trust`. The flag catches *instability*, not a wrong domain sign, so a `trust` result should still be sign-checked against intuition. Additive and backward-compatible: `compute_whatif` gains an optional `feature_importances` argument, and the reliability fields appear only when it is supplied — the CLI path, which passes none, is unchanged. Rationale documented in `analysis/whatif_reliability_flag.md`; regression tests in `tests/test_whatif.py` cover the six single-spec cases (including the documented limit and the flat-move guard) plus the serialization plumbing.
+
 ## [v1.0.0] — 2026-08
 
 ### Added
