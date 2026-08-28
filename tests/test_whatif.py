@@ -26,10 +26,13 @@ from p2predict.intervals import compute_calibration_residuals
 from p2predict.whatif import (
     INTERACTION_MATERIALITY_THRESHOLD,
     WhatIfResult,
+    assess_reliability,
     compute_whatif,
     interaction_is_material,
     parse_changes,
 )
+from p2predict.training import extract_feature_importances
+from p2predict.model_utils import whatif_to_dict
 
 
 # ---------------------------------------------------------------------------
@@ -372,3 +375,131 @@ def test_interaction_is_material_threshold():
         changed_contributions={}, interaction_contribution=0.02,  # 1% of delta
     )
     assert not interaction_is_material(tiny)
+
+
+# ---------------------------------------------------------------------------
+# Direction-reliability verdict — the regression cases are the six single-spec
+# what-ifs from the battery-management-IC model (analysis/whatif_reliability_
+# flag.md). Contributions are in log space, as the model returns them.
+# ---------------------------------------------------------------------------
+
+
+def _whatif(delta_pct, changed, interaction):
+    """Minimal WhatIfResult carrying only what assess_reliability reads."""
+    # Sign/magnitude of the target-space delta only has to agree with the log-
+    # space direct effect; a unit base price keeps delta ≈ delta_pct/100.
+    return WhatIfResult(
+        base_prediction=1.0,
+        counterfactual_prediction=1.0 + delta_pct / 100.0,
+        delta=delta_pct / 100.0,
+        delta_pct=delta_pct,
+        changes={},
+        changed_contributions=changed,
+        interaction_contribution=interaction,
+    )
+
+
+def test_reliability_trust_strong_direct_dominated():
+    """pins 8->16: strong signal, the change itself drives the move."""
+    r = _whatif(44.6, {"package_pins": 0.3175}, 0.0509)
+    verdict, reason, say = assess_reliability(r, {"package_pins": "strong"})
+    assert verdict == "trust"
+    assert reason == "strong_signal"
+    assert say
+
+
+def test_reliability_caution_interaction_dominant():
+    """cells 2->4: the interaction term is larger than the change's own."""
+    r = _whatif(-8.0, {"max_cells_supported": -0.0389}, -0.0440)
+    verdict, reason, _ = assess_reliability(r, {"max_cells_supported": "moderate"})
+    assert verdict == "caution"
+    assert reason == "interaction_dominant"
+
+
+def test_reliability_caution_moderate_signal():
+    """max temp 85->125: direct-dominated but only a moderate driver."""
+    r = _whatif(-11.9, {"op_temp_max_C": -0.1136}, -0.0132)
+    verdict, reason, _ = assess_reliability(r, {"op_temp_max_C": "moderate"})
+    assert verdict == "caution"
+    assert reason == "moderate_signal"
+
+
+def test_reliability_quote_sign_flip():
+    """multi-chem: the changed spec's own effect ADDS, interactions flip the
+    headline to 'saves'. Strong signal alone would miss this; the sign-flip
+    rule catches it."""
+    r = _whatif(-1.1, {"Battery Chemistry": 0.0144}, -0.0249)
+    verdict, reason, _ = assess_reliability(r, {"Battery Chemistry": "strong"})
+    assert verdict == "quote"
+    assert reason == "sign_flip"
+
+
+def test_reliability_trust_is_the_documented_miss():
+    """add SPI to I2C: strong signal, direct-dominated, no sign flip — neither
+    flag fires even though the direction is commercially backwards. This is the
+    honest limit recorded in the findings note; the guidance-layer sign-check
+    is what covers it, not the payload flag."""
+    r = _whatif(-7.3, {"Interface": -0.0588}, -0.0174)
+    verdict, _, _ = assess_reliability(r, {"Interface": "strong"})
+    assert verdict == "trust"
+
+
+def test_reliability_quote_weak_signal_beats_everything():
+    r = _whatif(30.0, {"obscure_spec": 0.2}, 0.0)
+    verdict, reason, _ = assess_reliability(r, {"obscure_spec": "weak"})
+    assert verdict == "quote"
+    assert reason == "weak_signal"
+
+
+def test_reliability_flat_move_not_flagged_by_interaction():
+    """temp floor -25->-40: a genuinely free concession (~0%). The degenerate
+    0 >= 0 interaction check must NOT fire; a moderate feature still earns a
+    'directional only' caution, but never a spurious sign-flip/interaction one."""
+    r = _whatif(0.0, {"op_temp_min_C": 0.0}, 0.0)
+    verdict, reason, _ = assess_reliability(r, {"op_temp_min_C": "moderate"})
+    assert verdict == "caution"
+    assert reason == "moderate_signal"  # not interaction_dominant / sign_flip
+
+
+def test_reliability_flat_move_strong_is_trust():
+    r = _whatif(0.2, {"Interface": 0.0}, 0.0)
+    verdict, reason, _ = assess_reliability(r, {"Interface": "strong"})
+    assert verdict == "trust"
+
+
+def test_multiple_changed_features_take_worst_signal():
+    r = _whatif(20.0, {"a": 0.1, "b": 0.1}, 0.0)
+    verdict, reason, _ = assess_reliability(r, {"a": "strong", "b": "moderate"})
+    assert verdict == "caution"
+    assert reason == "moderate_signal"
+
+
+# ---------------------------------------------------------------------------
+# Reliability plumbing — populated only when importances are supplied, and it
+# reaches the serialized summary.
+# ---------------------------------------------------------------------------
+
+
+def test_reliability_absent_without_importances(rf_setup):
+    base = rf_setup["X_test"].iloc[[0]]
+    result = compute_whatif(
+        rf_setup["model"], base, {"Region": "EU"}, rf_setup["feature_types"]
+    )
+    assert result.reliability is None
+    assert "reliability" not in whatif_to_dict(result)["summary"]
+
+
+def test_reliability_present_with_importances(rf_setup):
+    base = rf_setup["X_test"].iloc[[0]]
+    importances = extract_feature_importances(
+        rf_setup["model"], rf_setup["X_train"]
+    )
+    result = compute_whatif(
+        rf_setup["model"], base, {"Region": "EU"}, rf_setup["feature_types"],
+        feature_importances=importances,
+    )
+    assert result.reliability in {"trust", "caution", "quote"}
+    assert result.reliability_say_to_user
+    summary = whatif_to_dict(result)["summary"]
+    assert summary["reliability"] == result.reliability
+    assert summary["say_to_user"] == result.reliability_say_to_user
