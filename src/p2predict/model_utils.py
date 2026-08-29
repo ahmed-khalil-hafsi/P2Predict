@@ -192,14 +192,20 @@ def whatif_to_dict(result: WhatIfResult) -> dict:
         direction = "adds"
     elif delta < 0:
         direction = "saves"
+    summary = {
+        "direction": direction,  # "adds" | "saves" | "no change"
+        "effect_dollars": round(abs(delta), 4),
+        "effect_pct": round(abs(float(result.delta_pct)), 1),
+        "new_price": round(float(result.counterfactual_prediction), 4),
+        "old_price": round(float(result.base_prediction), 4),
+    }
+    # Direction-trust verdict, alongside the numbers a category manager acts
+    # on. Present only when compute_whatif was given feature importances.
+    if result.reliability is not None:
+        summary["reliability"] = result.reliability
+        summary["say_to_user"] = result.reliability_say_to_user
     return {
-        "summary": {
-            "direction": direction,  # "adds" | "saves" | "no change"
-            "effect_dollars": round(abs(delta), 4),
-            "effect_pct": round(abs(float(result.delta_pct)), 1),
-            "new_price": round(float(result.counterfactual_prediction), 4),
-            "old_price": round(float(result.base_prediction), 4),
-        },
+        "summary": summary,
         "changes": {
             col: {"from": base_val, "to": cf_val}
             for col, (base_val, cf_val) in result.changes.items()
@@ -222,6 +228,7 @@ def whatif_to_dict(result: WhatIfResult) -> dict:
         ],
         "interaction_contribution": float(result.interaction_contribution),
         "interaction_is_material": bool(interaction_is_material(result)),
+        "reliability_reason": result.reliability_reason,
         "base_interval": (
             {"low": float(result.base_interval.low), "high": float(result.base_interval.high)}
             if result.base_interval is not None

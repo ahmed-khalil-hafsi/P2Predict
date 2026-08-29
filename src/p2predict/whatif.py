@@ -60,10 +60,17 @@ import pandas as pd
 
 from p2predict.explain import Explanation, explain_batch
 from p2predict.intervals import IntervalResult, predict_interval
+from p2predict.quality import feature_signal
 
 # A SHAP delta below this absolute fraction of the total delta is rolled
 # up into the "other interaction effects" bucket in the CLI rendering.
 INTERACTION_MATERIALITY_THRESHOLD = 0.05
+
+# Below this |percent change| we treat the move as effectively flat ("no
+# change" / free to concede) and skip the interaction/sign-flip reliability
+# checks — with a ~0 delta their arithmetic degenerates (0 ≥ 0) and would
+# mislabel a genuinely free concession as unstable.
+RELIABILITY_FLAT_PCT = 0.5
 
 
 @dataclass
@@ -98,6 +105,102 @@ class WhatIfResult:
     # total delta. Should be near 0 modulo floating-point; exposed for
     # diagnostics.
     decomposition_residual: float = 0.0
+    # How far to trust the DIRECTION of this comparison, mirroring the
+    # per-part interval verdict. 'trust' | 'caution' | 'quote', with a
+    # short machine reason and a plain sentence for the user. Populated only
+    # when feature_importances are supplied to compute_whatif (so the CLI
+    # path that never passes them is unchanged); None otherwise.
+    reliability: Optional[str] = None
+    reliability_reason: Optional[str] = None
+    reliability_say_to_user: Optional[str] = None
+
+
+def _importance_signals(
+    feature_importances: list[tuple[str, float]], features: set[str]
+) -> dict[str, str]:
+    """Map each requested feature to its 'strong'|'moderate'|'weak' signal,
+    reusing the same importance-share thresholds the quality report uses so
+    "strong" means one thing across the whole surface. A feature missing from
+    the importances (e.g. dropped by the model) is treated as 'weak'."""
+    total = sum(abs(float(v)) for _, v in feature_importances) or 1.0
+    pct = {name: abs(float(v)) / total * 100.0 for name, v in feature_importances}
+    return {f: feature_signal(pct.get(f, 0.0)) for f in features}
+
+
+def assess_reliability(
+    result: "WhatIfResult", changed_signals: dict[str, str]
+) -> tuple[str, str, str]:
+    """Judge how far to trust the direction of a what-if, from signals that
+    are already computed — no ground-truth expected sign required.
+
+    Returns ``(reliability, reason, say_to_user)`` where reliability is
+    'trust' | 'caution' | 'quote'. Worst-case wins; rules are checked from
+    most to least severe:
+
+      1. weak-signal change  -> 'quote'  (direction rests on very few parts)
+      2. sign flip           -> 'quote'  (the spec you changed pushes the
+                                           other way; the headline is a
+                                           side-effect, not your change)
+      3. interaction-dominant-> 'caution'(most of the move is knock-on
+                                           effects, not the change itself)
+      4. moderate-signal     -> 'caution'(thinly sampled; directional only)
+      5. otherwise           -> 'trust'
+
+    Rules 2 and 3 depend on a non-trivial delta; on an effectively flat move
+    (|delta_pct| < RELIABILITY_FLAT_PCT) they are skipped so a genuinely free
+    concession isn't mislabelled.
+    """
+    signals = set(changed_signals.values())
+    material = abs(float(result.delta_pct)) >= RELIABILITY_FLAT_PCT
+
+    direct = sum(result.changed_contributions.values())
+    interaction = float(result.interaction_contribution)
+    # inner-space direct delta and target-space net delta share sign (exp is
+    # monotonic for log-target; identity otherwise), so this comparison holds
+    # in both cases.
+    sign_flip = material and direct != 0.0 and (direct > 0) != (result.delta > 0)
+    interaction_dominant = material and abs(interaction) >= abs(direct)
+
+    if "weak" in signals:
+        weak = sorted(f for f, s in changed_signals.items() if s == "weak")
+        return (
+            "quote",
+            "weak_signal",
+            f"'{', '.join(weak)}' is barely represented in this data, so the "
+            "direction here is close to a guess — get a real quote rather than "
+            "negotiating on this move.",
+        )
+    if sign_flip:
+        return (
+            "quote",
+            "sign_flip",
+            "The spec you changed actually pushes the price the other way — this "
+            "result is driven by side-effects, not your change, so don't trust "
+            "its direction; get a quote.",
+        )
+    if interaction_dominant:
+        return (
+            "caution",
+            "interaction_dominant",
+            "Treat this as directional only — most of the swing comes from "
+            "knock-on effects, not the spec you changed. Sanity-check it before "
+            "you hold a supplier to it.",
+        )
+    if "moderate" in signals:
+        moderate = sorted(f for f, s in changed_signals.items() if s == "moderate")
+        return (
+            "caution",
+            "moderate_signal",
+            f"Treat this as directional only — '{', '.join(moderate)}' is only "
+            "moderately represented in the data. Sanity-check it before you hold "
+            "a supplier to it.",
+        )
+    return (
+        "trust",
+        "strong_signal",
+        "Solid directional comparison — the spec you changed is what's driving "
+        "the difference; fine to take into the negotiation.",
+    )
 
 
 def parse_changes(spec: str) -> dict[str, str]:
@@ -158,6 +261,7 @@ def compute_whatif(
     background_X: Optional[pd.DataFrame] = None,
     calibration: Optional[dict] = None,
     coverage: float = 0.90,
+    feature_importances: Optional[list[tuple[str, float]]] = None,
 ) -> WhatIfResult:
     """Run the comparison. ``base_features`` is a single-row DataFrame
     whose columns are the model's training features in order.
@@ -165,6 +269,11 @@ def compute_whatif(
     ``feature_types`` maps each column to ``"Numerical"`` or
     ``"Categorical"`` (the same dict the predict CLI already builds from
     the saved preprocessor).
+
+    ``feature_importances`` is the optional ``(name, importance)`` list from
+    ``extract_feature_importances``. When supplied, the result carries a
+    direction-reliability verdict (see ``assess_reliability``); when omitted,
+    the reliability fields stay None and behaviour is unchanged.
     """
     if len(base_features) != 1:
         raise ValueError("compute_whatif expects a single-row base_features.")
@@ -240,7 +349,7 @@ def compute_whatif(
         base_interval = predict_interval(model, base_features, calibration, coverage)[0]
         cf_interval = predict_interval(model, cf_features, calibration, coverage)[0]
 
-    return WhatIfResult(
+    result = WhatIfResult(
         base_prediction=base_pred,
         counterfactual_prediction=cf_pred,
         delta=delta,
@@ -256,6 +365,15 @@ def compute_whatif(
         cf_interval=cf_interval,
         decomposition_residual=decomposition_residual,
     )
+
+    if feature_importances is not None:
+        changed_signals = _importance_signals(feature_importances, changed_keys)
+        reliability, reason, say = assess_reliability(result, changed_signals)
+        result.reliability = reliability
+        result.reliability_reason = reason
+        result.reliability_say_to_user = say
+
+    return result
 
 
 def interaction_is_material(result: WhatIfResult) -> bool:

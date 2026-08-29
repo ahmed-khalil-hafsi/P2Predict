@@ -488,6 +488,14 @@ async def what_if(
     the delta, and per-driver attribution of each change for your reasoning.
     Answers "what if we switch from supplier A to B?" Set coverage to null to
     skip intervals.
+
+    `summary.reliability` grades how far to trust the DIRECTION of the move —
+    'trust' | 'caution' | 'quote' — with a plain `summary.say_to_user` line to
+    quote. It fires when the changed spec is thinly sampled, or when the swing
+    is driven by knock-on effects rather than the change itself (a `quote` here
+    means the number is unstable — relay the caution, don't present the
+    direction as fact). It flags instability, not a wrong domain sign, so still
+    sign-check a 'trust' result against intuition.
     """
     registry = _get_registry()
     try:
@@ -522,6 +530,18 @@ async def what_if(
     background = loaded.get("background_sample")
     cov = (coverage / 100.0) if coverage else 0.90
 
+    # Feature importances drive the direction-reliability verdict on the
+    # result. Best-effort: if they can't be extracted, the verdict is simply
+    # omitted rather than failing the what-if.
+    from p2predict.training import extract_feature_importances
+
+    importances = None
+    if background is not None:
+        try:
+            importances = extract_feature_importances(loaded["model"], background)
+        except Exception:
+            importances = None
+
     try:
         result = await asyncio.to_thread(
             whatif_fn,
@@ -532,6 +552,7 @@ async def what_if(
             background_X=background,
             calibration=calibration,
             coverage=cov,
+            feature_importances=importances,
         )
     except ValueError as e:
         return _error("whatif_error", str(e))
