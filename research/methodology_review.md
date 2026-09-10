@@ -6,12 +6,29 @@ A statistics/ML audit of the modeling core: training and model selection
 (`explain.py`), and quality verdicts (`quality.py`). Findings are ranked by
 how much they can mislead the numbers we hand a category manager. The Tier-1
 items are **quantified on the case-study datasets** by
-`case-studies/benchmark_methodology_gaps.py`; measured results live in
-`case-studies/methodology_gaps_benchmark_results.txt` and are summarized
+`research/benchmark_methodology_gaps.py`; measured results live in
+`research/methodology_gaps_benchmark_results.txt` and are summarized
 inline below.
 
 Per the project's working agreement, this PR changes nothing in core — it
 proposes; the follow-up PRs dispose.
+
+## Status (2026-09-10) — read this first
+
+This review was written 2026-07-08 and sat open for two months. Two of its
+findings have since been re-derived independently and now have their own,
+deeper write-ups; two are still open and unaddressed in core. Current state:
+
+| Finding | Status |
+|---|---|
+| **1. Retransformation bias** (`exp()` back-transform undershoots the mean) | **Superseded** by [`log_retransformation_bias.md`](log_retransformation_bias.md), which re-derived it from the heavy-equipment study with a reproducible script and an explicit mean-vs-median options analysis. Read that instead. |
+| **2. Bias gate flunks good models** | **Open, and sharpened** — see [`bias_gate_materiality.md`](bias_gate_materiality.md), which measures the gate across three datasets and shows the failure is *worse and two-sided*: the verdict tracks holdout size, not bias. One correction to this review: it reported the used-cars model flipping to `trustworthy` in log space; an independent fit does **not** reproduce that flip. |
+| **3. Split hygiene / raw-holdout reporting** | **Open**, but narrower than ranked here — the inflation only reaches users who set `--feature-outliers drop`; the default `warn` is unaffected. The sub-item "wire `find_leaky_features` into the CLI" partly landed: it is used by the MCP server (`propose_training_plan`, `train`), not the CLI. |
+| **4. Group-aware splits** | **Open.** No `GroupShuffleSplit`/`GroupKFold` anywhere in `src/`. |
+| Tier-2/3: *silent out-of-distribution predictions* | **Worked up** as [`out_of_domain_flag.md`](out_of_domain_flag.md) (merged in #36), which confirmed the bullet and showed the reliability verdict is structurally incapable of catching it. |
+
+The Tier-1 numbers below are from the original July run and have not been
+re-measured except where a linked document says otherwise.
 
 ## What's already solid
 

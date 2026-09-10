@@ -1,6 +1,6 @@
 """Quantify three methodology gaps on the case-study datasets (findings PR).
 
-This script produces the numbers behind ``analysis/methodology_review.md``.
+This script produces the numbers behind ``research/methodology_review.md``.
 It changes nothing in core — it measures how much each gap actually costs on
 the aerospace-fasteners and used-cars case studies, so the follow-up core
 fixes can be sized by evidence rather than by principle.
@@ -41,7 +41,7 @@ Experiment 3 — residual-bias test space
     the p-value in price space (product today), in log space, and a Wilcoxon
     signed-rank test, plus the verdict each one implies.
 
-Run:  python case-studies/benchmark_methodology_gaps.py [fasteners|cars]
+Run:  python research/benchmark_methodology_gaps.py [fasteners|cars]
       (no argument = both sequentially)
 """
 from __future__ import annotations
