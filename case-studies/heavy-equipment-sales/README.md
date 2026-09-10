@@ -1,65 +1,68 @@
-# Case Study: Heavy-Equipment Resale (Sell-Side)
+# Case Study: Heavy-Equipment Resale
 
-Every P2Predict case study so far asks the buyer's question: *what should we pay?* This one flips the chair. The exact same parametric engine answers the **seller's** question: *what will this used machine fetch at auction, and which of its attributes lift or sink that number?*
+Knowing what a used machine is really worth is the difference between a good sale and a giveaway.
 
-The audience here is an equipment remarketing desk, a dealer's used-equipment team, or a fleet manager disposing of end-of-life assets. They set reserve prices, decide which machines to recondition before the sale, and argue value with bidders. P2Predict gives them the resale levers in dollars and percent, from public auction data.
+Sellers rarely have a clean price book. You have a yard full of machines of different ages, sizes, and configurations, a buyer across the table who knows exactly what he wants to pay, and an urgent need to answer: *What will this machine actually fetch? Which parts of it are buyers really paying for? And is this offer fair, or am I being lowballed?*
 
-This study uses the **Blue Book for Bulldozers** dataset: 401,125 real heavy-equipment auction sales from 1989–2011 (excavators, dozers, loaders, backhoes, graders, skid steers). It's the sell-side counterpart to the used-vehicle study, on machines that move six-figure money.
+Every other P2Predict case study asks the buyer's question, *what should we pay?* This one flips the chair to the **seller**. Same engine, opposite side of the table. It uses ~360,000 real heavy-equipment auction sales from the public **Blue Book for Bulldozers** dataset (excavators, dozers, loaders, backhoes, graders, skid steers), and shows how P2Predict prices a used machine, tells you which specs carry the value, and flags where the money is being left on the table.
 
 ## The Sales Question
 
-A machine is going across the block. From its vintage, category, size, cab type, and where it's being sold, we trained a P2Predict model to answer:
+A machine is going across the auction block. From its vintage, category, size, cab type, and where it's being sold, we trained a P2Predict model to answer:
 
 1. What is the expected hammer price?
 2. Which attributes are driving that number — and by how much?
-3. If a lot has an enclosed AC cab instead of an open station, what is that worth at resale?
+3. Where is a machine mispriced, so a seller doesn't give it away and a buyer can spot the bargain?
 
 ---
 
 ## Part 1: Business Insights
 
-We trained a P2Predict model on 80,000 auction records. It landed a **"Good"** accuracy rating (holdout R² = 0.738, median error ~18%) — but with an important honesty flag we'll get to: the model is a **comparator, not an appraiser**. It's excellent at telling you what an attribute is *worth relative to* the rest of the machine, and it should not be used as a single-number valuation. That's exactly the sell-side job: ranking levers, not replacing the auctioneer.
+We trained a P2Predict model on 80,000 auction records. It estimates a machine's hammer price with a median error of about 18%, and just as importantly, it tells you which parts of that price are real signal and which are noise.
 
 Here is what the analysis revealed.
 
 ### The Executive Summary
 
-If you run equipment disposal, here are the levers you can act on today:
+If you sell used equipment, here are the takeaways you can act on today:
 
-1. **An AC cab is real money at resale.** Holding every other attribute equal, an enclosed cab with air conditioning (EROPS w AC) sells for **+15%** over a plain enclosed cab, and **+22%** over an open station (OROPS). On the premium wheel loader below, the cab alone is worth **$9,619 (+19%)** of the hammer price. That tells you which lots are worth photographing and describing around the cab, and gives you a floor when a bidder claims "the cab doesn't matter."
+1. **An enclosed AC cab is worth about 20% — and the comps will lie to you about it.** Holding every other spec equal, a machine with an air-conditioned cab sells for roughly 20% more than the same machine with an open station. But if you price off raw comps, you'll see AC-cab machines selling for nearly **double** the open ones and badly overvalue the cab. The extra isn't the cab — it's that AC-cab machines also tend to be bigger and newer. P2Predict separates the two, so you neither give away the premium on your own machine nor overpay for someone else's.
 
-   ![Same machine, different cab — the resale lever you control](assets/enclosure_premium.png)
+   ![Same machine, different cab: the resale lever you control](assets/enclosure_premium.png)
 
-2. **Depreciation is a front-loaded curve, not a straight line.** A machine loses value fastest in its first five years, then flattens hard. Our baseline loader is worth +97% of the average at 0 years, but the drop from year 2 to year 5 alone erases ~$22,700, while the entire decade from year 20 to 30 only takes off ~$5,000. The selling lesson: the cost of holding an asset one more year is huge when it's young and trivial when it's old.
+   | Machine type | True cab premium (AC vs open, all else equal) |
+   |---|---:|
+   | Motor Graders | +49% |
+   | Wheel Loaders | +23% |
+   | Track-Type Tractors | +20% |
+   | Track Excavators | +16% |
+   | Backhoe Loaders | +11% |
+   | Skid Steers | +10% |
 
-   ![Depreciation is a front-loaded curve](assets/depreciation_curve.png)
+2. **Sell your newer machines first.** Machines lose value fastest in their first few years, then barely move. A young machine sheds about **$10,000 a year**; a 20-year-old one sheds about **$500 a year**. If you're sitting on stock, the newer units are melting and the old ones can wait.
 
-3. **Size and category dominate everything else.** Machine size (Mini → Large) and product group together drive **68%** of the model's decisions. A Mini machine fetches **-67%** versus a Medium; a skid steer fetches **-60%** versus a wheel loader. When you're triaging a mixed fleet for disposal, this is the first cut.
+   ![Depreciation is a front-loaded curve, not a straight line](assets/depreciation_curve.png)
 
-4. **Auction timing is a ~30% swing.** Holding the machine fixed, the same lot that sold at a +7% premium in 2006 sold at **-14%** in the 2009 downturn, then rebounded to **+16%** in 2011. The market cycle is a bigger lever than most sellers assume.
+3. **The model finds the mispriced machines.** P2Predict draws a fair-value line under every machine. On the holdout, **16% of machines sold 25%+ below fair value** and **22% sold 25%+ above**. For a seller, the below-value list is where you're about to leave money on the table; for a buyer, it's the bargain pile. One honest caveat: the model sees six specs, not a blown engine, so treat a flag as a shortlist to go inspect, not a guarantee.
 
-5. **Geography barely matters.** Moving the same machine across states shifts the price by only ±2%. Auction *location* is a rounding error next to *what* and *when* you sell. Don't truck a machine across the country chasing a regional premium that isn't there.
+4. **Geography barely matters.** Holding the machine constant, moving it across states shifts the price by only about ±2%. Trucking a machine across the country to chase a better market isn't worth it. Sell local.
 
 ### Where to Trust the Model (and Where to Get a Comp)
 
-P2Predict is designed to make its own limits visible. This model earned a blunt computed verdict:
+Because this is real auction data, the model is sharp in some places and honest about the rest. P2Predict is designed to make that visible.
 
-> **Good accuracy, but the model runs systematically high or low — its single-number estimates aren't trustworthy. Use it only to compare options, not to set an absolute target.**
+* **🟢 Trust the relative levers.** The cab premium, the depreciation curve, the size and category rankings — these are what the model is *for*. Use them to rank lots, quantify what an attribute is worth, and defend a position in a negotiation.
+* **🟢 Trust the mid-market.** Accuracy is strongest in the **$13,500–$30,000** band (median error ~15%), which is where the bulk of auction volume sits.
+* **🔴 Verify the absolute number with a comp.** The model carries a small systematic bias (a known side effect of modelling on a percentage scale — see Under the Hood), so it's a **comparator, not an appraiser**. Use its number to compare and rank, and confirm the final reserve against recent comparable sales.
+* **🔴 Widen the band on cheap and premium machines.** Error is worst on sub-$10k units (~27%) and on the $67k+ top band (~23%). For those, lean harder on a real comp.
 
-That's the honest read, and it shapes how to use it:
+### Worked Example: How the Model Prices a Machine
 
-* **🟢 Trust the relative levers.** The cab premium, the depreciation shape, the size and category rankings — these are what the model is *for*. Rank lots, quantify what an attribute is worth, and defend a negotiating position with them.
-* **🟢 Trust the mid-market bands.** Accuracy is strongest in the **$13,500–$30,000** range (median error ~15–16%), which is where the bulk of auction volume lives.
-* **🔴 Verify the absolute number with a comp.** Because the model carries a systematic bias (a known side effect of modelling on a percentage scale, see Under the Hood), don't take the point estimate as a reserve price on its own. Use the 90% range as a sanity band and confirm the number against recent comparable sales.
-* **🔴 Widen the band on cheap and premium extremes.** Error is worst on sub-$10k machines (27% median) and on the $67k+ top band (~23%). For those, lean harder on a real comp.
-
-### Worked Example: How the Model Prices a Lot
-
-P2Predict breaks down exactly why a lot will fetch what it fetches. Because prices are heavily right-skewed, the model works on a percentage scale, so each driver reads as a **% lift or cut** on the price.
+P2Predict breaks down exactly why a machine will fetch what it fetches. Because prices are heavily skewed, the model works on a percentage scale, so each driver reads as a **% lift or cut** on the price.
 
 ![Honest ranges across three lots](assets/intervals_comparison.png)
 
-Take the **3-year-old Large wheel loader with an AC cab** (sold 2008, Texas). The model predicts **$51,697** — a 2.0x multiple of its $25,389 average machine. Here is how it gets there:
+Take the **3-year-old Large wheel loader with an AC cab** (sold 2008, Texas). The model predicts **$51,697** — a 2.0x multiple of its $25,389 average machine. Here is exactly how it gets there:
 
 ![Per-driver resale attribution for the wheel loader](assets/wheel_loader_attribution.png)
 
@@ -78,7 +81,7 @@ Take the **3-year-old Large wheel loader with an AC cab** (sold 2008, Texas). Th
   Product of factors = 2.036 = prediction / baseline  ✓
 ```
 
-The attribution is exact: the product of the individual factors reconstructs the prediction to the dollar. P2Predict checks that axiom on every run.
+The breakdown is exact: the individual factors multiply back to the prediction to the dollar. P2Predict checks that on every run.
 
 ### The What-If Scenario
 
@@ -90,7 +93,7 @@ You can ask the tool how a single change moves the price. Take that same wheel l
   The cab is worth:              $9,619  (+18.6% of hammer)
 ```
 
-That's the number you take into a lot walkthrough: *this cab is carrying nearly a fifth of the machine's resale value.* Whether it's worth reconditioning a damaged cab before the sale becomes an easy arithmetic decision, not a gut call.
+That's the number you take into a lot walkthrough: *this cab is carrying nearly a fifth of the machine's value.* Whether it's worth reconditioning a damaged cab before the sale becomes simple arithmetic, not a gut call.
 
 ---
 
@@ -103,26 +106,26 @@ For the technical team, here is how P2Predict processes the data, builds the mod
 * **Source:** the Kaggle *Blue Book for Bulldozers* dataset (Fast Iron / Ritchie Bros. auction records). The original is a gated competition; `fetch_data.py` pulls an openly-downloadable re-upload of the identical `Train.csv`.
 * **Size:** 401,125 raw auction records, 53 columns, 1989–2011.
 * **Cleaning:** ~38k records use `1000` as an "unknown build year" sentinel. A resale model is anchored on machine age, so we drop those rather than impute a fake vintage, leaving **362,800** clean records. We then sample 80,000 for tractable hyperparameter search.
-* **Features kept (6):** `age_at_sale` (derived from build year and sale date), `sale_year`, `product_group`, `product_size`, `enclosure` (cab type), and `state`.
+* **Features kept (6):** `age_at_sale`, `sale_year`, `product_group`, `product_size`, `enclosure` (cab type), and `state`.
 
 ### Pipeline & Methodology
 
-* **Target transformation:** the hammer price is heavily right-skewed (skew ≈ 1.5), so P2Predict automatically wraps the target with a log transform. As a result the model is **multiplicative**: SHAP drivers come out as percentages, and conformal intervals stay strictly positive.
-* **Algorithm selection:** P2Predict ran cross-validation across Ridge, Random Forest, and XGBoost. **XGBoost won** (CV R² = 0.79, vs 0.785 Random Forest, 0.729 Ridge). This is the mirror image of the 150-part Battery Management IC study, where Ridge won: with 80,000 rows there is plenty of data for gradient-boosted trees to shine.
-* **Categorical encoding:** because a tree model won, P2Predict automatically switches categoricals to **target-encoding**, so the trees split on resale price rather than alphabetical category order. This is what lets `state` (53 values) and `product_group` participate cleanly.
-* **Confidence intervals:** split-conformal prediction on a held-out set, calibrated in *bands* by predicted price, so a $9k skid steer gets a proportionally tighter range than a $50k loader instead of one global margin.
-* **Feature attribution (SHAP):** the multiplicative factors reconstruct the prediction exactly (product of factors = prediction ÷ baseline). P2Predict enforces that axiom on every run.
+* **Target Transformation:** the hammer price is heavily right-skewed (skew ≈ 1.5), so P2Predict automatically wraps the target with a log transform. The model is therefore **multiplicative**: SHAP drivers come out as percentages, and confidence intervals stay strictly positive.
+* **Algorithm Selection:** P2Predict ran cross-validation across Ridge, Random Forest, and XGBoost. **XGBoost won** (CV R² = 0.79). This is the mirror image of the 150-part Battery Management IC study, where Ridge won: with 80,000 rows there is plenty of data for gradient-boosted trees to succeed.
+* **Categorical Encoding:** because a tree model won, P2Predict automatically switches categoricals to **target-encoding**, so the trees split on resale price rather than alphabetical category order. This is what lets `state` (53 values) and `product_group` participate cleanly.
+* **Confidence Intervals:** split-conformal prediction on a held-out set, calibrated in *bands* by predicted price, so a $9k skid steer gets a proportionally tighter range than a $50k loader instead of one global margin.
+* **Feature Attribution (SHAP):** the multiplicative factors reconstruct the prediction exactly (product of factors = prediction ÷ baseline). P2Predict enforces that on every run.
 
 ### Model Performance
 
 | Metric | Result | What it means |
 |---|---|---|
-| **Holdout R²** | **0.738** | Explains ~74% of hammer-price variation from six basic attributes. |
+| **Holdout R²** | **0.738** | Explains ~74% of hammer-price variation from six basic specs. |
 | **MAE** | **$7,690** | The typical miss on a machine whose median price is ~$25k. |
-| **Median % error** | **18.4%** | Half of predictions land within ~18% of the actual sale price. |
-| **Residual bias** | **flagged** | The model runs systematically high or low. This is why the verdict is "compare, don't appraise." |
+| **Median % Error** | **18.4%** | Half of predictions land within ~18% of the actual sale price. |
+| **Residual Bias** | **flagged** | The model runs slightly low on average — which is why the verdict is "compare, don't appraise." |
 
-Why the bias? Modelling on a log (percentage) scale and transforming back to dollars introduces a small, systematic level shift (a well-known property of log-target back-transforms). It barely affects the *relative* levers this study is built on, but it's exactly why P2Predict refuses to bless the single-number estimate — and says so, instead of quietly shipping an over-confident valuation.
+Why the bias? Modelling on a percentage (log) scale and converting back to dollars introduces a small, systematic level shift (a well-known property of log models). It barely touches the *relative* levers this study is built on, but it's exactly why P2Predict refuses to bless the single-number estimate — and says so, instead of quietly shipping an over-confident valuation.
 
 ### Visual Quality Report
 
@@ -136,16 +139,14 @@ Strongest in the mid-market ($13.5k–$30k), weakest on the cheapest and pricies
 ![Model quality report, page 2](assets/model_quality_report_page_2.png)
 
 **3. Feature Importance:**
-Size and category drive 68% of the decision; the enclosure lever holds a genuine 14%; auction geography is a rounding error at under 1%.
+Size and category drive 68% of the decision; the cab lever holds a genuine 14%; auction geography is under 1%.
 ![Model quality report, page 3](assets/model_quality_report_page_3.png)
 
 ---
 
 ## Part 3: Reproducing the Results
 
-You can reproduce this exact analysis from the command line.
-
-Run these from the **repository root** — `p2predict-train` writes the model into `./models/`, which is where the case-study scripts look for it.
+Run these from the **repository root** — `p2predict-train` writes the model into `./models/`, where the case-study scripts look for it.
 
 ### Full Path (Requires a Free Kaggle API Token)
 
@@ -155,7 +156,7 @@ pip install -e . 'kagglehub>=0.4.1'
 mkdir -p ~/.kaggle && chmod 700 ~/.kaggle
 printf 'KGAT_...' > ~/.kaggle/api_token && chmod 600 ~/.kaggle/api_token
 
-# 2. Fetch the auction data (~111 MB) and clean it (scripts resolve their own paths)
+# 2. Fetch the auction data (~111 MB) and clean it
 python case-studies/heavy-equipment-sales/fetch_data.py
 python case-studies/heavy-equipment-sales/prepare_data.py
 
@@ -191,7 +192,7 @@ p2predict-train \
 
 ## Limitations & Next Steps
 
-* **Comparator, not appraiser.** The systematic residual bias means this model ranks and quantifies levers well but should not set a reserve price on its own. Pair it with recent comps.
-* **No machine hours.** The meter reading (`MachineHoursCurrentMeter`) is blank or zero on ~83% of records, so it can't carry a usage signal without masquerading missingness as "brand new." We let machine age carry the wear story instead. A dataset with reliable hours would add a second usage lever.
-* **No make/model.** The dataset encodes manufacturer inside a high-cardinality model-description string rather than a clean column, so this study can't quantify a brand premium the way the Battery Management IC study quantifies a supplier premium. That's the natural next feature to engineer.
-* **Random split, not chronological.** Auction data is time-ordered; a `--time-column` chronological split would prevent any look-ahead and let the model be used to forecast forward-looking resale, not just explain historical sales.
+* **Comparator, not appraiser.** The systematic bias means this model ranks and quantifies levers well but should not set a reserve price on its own. Pair it with recent comps.
+* **No machine hours.** The hour-meter reading is blank or zero on ~83% of records, so it can't carry a usage signal without treating missing data as "brand new." Machine age carries the wear story instead. Reliable hours would add a second usage lever.
+* **No make/model.** The dataset hides the manufacturer inside a messy model-description string rather than a clean column, so this study can't quantify a brand premium the way the Battery Management IC study quantifies a supplier premium. That's the natural next feature to engineer.
+* **Random split, not chronological.** Auction data is time-ordered; a `--time-column` chronological split would prevent look-ahead and let the model forecast forward-looking resale, not just explain historical sales.
