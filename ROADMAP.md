@@ -2,7 +2,7 @@
 
 The first arc — getting from 6/10 to 8/10 robustness — shipped across v0.4 to v0.8. SHAP attributions, conformal likely-range intervals, what-if comparisons, feature-side outlier handling, and pip-install + public Python API. All five with axiomatic tests locking in the property each feature claims.
 
-The next arc is **distribution and agent-first deployment**: putting the rigorous math in front of the procurement workflows and AI agents that will actually use it. The MCP server (v1.0) is shipped — remaining items are PyPI publish and the landing page.
+The next arc is **distribution and agent-first deployment**: putting the rigorous math in front of the procurement workflows and AI agents that will actually use it. The MCP server (v1.0), the PyPI publish (`pip install p2predict`, 0.9.0 → 1.0.1), and the procurement landing page (live at [p2predict.com](https://p2predict.com)) are all shipped. The focus now is **proof** — case studies across procurement categories, including the first sell-side study — and acting on the open findings under review.
 
 ## Shipped — v0.4 → v0.8 (8/10 robustness)
 
@@ -64,7 +64,7 @@ Two reproducibility paths in the README: full Kaggle (matches the numbers exactl
 
 Case studies earn their keep on day one: this one surfaced two real bugs (SHAP sparse-matrix breakage on Ridge/Lasso with high-cardinality categoricals; SHAP + XGBoost 3.x `base_score` parse error) and one UX wart (auto-mode's silent 6-feature cap). All three landed alongside the case study as fixes + regression tests + the `--max-features` flag.
 
-Battery management ICs (Octopart / DigiKey) and aerospace fasteners (DLA PUB LOG, public domain) are now built out in `case-studies/`. PCBA composition (compose three trained models into BOM-level cost) remains scaffolded and queued for v0.9.2+.
+Battery management ICs (Octopart / DigiKey) and aerospace fasteners (DLA PUB LOG, public domain) are built out in `case-studies/`, and **heavy-equipment resale** (Blue Book for Bulldozers, public auction data) adds the first **sell-side** study — same engine, the seller's question: what a used machine fetches at auction and which specs carry the resale value. It also surfaced the log-target back-transform finding now under review (see below). PCBA composition (compose three trained models into BOM-level cost) remains scaffolded and queued.
 
 ---
 
@@ -96,33 +96,13 @@ Schema documented in [`src/p2predict/json_output.py`](src/p2predict/json_output.
 
 Built on `ModelRegistry` (lazy-load + LRU cache), shared `model_utils.py` (extracted from `cli/predict.py` so CLI and MCP call identical code), and `asyncio.to_thread()` for CPU-bound sklearn/SHAP calls. 18 integration tests in `tests/test_mcp.py`. CI installs and smoke-checks the MCP entry point on every push.
 
-### 3. PyPI publish (v1.0.x)
+### ~~3. PyPI publish~~ ✅ Shipped (v0.9.0 → v1.0.1)
 
-**Why it matters.** `pip install p2predict` works only against a local clone right now (`pip install -e .`). Publishing to PyPI removes the last install-friction step and makes the agent-platform listing requirements trivial — most MCP marketplaces want a published package, not a Git URL.
+`pip install p2predict` now works from anywhere — the package is live on PyPI, released 0.9.0 through 1.0.1. Releases go out through the documented `python -m build` + `twine upload` process. Automating publish-on-tag with [PyPI trusted publishers](https://docs.pypi.org/trusted-publishers/) remains a nice-to-have (the current process is manual, with no git tags), not a blocker.
 
-**Scope**
-- A release workflow on tag push (`v1.0.0` and later).
-- `python -m build` + `twine upload` with [PyPI trusted publishers](https://docs.pypi.org/trusted-publishers/) so there's no long-lived token to manage.
-- A post-publish smoke test: pull the published package into a fresh venv, run `p2predict --help`, run one prediction.
+### ~~4. Procurement-facing landing page~~ ✅ Shipped (v1.1)
 
-**Acceptance**
-- `pip install p2predict` works from anywhere on PyPI.
-- New releases publish automatically on tagged commits.
-- The README install snippet stops saying "or once published".
-
-### 4. Procurement-facing landing page (v1.1)
-
-**Why it matters.** The README sells to developers and to procurement readers who already found the repo. A landing page (probably `p2predict.com` or `p2predict.dev`) sells to procurement leaders who don't know what GitHub is. Different audience, different language, different decision criteria — the README is the product spec, the landing page is the elevator pitch. Without it, you're invisible to the actual buyer.
-
-**Scope**
-- Domain registered (one of `p2predict.com` / `.dev` / `.ai`).
-- Single-page static site focused on Part 1 of the README (the value scenarios) in a procurement-CFO voice — concrete numbers, named meetings, no ML jargon.
-- Clear path to "try it" (developer track → GitHub) and "talk to us about deployment" (enterprise track → contact page).
-- Built with a minimal static-site setup. The site is not the focus of the project; the math is.
-
-**Acceptance**
-- Landing page live at the registered domain.
-- Three meetings booked with procurement leaders from the inbound link.
+Live at **[p2predict.com](https://p2predict.com)** — a single-page static site pitched to procurement leaders, in their voice rather than the developer-facing README's: concrete value scenarios, no ML jargon, with a "try it" path to GitHub. Custom domain, auto-published on push. The README stays the product spec; the landing page is the elevator pitch for the actual buyer.
 
 ### 5. Graceful XGBoost fallback on Mac (the no-admin "seatbelt")
 
@@ -141,6 +121,16 @@ Built on `ModelRegistry` (lazy-load + LRU cache), shared `model_utils.py` (extra
 - Nothing changes on machines that already have libomp.
 
 **Deferred (2026-08-17).** Shipping the docs-only prerequisite (INSTALL.md Step 5) for now; revisit if the Homebrew/admin barrier proves to cost real Mac installs.
+
+### 6. Log-target back-transform correction (finding under review)
+
+**Why it matters.** The heavy-equipment resale case study surfaced that P2Predict's `exp()` back-transform of a log-target model under-shoots the dollar *mean* by ~5% (Jensen's inequality) while staying essentially unbiased for the *median* — and the quality layer's `residual_bias_p` tests only the mean, so it labels an otherwise-good, median-unbiased model **"unreliable"**. That needlessly withdraws the single-part appraisal verdict on the most common data shape P2Predict sees (skewed prices/costs). This affects every log-target model, the used-vehicle study included.
+
+**Proposal** (documented with reproducible evidence in [`research/log_retransformation_bias.md`](research/log_retransformation_bias.md)):
+- Fix the verdict logic so a median-unbiased log model isn't mislabelled — name the mean-vs-median choice instead of stamping "unreliable".
+- Offer an **opt-in** mean correction (Duan smearing / log-normal factor) with its own interval recalibration, rather than a blind global rescale that would silently redefine every prediction and disturb conformal-interval coverage.
+
+**Status.** Finding proposed; no core change yet. Scoped as a follow-up, not scheduled.
 
 ---
 
