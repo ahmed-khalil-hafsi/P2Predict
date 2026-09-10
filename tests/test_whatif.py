@@ -379,7 +379,7 @@ def test_interaction_is_material_threshold():
 
 # ---------------------------------------------------------------------------
 # Direction-reliability verdict — the regression cases are the six single-spec
-# what-ifs from the battery-management-IC model (analysis/whatif_reliability_
+# what-ifs from the battery-management-IC model (research/whatif_reliability_
 # flag.md). Contributions are in log space, as the model returns them.
 # ---------------------------------------------------------------------------
 
