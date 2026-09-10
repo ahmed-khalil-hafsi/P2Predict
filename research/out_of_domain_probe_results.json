@@ -1,0 +1,312 @@
+[
+  {
+    "case": "synthetic brackets",
+    "algorithm": "random_forest",
+    "holdout_r2": 0.9778033852130813,
+    "training_rows": 1200,
+    "n_calibration": 300,
+    "results": [
+      {
+        "variant": "in-domain: 1.5kg alu bracket",
+        "prediction": 63.549799253998046,
+        "low": 55.360163648712984,
+        "high": 72.95095821699833,
+        "band": "predicted under 66.42",
+        "width_pct_of_pred": 27.6803306615932,
+        "reliability": "trust",
+        "say_to_user": "Tight range \u2014 you can benchmark against this number with confidence."
+      },
+      {
+        "variant": "unseen supplier (new vendor)",
+        "prediction": 65.94558314744836,
+        "low": 57.44720389062242,
+        "high": 75.701159362552,
+        "band": "predicted under 66.42",
+        "width_pct_of_pred": 27.6803306615932,
+        "reliability": "trust",
+        "say_to_user": "Tight range \u2014 you can benchmark against this number with confidence."
+      },
+      {
+        "variant": "unseen material (titanium)",
+        "prediction": 63.82266416633657,
+        "low": 55.59786457583436,
+        "high": 73.26418905411448,
+        "band": "predicted under 66.42",
+        "width_pct_of_pred": 27.68033066159321,
+        "reliability": "trust",
+        "say_to_user": "Tight range \u2014 you can benchmark against this number with confidence."
+      },
+      {
+        "variant": "900 kg (225x observed max)",
+        "prediction": 91.93851837972744,
+        "low": 82.49363907126329,
+        "high": 102.46476282319786,
+        "band": "predicted 66.42 to 99.33",
+        "width_pct_of_pred": 21.722259727363877,
+        "reliability": "trust",
+        "say_to_user": "Tight range \u2014 you can benchmark against this number with confidence."
+      },
+      {
+        "variant": "everything impossible",
+        "prediction": 126.0420468112521,
+        "low": 109.98188953616781,
+        "high": 144.44739612466395,
+        "band": "predicted over 99.33",
+        "width_pct_of_pred": 27.34445168135695,
+        "reliability": "trust",
+        "say_to_user": "Tight range \u2014 you can benchmark against this number with confidence."
+      }
+    ]
+  },
+  {
+    "case": "used cars",
+    "model": "xgboost_price_20260610_152137.model",
+    "algorithm": "xgboost",
+    "target": "price",
+    "log_target": true,
+    "holdout_r2": 0.770539402961731,
+    "n_calibration": 15680,
+    "training_rows": 80000,
+    "numeric_domain": {
+      "year": [
+        1990.0,
+        2022.0
+      ],
+      "odometer": [
+        0.0,
+        500000.0
+      ]
+    },
+    "n_known_categories": {
+      "manufacturer": 40,
+      "condition": 7,
+      "fuel": 5,
+      "transmission": 3,
+      "drive": 4,
+      "type": 14,
+      "state": 51,
+      "paint_color": 13
+    },
+    "results": [
+      {
+        "variant": "in-domain baseline",
+        "prediction": 15638.5390625,
+        "low": 9167.897691030565,
+        "high": 26676.11618840469,
+        "band": "predicted 10,215.35 to 22,632.43",
+        "width_pct_of_pred": 111.95558886544248,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "unseen manufacturer",
+        "prediction": 18198.1875,
+        "low": 10668.459534193862,
+        "high": 31042.347512656208,
+        "band": "predicted 10,215.35 to 22,632.43",
+        "width_pct_of_pred": 111.95558886544248,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "year = 2x observed max",
+        "prediction": 22929.208984375,
+        "low": 15496.68593401787,
+        "high": 33926.51995966668,
+        "band": "predicted over 22,632.43",
+        "width_pct_of_pred": 80.37710345004805,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "year = 50x observed max",
+        "prediction": 22929.208984375,
+        "low": 15496.68593401787,
+        "high": 33926.51995966668,
+        "band": "predicted over 22,632.43",
+        "width_pct_of_pred": 80.37710345004805,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "every spec out of domain",
+        "prediction": 22486.57421875,
+        "low": 13182.472546531424,
+        "high": 38357.44912879776,
+        "band": "predicted 10,215.35 to 22,632.43",
+        "width_pct_of_pred": 111.95558886544248,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      }
+    ]
+  },
+  {
+    "case": "aerospace fasteners",
+    "model": "xgboost_unit_price_each_usd_20260626_132941.model",
+    "algorithm": "xgboost",
+    "target": "unit_price_each_usd",
+    "log_target": true,
+    "holdout_r2": 0.02141315711661329,
+    "n_calibration": 7334,
+    "training_rows": 36668,
+    "numeric_domain": {
+      "thread_diameter_in": [
+        0.0,
+        76.0
+      ],
+      "length_in": [
+        0.01,
+        370.0
+      ],
+      "tensile_strength_psi": [
+        5.0,
+        2600000.0
+      ],
+      "threads_per_inch": [
+        0.24,
+        7272.0
+      ],
+      "width_across_flats_in": [
+        0.025,
+        63.0
+      ]
+    },
+    "n_known_categories": {
+      "material": 7,
+      "head_style": 71,
+      "thread_class": 44,
+      "thread_series": 21,
+      "finish": 12
+    },
+    "results": [
+      {
+        "variant": "in-domain baseline",
+        "prediction": 8.6250581741333,
+        "low": 0.4489456323287858,
+        "high": 165.70297860187864,
+        "band": "predicted under 8.75",
+        "width_pct_of_pred": 1915.9758651269108,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "unseen material",
+        "prediction": 13.120443344116211,
+        "low": 0.8783972964497384,
+        "high": 195.97741732805244,
+        "band": "predicted 8.75 to 22.12",
+        "width_pct_of_pred": 1486.9849662442523,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "thread_diameter_in = 2x observed max",
+        "prediction": 14.71328353881836,
+        "low": 0.9850359582698271,
+        "high": 219.76935022138915,
+        "band": "predicted 8.75 to 22.12",
+        "width_pct_of_pred": 1486.9849662442523,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "thread_diameter_in = 50x observed max",
+        "prediction": 14.71328353881836,
+        "low": 0.9850359582698271,
+        "high": 219.76935022138915,
+        "band": "predicted 8.75 to 22.12",
+        "width_pct_of_pred": 1486.9849662442523,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "every spec out of domain",
+        "prediction": 80.57183837890625,
+        "low": 7.923550200769216,
+        "high": 819.3071256273944,
+        "band": "predicted over 22.12",
+        "width_pct_of_pred": 1007.0312304541457,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      }
+    ]
+  },
+  {
+    "case": "heavy equipment",
+    "model": "xgboost_sale_price_usd_20260831_155833.model",
+    "algorithm": "xgboost",
+    "target": "sale_price_usd",
+    "log_target": true,
+    "holdout_r2": 0.7384710633988941,
+    "n_calibration": 16000,
+    "training_rows": 80000,
+    "numeric_domain": {
+      "age_at_sale": [
+        0.0,
+        85.0
+      ],
+      "sale_year": [
+        1989.0,
+        2011.0
+      ]
+    },
+    "n_known_categories": {
+      "product_group": 6,
+      "product_size": 7,
+      "enclosure": 4,
+      "state": 53
+    },
+    "results": [
+      {
+        "variant": "in-domain baseline",
+        "prediction": 25241.091796875,
+        "low": 14544.400148651255,
+        "high": 43804.674554237405,
+        "band": "predicted 18,909.86 to 33,325.64",
+        "width_pct_of_pred": 115.9231725832428,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "unseen product_group",
+        "prediction": 22617.96484375,
+        "low": 13032.904197763513,
+        "high": 39252.366618401014,
+        "band": "predicted 18,909.86 to 33,325.64",
+        "width_pct_of_pred": 115.92317258324283,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "age_at_sale = 2x observed max",
+        "prediction": 13239.4501953125,
+        "low": 8600.923095198488,
+        "high": 20379.561534739558,
+        "band": "predicted under 18,909.86",
+        "width_pct_of_pred": 88.96622039268188,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "age_at_sale = 50x observed max",
+        "prediction": 13239.4501953125,
+        "low": 8600.923095198488,
+        "high": 20379.561534739558,
+        "band": "predicted under 18,909.86",
+        "width_pct_of_pred": 88.96622039268188,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      },
+      {
+        "variant": "every spec out of domain",
+        "prediction": 10575.5322265625,
+        "low": 6870.326035416632,
+        "high": 16278.977343799323,
+        "band": "predicted under 18,909.86",
+        "width_pct_of_pred": 88.96622039268188,
+        "reliability": "quote",
+        "say_to_user": "Wide range \u2014 the model is genuinely unsure on this part; get a real quote rather than benchmarking off this number."
+      }
+    ]
+  }
+]
