@@ -4,6 +4,16 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.1.0] — 2026-09
+
+> **Heads-up for existing users: model verdicts will change.** Models previously
+> stamped `unreliable` may now read `trustworthy` — the old gate was measuring
+> how much data you had rather than how far the model leaned — and models built
+> on a small catalog now carry a stated blind spot alongside a positive verdict.
+> Predictions, likely-ranges and explanations are byte-identical; only what
+> P2Predict *says about* them has changed. No retrain is needed.
+
+
 ### Added
 - **The predict path now notices a part the model has never seen.** Every answer P2Predict ships was auditable — the attribution decomposes, the interval has a coverage proof, the what-if delta sums — but all three audit *how good* an answer is, and none asked the question that comes first: **was this part answerable at all?** Ask any model for a part outside the data it was built on and you got a confident number, a likely-range, and a reliability verdict, with nothing anywhere in the payload indicating the specs were never observed. On a well-fit model (R² 0.978) a bracket at 900 kg — 225× the heaviest part in the training data — priced at €91.94 and earned `trust`; a part with a 0.00001 mm tolerance (10 picometres, smaller than an atom) priced at €126.04 and was described to the agent as a number to benchmark against with confidence.
   - **The failure inverted, which is why nothing caught it.** Conformal band selection keys on the *predicted* value, so an extrapolated part often prices into a better-sampled segment and comes back with a **narrower** band than a legitimate one — 22% vs 28% on the synthetic model, 80% vs 112% on used cars, 89% vs 116% on heavy equipment. Out-of-domain read as *more* trustworthy. And because a tree has no split beyond its training range, `year = 2×` and `year = 50×` the observed max return bit-identical predictions: there is no runaway number for an agent to notice.
@@ -24,6 +34,9 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
   - **The new numbers are reported, not just used.** `assessment.bias_resolution_pct` is the smallest offset that holdout could have detected — the size of the blind spot — and `assessment.typical_bias_pct` is how far the model runs high or low. The `unreliable` headline now names direction and size ("reads about 14% high on a typical part"), and a `likely_material` model gets a plain warning ("looks like it reads about 15% high … not enough to be sure either way") instead of a silent pass.
   - **Additive and backward-compatible.** `assess_model` gains a keyword-only `bias` argument; omitted, it reproduces the legacy p-value behaviour bit-for-bit, and the new keys stay absent. No model-format change and no retrain — the verdict is recomputed at read time from residuals already stored. The CLI's train-time bias warning and the MCP tool guidance were moved onto the same gate so the surfaces can't drift. The per-price-band calibration block keeps its independent veto, which is the safeguard for feature-dependent bias a single median can understate.
   - Rationale, the derivation of the 5% band, and the measured operating characteristics: `research/bias_gate_materiality.md` (2026-09-11 addendum), reproducible via `research/bias_gate_equivalence.py`. Regression tests in `tests/test_quality.py` cover the two properties the change exists to guarantee — a materially biased model is never called `trustworthy` at any holdout size, and the verdict never inverts as the holdout grows — plus determinism, the denominator-invariance of the median, the degenerate-input paths, and the legacy compatibility contract.
+
+### Fixed
+- **`p2predict.__version__` reported `0.9` on a 1.0.1 install.** `P2PREDICT_VERSION` in `trained_model_io.py` — the value exported as `__version__` and stamped into every saved model as `p2predict_version` — had not been bumped since v0.9, so the Python API and every model's provenance record understated the version. Now tracks the real release. It is displayed-only (`list_models`, `predict --json`, the model info payload); nothing compares it, so older models keep loading unchanged.
 
 ## [v1.0.1] — 2026-08
 

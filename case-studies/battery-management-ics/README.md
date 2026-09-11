@@ -19,7 +19,7 @@ We trained a P2Predict model to answer:
 
 ## Part 1: Business Insights
 
-We pulled 150 trainable BMICs from DigiKey across 13 manufacturers. Even with missing specs (which the model successfully fills in), P2Predict built a model that estimates prices with no systematic bias and an average error of ~$0.67. 
+We pulled 150 trainable BMICs from DigiKey across 13 manufacturers. Even with missing specs (which the model successfully fills in), P2Predict built a model that shows no meaningful lean on a typical part, with an average error of ~$0.67 — though on a catalog this small a systematic error up to ~11% can't be ruled out (see Model Performance). 
 
 Here is what the analysis revealed.
 
@@ -111,7 +111,7 @@ For the technical team, here is exactly how P2Predict processes the data, builds
 | **Holdout R²** | **0.512** | Explains ~51% of price variation from 8 basic specs. A realistic baseline for catalog data. |
 | **MAE** | **$0.67** | The typical miss is roughly 20% of the $3.31 median price. |
 | **Median Error** | **16.1%** | Half of the predictions land within 16% of the actual price. |
-| **Residual-bias** | **p = 0.09** | Crucially, the model is **statistically unbiased**. It does not systematically over-price or under-price parts, making the SHAP attributions highly reliable on average. |
+| **Typical lean** | **−0.8%**, blind spot **±11%** | No meaningful lean on a typical part, so the supplier premium and the spec rankings read cleanly. But with only 30 parts held back, a systematic error up to ~11% could still be hiding — fine for ranking and for reading premiums, worth a sanity-check before setting an absolute target. (Earlier versions reported `p = 0.09` here and called the model *statistically unbiased*. Failing to detect a lean on 30 parts is not the same as establishing there isn't one; v1.1.0 reports the size of the blind spot instead.) |
 
 ### Visual Quality Report
 

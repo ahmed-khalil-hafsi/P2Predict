@@ -53,7 +53,7 @@ Because this is real auction data, the model is sharp in some places and honest 
 
 * **🟢 Trust the relative levers.** The cab premium, the depreciation curve, the size and category rankings — these are what the model is *for*. Use them to rank lots, quantify what an attribute is worth, and defend a position in a negotiation.
 * **🟢 Trust the mid-market.** Accuracy is strongest in the **$13,500–$30,000** band (median error ~15%), which is where the bulk of auction volume sits.
-* **🔴 Verify the absolute number with a comp.** The model carries a small systematic bias (a known side effect of modelling on a percentage scale — see Under the Hood), so it's a **comparator, not an appraiser**. Use its number to compare and rank, and confirm the final reserve against recent comparable sales.
+* **🔴 Verify a reserve against a comp.** The model is even-handed on a typical machine (~1.7% lean), so the number is sound as a benchmark — but a *single lot* still misses by ~18% at the median, and far more at the price extremes. Use it to compare and rank; confirm a final reserve against recent comparable sales.
 * **🔴 Widen the band on cheap and premium machines.** Error is worst on sub-$10k units (~27%) and on the $67k+ top band (~23%). For those, lean harder on a real comp.
 
 ### Worked Example: How the Model Prices a Machine
@@ -123,9 +123,9 @@ For the technical team, here is how P2Predict processes the data, builds the mod
 | **Holdout R²** | **0.738** | Explains ~74% of hammer-price variation from six basic specs. |
 | **MAE** | **$7,690** | The typical miss on a machine whose median price is ~$25k. |
 | **Median % Error** | **18.4%** | Half of predictions land within ~18% of the actual sale price. |
-| **Residual Bias** | **flagged** | The model runs slightly low on average — which is why the verdict is "compare, don't appraise." |
+| **Typical lean** | **+1.7%** | The model reads about 1.7% low on a typical machine — inside the ±5% that would change a negotiation, so it is cleared to benchmark against. |
 
-Why the bias? Modelling on a percentage (log) scale and converting back to dollars introduces a small, systematic level shift (a well-known property of log models). It barely touches the *relative* levers this study is built on, but it's exactly why P2Predict refuses to bless the single-number estimate — and says so, instead of quietly shipping an over-confident valuation.
+A note on the log scale. Modelling on a percentage (log) scale and converting back to dollars pulls the *average* prediction down by about 5% — a well-known property of log models — while leaving the *typical* machine essentially unbiased. Which of those matters depends on the question you're asking: for benchmarking one machine it is the typical machine, and that is what P2Predict measures. Earlier versions tested the average and stamped this model **"unreliable"** for what was an artifact of the back-transform rather than a modelling failure; v1.1.0 judges the typical lean against a materiality band instead. Correcting the average itself — so the number targets the mean rather than the median — is a separate open question (see ROADMAP).
 
 ### Visual Quality Report
 
@@ -192,7 +192,7 @@ p2predict-train \
 
 ## Limitations & Next Steps
 
-* **Comparator, not appraiser.** The systematic bias means this model ranks and quantifies levers well but should not set a reserve price on its own. Pair it with recent comps.
+* **Strong comparator; still verify a reserve.** The model is even-handed on a typical machine, so it is cleared to benchmark against — but a single lot can miss by ~18% at the median and more at the extremes, so it should not set a reserve price on its own. Pair it with recent comps.
 * **No machine hours.** The hour-meter reading is blank or zero on ~83% of records, so it can't carry a usage signal without treating missing data as "brand new." Machine age carries the wear story instead. Reliable hours would add a second usage lever.
 * **No make/model.** The dataset hides the manufacturer inside a messy model-description string rather than a clean column, so this study can't quantify a brand premium the way the Battery Management IC study quantifies a supplier premium. That's the natural next feature to engineer.
 * **Random split, not chronological.** Auction data is time-ordered; a `--time-column` chronological split would prevent look-ahead and let the model forecast forward-looking resale, not just explain historical sales.
