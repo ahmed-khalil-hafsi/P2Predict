@@ -481,8 +481,12 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
 
     # Quality label, computed once and used in both the Rich and JSON paths.
     # Shared with the MCP layer via p2predict.quality (single source of truth).
-    from p2predict.quality import r2_quality_label
+    from p2predict.quality import bias_assessment, r2_quality_label
     quality_label = r2_quality_label(r2)
+    # Same gate the MCP verdict uses, so the two surfaces can't drift.
+    # Scored on the model evaluate_model just measured -- i.e. before any
+    # tuning below -- so it is consistent with the R2/MAE printed beside it.
+    bias = bias_assessment(y_test, model.predict(X_test))
 
     if not json_mode:
         if expert:
@@ -491,6 +495,12 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             console.print(f"Mean Absolute Error: {round(mae, 2)}")
             console.print(f"RMSE: {round(rmse, 2)}")
             console.print(f"Residual bias p-value: {round(p_value, 4)}")
+            if bias["ci_pct"] is not None:
+                console.print(
+                    f"Median relative residual: {bias['median_pct']:+.1f}% "
+                    f"(95% CI {bias['ci_pct'][0]:+.1f}% to {bias['ci_pct'][1]:+.1f}%) "
+                    f"— {bias['status']} vs the ±{bias['band_pct']:.0f}% band"
+                )
             print("")
         else:
             console.print("Model Performance Summary:", style="bold white")
@@ -501,10 +511,21 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             console.print(f"R² Score: {round(r2 * 100, 1)}%")
             console.print(f"Mean Absolute Error: {round(mae, 2)}")
             console.print(f"RMSE: {round(rmse, 2)}")
-            if p_value < 0.05:
+            # Judged on how BIG the bias is, not on whether n was large enough
+            # to detect any at all -- see research/bias_gate_materiality.md.
+            if bias["status"] == "material":
+                way = "low" if (bias["median_pct"] or 0) > 0 else "high"
                 console.print(
-                    "Residuals show systematic bias — consider expert mode for tuning.",
+                    f"This model reads about {abs(bias['median_pct']):.0f}% {way} on a "
+                    "typical part — consider expert mode for tuning.",
                     style="italic bold yellow",
+                )
+            elif bias["status"] == "unresolved" and bias["resolution_pct"] is not None:
+                console.print(
+                    f"Too few parts held back to rule out a systematic error "
+                    f"smaller than ±{bias['resolution_pct']:.0f}% — treat single-part "
+                    "numbers as indicative.",
+                    style="italic yellow",
                 )
             if quality_label == "Needs Improvement":
                 console.print(
