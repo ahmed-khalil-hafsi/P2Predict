@@ -580,6 +580,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         else None
     )
     calibration = compute_calibration_residuals(model, X_test, y_test)
+    from p2predict.domain import numeric_domain_from_frame
 
     model_metadata = Serialize_Trained_Model(
         algorithm,
@@ -590,6 +591,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         log_target=log_target,
         background_sample=background_sample,
         calibration=calibration,
+        feature_domain=numeric_domain_from_frame(X_train),
     )
 
     # Feature importances. Extracted once, reused for both the PDF report

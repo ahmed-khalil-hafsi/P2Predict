@@ -89,6 +89,18 @@ mcp = FastMCP(
         "a lower bound at/below $0 on an additive model — means 'I'm unsure "
         "here; get a quote, don't benchmark.' Always show the interval, not "
         "just the point estimate, when the user will act on the number.\n"
+        "3b. CHECK `in_domain` BEFORE QUOTING ANY NUMBER. It answers the "
+        "question that comes first — was this part answerable at all? A "
+        "'out_of_domain' part sits outside the data the model was built on, so "
+        "BOTH the estimate and its likely-range are unreliable, however tight "
+        "the band looks; relay `in_domain.say_to_user` and tell the user to get "
+        "a quote. The commonest case is a supplier or material never in the "
+        "data: the model prices it as the catalog average, NOT as that "
+        "supplier — never present that number as the supplier's price. "
+        "'unknown' means the model doesn't record its range, so the check "
+        "couldn't run — that is not an all-clear. On batch calls read "
+        "`out_of_domain_rows`: one bad line in a 200-line BOM is invisible "
+        "otherwise.\n"
         "4. Judge a model by how far it runs high or low, not R2 alone: a "
         "modest-R2 but even-handed model is more trustworthy for procurement "
         "than a higher-R2 biased one. What counts is the SIZE of the offset "
@@ -233,6 +245,12 @@ async def predict(model_id: str, features: dict) -> str:
     Pass the model_id from list_models and a dictionary of feature values
     matching the model's expected features. Example:
     {"Weight": 15, "Region": "EU", "Supplier": "A"}
+
+    Returns an `in_domain` block alongside the prediction — read it before you
+    quote the number. 'out_of_domain' means the part sits outside the data the
+    model was built on (an unseen supplier, a spec far past anything observed),
+    so the estimate isn't reliable no matter how confident it looks; quote
+    `in_domain.say_to_user` and point the user at a real quote.
     """
     registry = _get_registry()
     try:
@@ -251,11 +269,14 @@ async def predict(model_id: str, features: dict) -> str:
         return _error("missing_feature", str(e))
 
     preds = await asyncio.to_thread(loaded["model"].predict, df)
+    from p2predict.domain import check_part, training_domain
+
     return _ok({
         "model_id": model_id,
         "target": loaded.get("target_feature"),
         "prediction": float(preds[0]),
         "input": features,
+        "in_domain": check_part(features, training_domain(loaded)),
     })
 
 
@@ -306,8 +327,12 @@ async def predict_batch(
         return _error("missing_feature", str(e))
 
     preds = await asyncio.to_thread(loaded["model"].predict, df)
+    from p2predict.domain import check_part, training_domain
+
+    domain = training_domain(loaded)
     rows_out = [
-        {"input": row, "prediction": float(p)}
+        {"input": row, "prediction": float(p),
+         "in_domain": check_part(row, domain)}
         for row, p in zip(rows, preds)
     ]
 
@@ -316,6 +341,16 @@ async def predict_batch(
         "target": loaded.get("target_feature"),
         "predictions": rows_out,
     }
+    # A BOM is where this matters most: one unseen supplier in 200 lines is
+    # invisible unless it is counted for the caller.
+    flagged = sum(r["in_domain"]["status"] == "out_of_domain" for r in rows_out)
+    if flagged:
+        result["out_of_domain_rows"] = flagged
+        result["out_of_domain_note"] = (
+            f"{flagged} of {len(rows_out)} part(s) fall outside what the model "
+            "has seen — read their `in_domain.say_to_user` before quoting those "
+            "numbers."
+        )
 
     if coverage is not None:
         calibration = loaded.get("calibration")
@@ -331,7 +366,15 @@ async def predict_batch(
         intervals = await asyncio.to_thread(
             pi_fn, loaded["model"], df, calibration, coverage=coverage / 100.0
         )
+        from p2predict.domain import cap_reliability
+
         for row_out, iv in zip(rows_out, interval_to_dicts(intervals)):
+            status = row_out["in_domain"]["status"]
+            capped = cap_reliability(iv["reliability"], status)
+            if capped != iv["reliability"]:
+                iv["reliability"] = capped
+                iv["say_to_user"] = row_out["in_domain"]["say_to_user"]
+                iv["capped_by"] = "in_domain"
             row_out["interval"] = iv
         result["coverage_pct"] = coverage
 
@@ -476,12 +519,26 @@ async def predict_interval(
         return _error("interval_error", str(e))
 
     ir = intervals[0]
+    from p2predict.domain import cap_reliability, check_part, training_domain
+
+    in_domain = check_part(features, training_domain(loaded))
+    interval = interval_to_dicts(intervals)[0]
+    # The interval verdict grades the model's price segment, not the part --
+    # under a log-target the prediction cancels out of the width ratio, so an
+    # extrapolated part can price into a better-sampled band and come back
+    # NARROWER than a legitimate one. The domain check is what catches that.
+    capped = cap_reliability(interval["reliability"], in_domain["status"])
+    if capped != interval["reliability"]:
+        interval["reliability"] = capped
+        interval["say_to_user"] = in_domain["say_to_user"]
+        interval["capped_by"] = "in_domain"
     return _ok({
         "model_id": model_id,
         "target": loaded.get("target_feature"),
         "prediction": float(ir.prediction),
-        "interval": interval_to_dicts(intervals)[0],
+        "interval": interval,
         "coverage_pct": coverage,
+        "in_domain": in_domain,
     })
 
 
@@ -637,11 +694,16 @@ async def predict_from_csv(
 
     preds = await asyncio.to_thread(loaded["model"].predict, X)
 
+    from p2predict.domain import check_part, training_domain
+
+    domain = training_domain(loaded)
     rows_out: list[dict] = []
     for i in range(len(X)):
+        row_input = {f: df[f].iloc[i] for f in model_features}
         row_data: dict[str, Any] = {
-            "input": {f: df[f].iloc[i] for f in model_features},
+            "input": row_input,
             "prediction": float(preds[i]),
+            "in_domain": check_part(row_input, domain),
         }
         rows_out.append(row_data)
 
@@ -652,6 +714,14 @@ async def predict_from_csv(
         "n_rows": len(X),
         "predictions": rows_out,
     }
+    flagged = sum(r["in_domain"]["status"] == "out_of_domain" for r in rows_out)
+    if flagged:
+        result["out_of_domain_rows"] = flagged
+        result["out_of_domain_note"] = (
+            f"{flagged} of {len(rows_out)} part(s) fall outside what the model "
+            "has seen — read their `in_domain.say_to_user` before quoting those "
+            "numbers."
+        )
 
     if coverage is not None:
         if not (1 <= coverage <= 99):
@@ -669,7 +739,15 @@ async def predict_from_csv(
         intervals = await asyncio.to_thread(
             pi_fn, loaded["model"], X, calibration, coverage=coverage / 100.0
         )
+        from p2predict.domain import cap_reliability
+
         for i, iv in enumerate(interval_to_dicts(intervals)):
+            status = rows_out[i]["in_domain"]["status"]
+            capped = cap_reliability(iv["reliability"], status)
+            if capped != iv["reliability"]:
+                iv["reliability"] = capped
+                iv["say_to_user"] = rows_out[i]["in_domain"]["say_to_user"]
+                iv["capped_by"] = "in_domain"
             rows_out[i]["interval"] = iv
         result["coverage_pct"] = coverage
 
@@ -1010,6 +1088,7 @@ async def train(
             else None
         )
         calibration = compute_calibration_residuals(model, X_test, y_test)
+        from p2predict.domain import numeric_domain_from_frame
 
         y_pred_test = model.predict(X_test)
 
@@ -1018,6 +1097,7 @@ async def train(
             log_target=log_t,
             background_sample=background_sample,
             calibration=calibration,
+            feature_domain=numeric_domain_from_frame(X_train),
         )
         model_metadata["holdout_y_test"] = y_test.tolist()
         model_metadata["holdout_y_pred"] = y_pred_test.tolist()
