@@ -22,9 +22,9 @@ case-study model as the real-world instance.
 
 Run::
 
-    python analysis/log_retransformation_bias.py
+    python research/log_retransformation_bias.py
 
-Writes ``analysis/log_retransformation_bias_results.json`` and prints a
+Writes ``research/log_retransformation_bias_results.json`` and prints a
 summary.
 
 Math, briefly

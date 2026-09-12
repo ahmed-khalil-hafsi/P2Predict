@@ -1,5 +1,7 @@
 # Finding: `what_if` hands over unreliable directions with no caution flag
 
+> **Status: shipped in #35 (v1.0.0).** Retained here, rather than pruned, because the CHANGELOG cites it as the rationale for the shipped `what_if` reliability verdict. Kept for reference — this is not open work.
+
 `what_if` is the one action a category manager acts on directly — "dropping to
 multi-chemistry saves 1%, let's do it" — and it is the one action in the MCP
 surface that ships its result **without a built-in reliability flag**. When a
