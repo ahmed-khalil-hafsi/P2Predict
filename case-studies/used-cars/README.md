@@ -110,7 +110,7 @@ For the technical team, here is how the pipeline processes the Craigslist datase
 |---|---|---|
 | **Holdout R²** | **0.781** | The model explains roughly 78% of the price variation using just 10 basic features. Rated: "Good". |
 | **MAE** | **$3,658** | The typical miss is roughly 22% of the $16,419 median price. |
-| **Residual-bias** | **p < 0.05** | The residual bias test flagged a systematic lean. The Random Forest leaves some structured variance behind at the extreme tails (very cheap beaters and ultra-luxury cars). |
+| **Typical lean** | **+0.9%** | The model reads about 1% low on a typical car — far inside the ±5% that would move a negotiation, so it is cleared to benchmark against. (Earlier versions of P2Predict flagged this model as biased. That gate tested the *average* residual, which a 16,000-car holdout makes significant at any size of lean; v1.1.0 measures the *typical* car against a materiality band instead. The Random Forest does still fan out at the extreme tails — see the per-price-band read below.) |
 
 ### Visual Quality Report
 

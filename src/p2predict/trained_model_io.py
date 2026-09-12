@@ -8,7 +8,7 @@ from p2predict.input_checks import check_csv_sanity
 # v0.9 adds `--json` to both CLIs, emitting a stable schema 1.0 response
 # instead of Rich-formatted tables when set. No persisted metadata schema
 # change; older models load unchanged.
-P2PREDICT_VERSION = "v0.9"
+P2PREDICT_VERSION = "v1.1.0"
 
 
 def SaveModel(model_metadata, model_name):

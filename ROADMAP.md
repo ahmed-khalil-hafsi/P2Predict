@@ -122,15 +122,19 @@ Live at **[p2predict.com](https://p2predict.com)** — a single-page static site
 
 **Deferred (2026-08-17).** Shipping the docs-only prerequisite (INSTALL.md Step 5) for now; revisit if the Homebrew/admin barrier proves to cost real Mac installs.
 
-### 6. Log-target back-transform correction (finding under review)
+### 6. Log-target back-transform correction (half shipped)
 
-**Why it matters.** The heavy-equipment resale case study surfaced that P2Predict's `exp()` back-transform of a log-target model under-shoots the dollar *mean* by ~5% (Jensen's inequality) while staying essentially unbiased for the *median* — and the quality layer's `residual_bias_p` tests only the mean, so it labels an otherwise-good, median-unbiased model **"unreliable"**. That needlessly withdraws the single-part appraisal verdict on the most common data shape P2Predict sees (skewed prices/costs). This affects every log-target model, the used-vehicle study included.
+**Why it matters.** The heavy-equipment resale case study surfaced that P2Predict's `exp()` back-transform of a log-target model under-shoots the dollar *mean* by ~5% (Jensen's inequality) while staying essentially unbiased for the *median* — and the quality layer's `residual_bias_p` tested only the mean, so it labelled an otherwise-good, median-unbiased model **"unreliable"**. That needlessly withdrew the single-part appraisal verdict on the most common data shape P2Predict sees (skewed prices/costs), on every log-target model including the used-vehicle study.
 
 **Proposal** (documented with reproducible evidence in [`research/log_retransformation_bias.md`](research/log_retransformation_bias.md)):
-- Fix the verdict logic so a median-unbiased log model isn't mislabelled — name the mean-vs-median choice instead of stamping "unreliable".
-- Offer an **opt-in** mean correction (Duan smearing / log-normal factor) with its own interval recalibration, rather than a blind global rescale that would silently redefine every prediction and disturb conformal-interval coverage.
+- ~~Fix the verdict logic so a median-unbiased log model isn't mislabelled~~ ✅ **Shipped in v1.1.0 (#39).** The verdict is now an equivalence test on the *median relative* residual against a ±5% materiality band, which is the mean-vs-median choice made explicit — and needs no branch on `log_target`, because the median relative residual *is* the log-space test. Both flagship studies moved `unreliable` → `trustworthy`. Rationale: [`research/bias_gate_materiality.md`](research/bias_gate_materiality.md).
+- **Still open:** an **opt-in** mean correction (Duan smearing / log-normal factor) with its own interval recalibration, rather than a blind global rescale that would silently redefine every prediction and disturb conformal-interval coverage.
 
-**Status.** Finding proposed; no core change yet. Scoped as a follow-up, not scheduled.
+**Status.** The mislabelling half is fixed. The estimator half — whether the shipped number should target the mean or the median — is unchanged and unscheduled: it moves every price P2Predict outputs and needs the conformal intervals recalibrated alongside, so it warrants its own release and migration note.
+
+### 7. Out-of-domain detection ✅ Shipped in v1.1.0
+
+Nothing in the predict path noticed a part outside the data the model was built on: an impossible part earned a `trust` verdict, and — because conformal band selection keys on the *predicted* value — often came back with a **narrower** range than a legitimate part. Now an `in_domain` block on `predict`, `predict_interval`, `predict_batch` and `predict_from_csv` names what fell outside and by how much, and caps the per-part verdict so an out-of-domain part can never return `trust`. Works on existing models with no retrain. Rationale: [`research/out_of_domain_flag.md`](research/out_of_domain_flag.md) (#36, shipped #40).
 
 ---
 
