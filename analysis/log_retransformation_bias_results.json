@@ -1,0 +1,54 @@
+{
+  "sample_5k": {
+    "model": "5k sample (xgboost, log_target=True)",
+    "n_test": 1000,
+    "mean_actual": 32827.45,
+    "raw": {
+      "mean_pred": 31300.868103027344,
+      "mean_residual": 1526.5818969726563,
+      "mean_residual_pct": 4.6503212920061,
+      "median_residual": 192.48779296875,
+      "median_residual_pct": 0.7548540900735294,
+      "residual_bias_p": 6.016538211971647e-05,
+      "r2": 0.7329204742778762
+    },
+    "smearing": {
+      "duan_factor": 1.042765845222592,
+      "lognormal_factor": 1.052419036675222,
+      "log_resid_sigma": 0.319660316090069
+    },
+    "corrected": {
+      "mean_pred": 32639.476183654177,
+      "mean_residual": 187.97381634581947,
+      "mean_residual_pct": 0.5726116903561486,
+      "residual_bias_p": 0.6202243542324164,
+      "r2": 0.7366309195180495
+    }
+  },
+  "case_study_80k": {
+    "model": "80k case-study model (xgboost)",
+    "n_test": 16000,
+    "mean_actual": 32221.117,
+    "raw": {
+      "mean_pred": 30676.387894012452,
+      "mean_residual": 1544.7291059875488,
+      "mean_residual_pct": 4.7941513200412915,
+      "median_residual": 333.19482421875,
+      "median_residual_pct": 1.332779296875,
+      "residual_bias_p": 1.2260292082010655e-60,
+      "r2": 0.7384710633988941
+    },
+    "smearing": {
+      "duan_factor": 1.0462477334521423,
+      "lognormal_factor": 1.0487671606667404,
+      "log_resid_sigma": 0.3085946909370576
+    },
+    "corrected": {
+      "mean_pred": 32095.101304609263,
+      "mean_residual": 126.01569539073668,
+      "mean_residual_pct": 0.39109660720556855,
+      "residual_bias_p": 0.17701110476119247,
+      "r2": 0.7444534150922153
+    }
+  }
+}
