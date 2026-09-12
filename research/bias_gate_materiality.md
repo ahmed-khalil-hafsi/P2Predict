@@ -1,6 +1,6 @@
 # Finding: the "unreliable" gate measures holdout size, not bias
 
-**Status: open.** Sharpens finding #2 of [`methodology_review.md`](methodology_review.md)
+**Status: shipped in #39 (four-state form).** Retained, rather than pruned, because the CHANGELOG cites this document and `bias_gate_equivalence.py` as the rationale for the shipped gate. Sharpens finding #2 of [`methodology_review.md`](methodology_review.md)
 and shares a root cause with [`log_retransformation_bias.md`](log_retransformation_bias.md).
 All numbers from `bias_gate_materiality.py` (results in
 `bias_gate_materiality_results.json`). **No core code changed.**
