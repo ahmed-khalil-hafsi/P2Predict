@@ -25,7 +25,7 @@ deeper write-ups; two are still open and unaddressed in core. Current state:
 | **2. Bias gate flunks good models** | **Shipped (#39)** — sharpened by see [`bias_gate_materiality.md`](bias_gate_materiality.md), which measures the gate across three datasets and shows the failure is *worse and two-sided*: the verdict tracks holdout size, not bias. One correction to this review: it reported the used-cars model flipping to `trustworthy` in log space; an independent fit does **not** reproduce that flip. |
 | **3. Split hygiene / raw-holdout reporting** | **Open**, but narrower than ranked here — the inflation only reaches users who set `--feature-outliers drop`; the default `warn` is unaffected. The sub-item "wire `find_leaky_features` into the CLI" partly landed: it is used by the MCP server (`propose_training_plan`, `train`), not the CLI. |
 | **4. Group-aware splits** | **Open.** No `GroupShuffleSplit`/`GroupKFold` anywhere in `src/`. |
-| Tier-2/3: *silent out-of-distribution predictions* | **Worked up** as [`out_of_domain_flag.md`](out_of_domain_flag.md) (merged in #36), which confirmed the bullet and showed the reliability verdict is structurally incapable of catching it. |
+| Tier-2/3: *silent out-of-distribution predictions* | **Worked up** as [`out_of_domain_flag.md`](out_of_domain_flag.md) (merged in #36) and **shipped in #40**, which confirmed the bullet and showed the reliability verdict is structurally incapable of catching it. |
 
 The Tier-1 numbers below are from the original July run and have not been
 re-measured except where a linked document says otherwise.

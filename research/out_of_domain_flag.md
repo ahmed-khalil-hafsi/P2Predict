@@ -1,5 +1,11 @@
 # Finding: nothing in the predict path notices a part the model has never seen
 
+> **Status: shipped in #40.** Retained, rather than pruned, because the CHANGELOG
+> cites this document as the rationale for the shipped `in_domain` block. The fix
+> followed the sketch below: stored numeric ranges + the encoder's own categories,
+> an `in_domain` block on the four predict tools, and a cap that stops an
+> out-of-domain part ever returning `trust`.
+
 Every answer P2Predict ships is auditable — the attribution decomposes, the
 interval has a coverage proof, the what-if delta sums. All three audits answer
 *"how good is this answer?"*. None answers the question that comes first:
