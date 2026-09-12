@@ -1,0 +1,180 @@
+[
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "log_target": true,
+    "n_holdout": 16000,
+    "r2": 0.7353941576631716,
+    "mean_residual_pct": -27.198471760493604,
+    "median_residual_pct": 1.7033311883896907,
+    "bias_p_price_space": 4.357957258363544e-71,
+    "bias_p_log_space": 0.034380963485015265,
+    "verdict_today": "unreliable",
+    "verdict_log_space_test": "unreliable",
+    "holdout_ladder": [
+      {
+        "n": 50,
+        "draws": 200,
+        "median_mean_resid_pct": -12.13203226108943,
+        "median_bias_p": 0.30522821520488375,
+        "pct_flagged_unreliable": 12.5
+      },
+      {
+        "n": 100,
+        "draws": 200,
+        "median_mean_resid_pct": -14.866099944313994,
+        "median_bias_p": 0.11797094096280161,
+        "pct_flagged_unreliable": 33.0
+      },
+      {
+        "n": 250,
+        "draws": 200,
+        "median_mean_resid_pct": -24.480070662698587,
+        "median_bias_p": 0.021131114285942405,
+        "pct_flagged_unreliable": 64.0
+      },
+      {
+        "n": 500,
+        "draws": 200,
+        "median_mean_resid_pct": -23.41629003387107,
+        "median_bias_p": 0.0012603221086395387,
+        "pct_flagged_unreliable": 92.5
+      },
+      {
+        "n": 1000,
+        "draws": 200,
+        "median_mean_resid_pct": -27.209608982124074,
+        "median_bias_p": 1.4456126754135706e-05,
+        "pct_flagged_unreliable": 99.5
+      },
+      {
+        "n": 2500,
+        "draws": 200,
+        "median_mean_resid_pct": -27.402488299308864,
+        "median_bias_p": 1.6290560213405546e-12,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 5000,
+        "draws": 200,
+        "median_mean_resid_pct": -27.036266004790317,
+        "median_bias_p": 2.5077476624600483e-23,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 10000,
+        "draws": 200,
+        "median_mean_resid_pct": -27.367186414618114,
+        "median_bias_p": 1.3567403697448546e-45,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 16000,
+        "draws": 1,
+        "median_mean_resid_pct": -27.198471760493604,
+        "median_bias_p": 4.357957258363544e-71,
+        "pct_flagged_unreliable": 100.0
+      }
+    ]
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "log_target": true,
+    "n_holdout": 16000,
+    "r2": 0.7372389079537782,
+    "mean_residual_pct": -5.797412863436343,
+    "median_residual_pct": 1.706896998355263,
+    "bias_p_price_space": 9.794172013683398e-55,
+    "bias_p_log_space": 0.5849488735995615,
+    "verdict_today": "unreliable",
+    "verdict_log_space_test": "trustworthy",
+    "holdout_ladder": [
+      {
+        "n": 50,
+        "draws": 200,
+        "median_mean_resid_pct": -5.444721698790989,
+        "median_bias_p": 0.31793557277289963,
+        "pct_flagged_unreliable": 9.5
+      },
+      {
+        "n": 100,
+        "draws": 200,
+        "median_mean_resid_pct": -5.35476375369146,
+        "median_bias_p": 0.19219692346950218,
+        "pct_flagged_unreliable": 23.0
+      },
+      {
+        "n": 250,
+        "draws": 200,
+        "median_mean_resid_pct": -6.14803377632524,
+        "median_bias_p": 0.06417769739873808,
+        "pct_flagged_unreliable": 47.0
+      },
+      {
+        "n": 500,
+        "draws": 200,
+        "median_mean_resid_pct": -5.718994965023414,
+        "median_bias_p": 0.006557710973585649,
+        "pct_flagged_unreliable": 80.0
+      },
+      {
+        "n": 1000,
+        "draws": 200,
+        "median_mean_resid_pct": -5.73801408146366,
+        "median_bias_p": 9.164335419107919e-05,
+        "pct_flagged_unreliable": 96.5
+      },
+      {
+        "n": 2500,
+        "draws": 200,
+        "median_mean_resid_pct": -5.827380261763855,
+        "median_bias_p": 1.1256645330614853e-09,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 5000,
+        "draws": 200,
+        "median_mean_resid_pct": -5.822081225840856,
+        "median_bias_p": 5.7550065116760525e-18,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 10000,
+        "draws": 200,
+        "median_mean_resid_pct": -5.800075819153561,
+        "median_bias_p": 1.6034903656914787e-34,
+        "pct_flagged_unreliable": 100.0
+      },
+      {
+        "n": 16000,
+        "draws": 1,
+        "median_mean_resid_pct": -5.797412863436343,
+        "median_bias_p": 9.794172013683398e-55,
+        "pct_flagged_unreliable": 100.0
+      }
+    ]
+  },
+  {
+    "dataset": "battery mgmt ICs",
+    "data_file": "case-studies/battery-management-ics/data/bmics_clean.csv",
+    "log_target": false,
+    "n_holdout": 30,
+    "r2": 0.6063022242956453,
+    "mean_residual_pct": -7.527171528525162,
+    "median_residual_pct": -0.8401482015296718,
+    "bias_p_price_space": 0.585188042426547,
+    "bias_p_log_space": 0.7720011510827383,
+    "verdict_today": "trustworthy",
+    "verdict_log_space_test": "trustworthy",
+    "holdout_ladder": [
+      {
+        "n": 30,
+        "draws": 1,
+        "median_mean_resid_pct": -7.527171528525162,
+        "median_bias_p": 0.585188042426547,
+        "pct_flagged_unreliable": 0.0
+      }
+    ]
+  }
+]
