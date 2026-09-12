@@ -22,4 +22,5 @@ shipped or stale analysis stops being useful and starts being noise.
 | File | Status |
 |---|---|
 | `log_retransformation_bias.{md,py,json}` | **Open** — log-target models are flagged "unreliable" for a mean-vs-median gap; proposes fixing the verdict logic + an opt-in mean correction. |
+| `out_of_domain_flag.{md,py,json}` | **Open** — nothing in the predict path notices a part outside the data the model was built on; on a well-fit model an impossible part earns a `trust` verdict. Proposes an `in_domain` block that caps the verdict. |
 | `whatif_reliability_flag.md` | **Shipped (#35).** Retained only because the CHANGELOG cites it as rationale. |
