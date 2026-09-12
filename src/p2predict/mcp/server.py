@@ -55,10 +55,18 @@ mcp = FastMCP(
         "quoting its numbers. Lead with its computed `verdict`: 'trustworthy' "
         "(benchmark against it), 'usable' (unbiased but modest — relative "
         "comparisons and benchmarks only, not a single-part appraisal), "
-        "'unreliable' (biased residuals — relative comparisons only, never an "
-        "absolute target), or 'insufficient_data'/'unknown' (too little data "
-        "to judge — treat metrics as indicative). It also returns per-price-"
-        "band reliability and per-feature signal strength as computed flags.\n"
+        "'unreliable' (reads materially high or low — relative comparisons "
+        "only, never an absolute target), or 'insufficient_data'/'unknown' "
+        "(too little data to judge — treat metrics as indicative). It also "
+        "returns per-price-band reliability and per-feature signal strength "
+        "as computed flags.\n"
+        "\n"
+        "'unknown' is a MEASURED bound, not a shrug: `bias_resolution_pct` is "
+        "the smallest systematic error that holdout could have detected, so "
+        "the honest line to the user is 'we can rule out an error bigger than "
+        "about X%, but not prove it runs even'. Never upgrade 'unknown' to "
+        "'trustworthy' because the accuracy looks good — a small holdout "
+        "cannot tell an even-handed model from one reading 10% high.\n"
         "\n"
         "BUILD A MODEL: do NOT call `train` directly on a user's CSV first. "
         "Call `propose_training_plan` first, relay its plain_summary and "
@@ -81,9 +89,12 @@ mcp = FastMCP(
         "a lower bound at/below $0 on an additive model — means 'I'm unsure "
         "here; get a quote, don't benchmark.' Always show the interval, not "
         "just the point estimate, when the user will act on the number.\n"
-        "4. Judge a model by residual-bias (unbiasedness), not R2 alone: a "
-        "modest-R2 but unbiased model is more trustworthy for procurement than "
-        "a higher-R2 biased one.\n"
+        "4. Judge a model by how far it runs high or low, not R2 alone: a "
+        "modest-R2 but even-handed model is more trustworthy for procurement "
+        "than a higher-R2 biased one. What counts is the SIZE of the offset "
+        "(`typical_bias_pct`, flagged past +/-5%), not whether it is "
+        "statistically detectable — a big enough holdout makes any offset "
+        "detectable, including commercially irrelevant ones.\n"
         "5. Before quoting a finding to a stakeholder, check its feature's "
         "importance — a finding resting on a 1-2% feature is a hypothesis, not "
         "a number to negotiate against.\n"
@@ -1104,6 +1115,10 @@ async def get_model_quality(
         modest model that is even-handed reads 'usable', not just 'Needs
         Improvement'. `assessment.confidence` is 'high' | 'limited' |
         'insufficient'.
+      - `assessment.typical_bias_pct` — how far the model runs high or low on a
+        typical part, in percent. `assessment.bias_resolution_pct` is the
+        smallest offset this holdout could have detected; when the verdict is
+        'unknown', quote it as the bound you CAN rule out.
       - `calibration_by_price_band[].reliability` — 'trust' | 'caution' |
         'quote' per price range (with `low_confidence` when a band is thin).
         Each band carries a `say_to_user` sentence in plain words — quote it to
