@@ -141,18 +141,26 @@ def test_explain_batch_cost_grows_sublinearly_in_rows(synthetic_parts):
     # Warm the explainer/SHAP/XGBoost paths before timing.
     explain_batch(model, rows_n.iloc[:2], background_X=None)
 
-    t0 = time.perf_counter()
-    explain_batch(model, rows_n, background_X=None)
-    t_n = time.perf_counter() - t0
+    # Both durations here are ~20ms, where a single GC pause or a scheduler
+    # slice on a shared CI runner is a large fraction of the measurement --
+    # and the ratio of two such numbers amplifies it. Take the MINIMUM over a
+    # few repeats: noise can only ever ADD time, so the minimum is the cleanest
+    # estimate of the real cost. A genuine per-row rebuild still shows up,
+    # because it inflates every repeat of the 2N measurement, not just one.
+    def _best_of(rows, repeats=5):
+        best = float("inf")
+        for _ in range(repeats):
+            t0 = time.perf_counter()
+            explain_batch(model, rows, background_X=None)
+            best = min(best, time.perf_counter() - t0)
+        return best
 
-    t0 = time.perf_counter()
-    explain_batch(model, rows_2n, background_X=None)
-    t_2n = time.perf_counter() - t0
+    t_n = _best_of(rows_n)
+    t_2n = _best_of(rows_2n)
 
     # With a single shared build, 2N should cost well under 2x N. Allow a very
     # generous 1.8x ceiling: comfortably below the ~2x a per-row rebuild would
-    # force, but loose enough that timer noise on a tiny absolute duration
-    # never flakes it.
+    # force.
     if t_n > 0:
         assert t_2n <= 1.8 * t_n, (
             f"explain_batch time scaled ~linearly with row count "
