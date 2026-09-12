@@ -676,3 +676,77 @@ def test_launch_command_falls_back_to_unresolved_interpreter(tmp_path, monkeypat
     command = mcp_server._launch_command()
     assert command == [str(venv_python), "-m", "p2predict.mcp"]
     assert command[0] != str(real_python)
+
+
+# ---------------------------------------------------------------------------
+# in_domain — "was this part answerable at all?"
+# research/out_of_domain_flag.md
+# ---------------------------------------------------------------------------
+
+UNSEEN_SUPPLIER = {**SAMPLE_FEATURES, "Supplier": "Zeta Werke"}
+ABSURD_WEIGHT = {**SAMPLE_FEATURES, "Weight": 9000}
+
+
+@pytest.mark.asyncio
+async def test_predict_reports_in_domain_for_an_ordinary_part(registry, model_id):
+    result = _parse(await mcp_server.predict(model_id, SAMPLE_FEATURES))
+    assert result["in_domain"]["status"] == "in_domain"
+    assert result["in_domain"]["issues"] == []
+
+
+@pytest.mark.asyncio
+async def test_predict_flags_a_supplier_never_in_the_data(registry, model_id):
+    """The routine category-manager question -- 'what should we pay a supplier
+    we haven't bought from?' -- used to come back as the catalog average
+    presented as that supplier's price, with nothing saying so."""
+    result = _parse(await mcp_server.predict(model_id, UNSEEN_SUPPLIER))
+    assert result["in_domain"]["status"] == "out_of_domain"
+    assert "Zeta Werke" in result["in_domain"]["say_to_user"]
+    assert isinstance(result["prediction"], float)   # still answers
+
+
+@pytest.mark.asyncio
+async def test_predict_flags_a_wildly_extrapolated_number(registry, model_id):
+    result = _parse(await mcp_server.predict(model_id, ABSURD_WEIGHT))
+    assert result["in_domain"]["status"] == "out_of_domain"
+    assert result["in_domain"]["issues"][0]["feature"] == "Weight"
+
+
+@pytest.mark.asyncio
+async def test_interval_verdict_is_capped_for_an_out_of_domain_part(registry, model_id):
+    """The inversion this exists to stop: band selection keys on the PREDICTED
+    value, so an extrapolated part can come back narrower -- and therefore read
+    as more trustworthy -- than a legitimate one."""
+    result = _parse(await mcp_server.predict_interval(model_id, ABSURD_WEIGHT, 90))
+    assert result["in_domain"]["status"] == "out_of_domain"
+    assert result["interval"]["reliability"] == "quote"
+    assert result["interval"]["capped_by"] == "in_domain"
+    assert "outside what the model has seen" in result["interval"]["say_to_user"]
+
+
+@pytest.mark.asyncio
+async def test_interval_verdict_untouched_for_an_in_domain_part(registry, model_id):
+    result = _parse(await mcp_server.predict_interval(model_id, SAMPLE_FEATURES, 90))
+    assert result["in_domain"]["status"] in ("in_domain", "unknown")
+    assert "capped_by" not in result["interval"]
+
+
+@pytest.mark.asyncio
+async def test_batch_counts_out_of_domain_rows(registry, model_id):
+    """A BOM is where this matters: one unseen supplier in 200 lines is
+    invisible unless it is counted for the caller."""
+    rows = [SAMPLE_FEATURES, UNSEEN_SUPPLIER, SAMPLE_FEATURES]
+    result = _parse(await mcp_server.predict_batch(model_id, rows))
+    assert result["out_of_domain_rows"] == 1
+    assert [r["in_domain"]["status"] for r in result["predictions"]] == [
+        "in_domain", "out_of_domain", "in_domain"]
+
+
+@pytest.mark.asyncio
+async def test_batch_caps_only_the_offending_row(registry, model_id):
+    rows = [SAMPLE_FEATURES, ABSURD_WEIGHT]
+    result = _parse(await mcp_server.predict_batch(model_id, rows, coverage=90))
+    good, bad = result["predictions"]
+    assert "capped_by" not in good["interval"]
+    assert bad["interval"]["reliability"] == "quote"
+    assert bad["interval"]["capped_by"] == "in_domain"

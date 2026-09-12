@@ -28,6 +28,7 @@ def Serialize_Trained_Model(
     log_target=False,
     background_sample=None,
     calibration=None,
+    feature_domain=None,
 ):
     """Pack a trained model and provenance metadata.
 
@@ -41,7 +42,14 @@ def Serialize_Trained_Model(
     residuals (in log space when log-target is active, target space
     otherwise) used by split-conformal to compute likely-range intervals.
 
-    Both fields are optional for backwards compatibility. Older models
+    ``feature_domain`` is ``{column: {"min": float, "max": float}}`` over the
+    numeric training features — the box the model was actually built in, used
+    by ``p2predict.domain`` to tell a user when a part sits outside it. A few
+    floats; no effect on prediction. Models saved without it fall back to
+    approximating the range from ``background_sample``, which is a subset and
+    so errs toward over-reporting rather than missing an out-of-domain part.
+
+    All three fields are optional for backwards compatibility. Older models
     still load and predict; ``--explain`` and ``--interval`` refuse to
     run on models that lack the relevant field, with a helpful message.
     """
@@ -57,6 +65,7 @@ def Serialize_Trained_Model(
         "p2predict_version": P2PREDICT_VERSION,
         "background_sample": background_sample,
         "calibration": calibration,
+        "feature_domain": feature_domain,
     }
 
 
