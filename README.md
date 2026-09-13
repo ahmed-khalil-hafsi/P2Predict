@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.ahmed-khalil-hafsi/p2predict -->
 <div align="center">
 
 <img src="./documentation/logo.svg" alt="P2Predict" width="240" />
