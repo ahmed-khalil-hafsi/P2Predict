@@ -1,0 +1,25 @@
+{
+  "identifier": "ahmed-khalil-hafsi-p2predict",
+  "name": "P2Predict",
+  "description": "Local MCP server for parametric price benchmarking in procurement and engineering. Trains a model on your own purchasing history to predict what a part should cost, attribute the price to spec/supplier drivers, and return a calibrated likely-price range — nothing leaves your machine.",
+  "version": "1.1.0",
+  "author": "Ahmed Khalil Hafsi",
+  "authorUrl": "https://github.com/ahmed-khalil-hafsi",
+  "homepage": "https://github.com/ahmed-khalil-hafsi/P2Predict",
+  "category": "productivity",
+  "tags": ["procurement", "pricing", "should-cost", "parametric-estimating", "engineering", "machine-learning"],
+  "tools": [
+    { "name": "list_models", "description": "List all trained P2Predict models in the configured models directory." },
+    { "name": "get_model_info", "description": "Get detailed information about a specific model." },
+    { "name": "predict", "description": "Predict the target value (e.g. price) for a single part." },
+    { "name": "predict_batch", "description": "Predict prices for many parts at once, optionally with explanations." },
+    { "name": "explain", "description": "Explain what is driving a part's predicted price, spec by spec." },
+    { "name": "predict_interval", "description": "Predict with a likely range (conformal prediction interval)." },
+    { "name": "what_if", "description": "Re-run a prediction after changing one or more specs/supplier to see the price delta." },
+    { "name": "predict_from_csv", "description": "Run predictions for every row in a CSV of parts." },
+    { "name": "propose_training_plan", "description": "Inspect a training CSV and return a plain-language plan before training." },
+    { "name": "train", "description": "Train a new price-prediction model on a spec-and-price CSV." },
+    { "name": "get_model_quality", "description": "Structured, agent-readable model-quality report — is this model trustworthy?" },
+    { "name": "generate_report", "description": "Generate a procurement-style model-quality PDF report." }
+  ]
+}
