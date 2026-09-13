@@ -136,6 +136,24 @@ Live at **[p2predict.com](https://p2predict.com)** — a single-page static site
 
 Nothing in the predict path noticed a part outside the data the model was built on: an impossible part earned a `trust` verdict, and — because conformal band selection keys on the *predicted* value — often came back with a **narrower** range than a legitimate part. Now an `in_domain` block on `predict`, `predict_interval`, `predict_batch` and `predict_from_csv` names what fell outside and by how much, and caps the per-part verdict so an out-of-domain part can never return `trust`. Works on existing models with no retrain. Rationale: [`research/out_of_domain_flag.md`](research/out_of_domain_flag.md) (#36, shipped #40).
 
+### 8. `predict_from_csv` should write results to a file, like the CLI already does
+
+**Why it matters.** The CLI's batch path writes predictions back to the CSV (`features_df.to_csv(predict_file)`) and prints a summary — the right design, and it works at any file size. The MCP tool of the same name never inherited it: it builds one dict per row and returns the whole list through a bare `json.dumps` with no cap, straight into the agent's context. Measured at **0.75 MB per 2,000 rows** — ~37 MB for a 100k-row file, ~149 MB for the 400k-row bulldozers CSV shipped in this repo's own case study. So the two surfaces disagree about what "batch predict from a file" means, and the one that disagrees is the primary interface in v1.0.
+
+This is not a hypothetical: the large case-study CSVs are in the repo with READMEs pointing at them, and the MCP registries are where someone first hands the server a file they already have.
+
+**Scope**
+- `predict_from_csv` writes the full per-row results to a CSV (predictions, plus interval bounds and top drivers when `coverage` / `with_explanation` are set) and returns its path — matching the CLI's behaviour.
+- The response keeps a summary block (row count, out-of-domain count, prediction distribution) and still inlines the rows when the file is small, so today's small-file calls are byte-identical and no existing agent flow changes.
+- `predict_batch` gets the same cap for consistency; its input is agent-supplied and so already self-limiting, so this is defensive only.
+
+**Acceptance**
+- A 100k-row CSV returns in a bounded response with a readable results file; no response exceeds the cap regardless of input size.
+- A small CSV returns exactly what it returns today, fields and all.
+- No change to model files, no retrain.
+
+**Deliberately NOT in scope.** The audit ([`research/large_data_scalability.md`](research/large_data_scalability.md), #43) found five other large-data items — an uncapped `include_holdout`, feature ranking fitting an unbounded forest on every row, the artifact storing the full calibration/holdout lists, a band count pinned at 3 however much data exists, and random_forest dominating `auto_train` at scale. **All declined for now (2026-09-15).** Every one of them is a no-op for the 50–300 part catalogue that is the typical case, so they buy nothing until someone actually arrives with a large catalogue. The banding one is the only one that would give an existing user a better answer, and only above ~12k rows. Revisit if a real user shows up with a big category — the measurements are already captured, so it's a decision, not a re-investigation.
+
 ---
 
 ## Still deliberately left out
@@ -151,5 +169,5 @@ Nothing in the predict path noticed a part outside the data the model was built 
 These are things P2Predict deliberately is *not* trying to be, so contributions in these directions will be politely declined:
 
 - A replacement for bottom-up should-cost tooling (aPriori, Siemens Teamcenter PCM). P2Predict is the *parametric* counterpart, not a replacement.
-- A general-purpose AutoML library. The training pipeline is tuned for procurement-shaped data (tens of features, hundreds to low thousands of rows, mixed numerical and high-cardinality categorical).
+- A general-purpose AutoML library. The training pipeline is tuned for procurement-*shaped* data: tens of features, mixed numerical and high-cardinality categorical, a positive multiplicative target. That is a statement about the shape of the problem, **not about how much data you have** — the typical category is a few hundred parts, but a dataset of hundreds of thousands of rows is a first-class case and the pipeline is expected to handle it as well. (Where it currently doesn't, see `research/large_data_scalability.md`.)
 - A black-box "trust us" model. Every answer is auditable — explanation, interval, what-if decomposition — by design.

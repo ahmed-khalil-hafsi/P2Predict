@@ -1,0 +1,83 @@
+# research/large_data_scalability.py — captured output
+# Dev Mac (darwin 25.5.0), .venv Python 3.14, 2026-09-15.
+# Single runs. Run-to-run variance on this machine is large (see note in the .md);
+# two independent runs of the same probe are shown where they differ materially.
+
+$ python research/large_data_scalability.py --rows 100000
+
+=== 1. cost at 100,000 rows x 7 specs ===
+find_leaky_features                    1.05s
+get_most_predictable_features @ 100,000    55.67s  ['length_mm', 'weight_g', 'supplier', 'qty', 'tolerance_um', 'material', 'finish']
+get_most_predictable_features @  50,000    22.73s  ['length_mm', 'weight_g', 'supplier', 'qty', 'tolerance_um', 'material', 'finish']
+get_most_predictable_features @  25,000     7.30s  ['length_mm', 'weight_g', 'supplier', 'qty', 'tolerance_um', 'material', 'finish']
+get_most_predictable_features @  10,000     2.31s  ['length_mm', 'weight_g', 'supplier', 'tolerance_um', 'qty', 'material', 'finish']
+peak RSS after ranking                  760 MB
+tune ridge                            25.99s
+tune xgboost                          19.46s
+tune random_forest                   414.11s
+auto_train total (3 algorithms)      459.56s
+=== 2. model artifact at 100,000 rows ===
+calibration points stored            20,000
+model file, as shipped                 1.21 MB
+model file, holdout+calibration stripped   0.49 MB
+model load                             0.18s
+=== 3. predict_from_csv payload ===
+2,000 rows                            0.75 MB in 0.46s
+extrapolated to 100,000 rows          37 MB,     23s to assemble
+extrapolated to 400,000 rows         149 MB,     93s to assemble
+
+# An earlier, independent run of the same probes on the same data:
+#   get_most_predictable_features @ 100,000    18.02s   (vs 55.67s above)
+#   tune ridge                                 17.70s
+#   tune xgboost                               52.10s   (vs 19.46s above)
+#   tune random_forest                        272.90s   (vs 414.11s above)
+# Payload and artifact sizes are deterministic and matched exactly.
+
+$ python research/large_data_scalability.py --bands models/xgboost_sale_price_usd_20260831_155833.model
+
+
+=== 4. interval banding on models/xgboost_sale_price_usd_20260831_155833.model ===
+calibration points 16,000 | log space True
+global      coverage  90.7%  median width +/-  107.6%
+ 3 bands    coverage  90.3%  median width +/-  116.1%  | coverage spread  90.0- 90.6%  cheapest band +/-   90.0%
+              predicted under 19,228.01          n= 2,785 cov  90.5%  +/-   90.0%
+              predicted 19,228.01 to 33,999.54   n= 2,666 cov  90.0%  +/-  116.1%
+              predicted over 33,999.54           n= 2,549 cov  90.6%  +/-  117.5%
+ 5 bands    coverage  90.4%  median width +/-  112.3%  | coverage spread  90.0- 91.2%  cheapest band +/-   84.3%
+              predicted under 14,311.39          n= 1,687 cov  90.2%  +/-   84.3%
+              predicted 14,311.39 to 21,674.53   n= 1,650 cov  91.2%  +/-  102.4%
+              predicted 21,674.53 to 29,833.01   n= 1,602 cov  90.1%  +/-  116.0%
+              predicted 29,833.01 to 46,839.41   n= 1,525 cov  90.0%  +/-  126.3%
+              predicted over 46,839.41           n= 1,536 cov  90.6%  +/-  112.3%
+10 bands    coverage  90.4%  median width +/-  101.7%  | coverage spread  88.7- 92.5%  cheapest band +/-   74.2%
+              predicted under 11,626.64          n=   794 cov  88.7%  +/-   74.2%
+              predicted 11,626.64 to 14,311.39   n=   893 cov  90.8%  +/-   90.8%
+              predicted 14,311.39 to 17,986.66   n=   840 cov  89.0%  +/-   96.1%
+              predicted 17,986.66 to 21,674.53   n=   810 cov  92.5%  +/-  110.0%
+              predicted 21,674.53 to 25,404.17   n=   804 cov  91.2%  +/-  101.7%
+              predicted 25,404.17 to 29,833.01   n=   798 cov  90.7%  +/-  138.9%
+              predicted 29,833.01 to 36,660.22   n=   752 cov  88.8%  +/-  126.3%
+              predicted 36,660.22 to 46,839.41   n=   773 cov  91.5%  +/-  128.7%
+              predicted 46,839.41 to 59,659.15   n=   768 cov  89.2%  +/-  122.6%
+              predicted over 59,659.15           n=   768 cov  91.9%  +/-  101.0%
+20 bands    coverage  90.7%  median width +/-  109.1%  | coverage spread  83.6- 94.9%  cheapest band +/-   73.7%
+              predicted under 9,690.38           n=   389 cov  87.9%  +/-   73.7%
+              predicted 9,690.38 to 11,626.64    n=   405 cov  89.6%  +/-   76.2%
+              predicted 11,626.64 to 12,979.85   n=   403 cov  90.3%  +/-   85.9%
+              predicted 12,979.85 to 14,311.39   n=   490 cov  91.4%  +/-  100.2%
+              predicted 14,311.39 to 16,136.66   n=   413 cov  94.9%  +/-  103.8%
+              predicted 16,136.66 to 17,986.66   n=   427 cov  83.6%  +/-   88.3%
+              predicted 17,986.66 to 19,886.57   n=   387 cov  93.5%  +/-  114.7%
+              predicted 19,886.57 to 21,674.53   n=   423 cov  92.0%  +/-  109.1%
+              predicted 21,674.53 to 23,412.96   n=   374 cov  90.1%  +/-   92.3%
+              predicted 23,412.96 to 25,404.17   n=   430 cov  91.4%  +/-  107.3%
+              predicted 25,404.17 to 27,325.82   n=   375 cov  92.3%  +/-  134.0%
+              predicted 27,325.82 to 29,833.01   n=   423 cov  90.5%  +/-  146.9%
+              predicted 29,833.01 to 32,548.21   n=   351 cov  88.6%  +/-  133.0%
+              predicted 32,548.21 to 36,660.22   n=   401 cov  89.5%  +/-  122.7%
+              predicted 36,660.22 to 40,988.76   n=   343 cov  93.0%  +/-  134.4%
+              predicted 40,988.76 to 46,839.41   n=   430 cov  90.5%  +/-  129.7%
+              predicted 46,839.41 to 52,093.03   n=   370 cov  91.4%  +/-  128.9%
+              predicted 52,093.03 to 59,659.15   n=   398 cov  88.9%  +/-  119.2%
+              predicted 59,659.15 to 68,969.34   n=   358 cov  92.7%  +/-  113.9%
+              predicted over 68,969.34           n=   410 cov  91.7%  +/-   87.4%
