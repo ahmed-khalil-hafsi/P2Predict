@@ -1,0 +1,19 @@
+# Smithery config for P2Predict's MCP server.
+# P2Predict is local-first by design: this just tells Smithery how to launch
+# the same `p2predict-mcp` binary you'd run yourself, on your own machine.
+# See INSTALL.md for the full setup (training a model, connecting an agent).
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      modelsDir:
+        type: string
+        description: Absolute path to the directory holding your trained .model files
+        default: models
+  commandFunction: |
+    (config) => ({
+      command: 'p2predict-mcp',
+      args: ['--models-dir', config.modelsDir || 'models']
+    })
