@@ -1,0 +1,794 @@
+[
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9397666666666666,
+        "coverage_sd": 0.06448179225616367,
+        "coverage_min": 0.7573333333333333,
+        "half_width_pct_mean": 494.06416953011137,
+        "half_width_pct_sd": 694.5199640823716,
+        "half_width_pct_iqr": 286.56140068506,
+        "median_ape_mean": 36.76385916849899
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9200555555555554,
+        "coverage_sd": 0.0333733189291593,
+        "coverage_min": 0.842,
+        "half_width_pct_mean": 152.44165022382995,
+        "half_width_pct_sd": 66.09929961190898,
+        "half_width_pct_iqr": 46.710672649442174,
+        "median_ape_mean": 36.64803564086243
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.924988888888889,
+        "coverage_sd": 0.03533999973257414,
+        "coverage_min": 0.8356666666666667,
+        "half_width_pct_mean": 147.8555576239076,
+        "half_width_pct_sd": 65.82433171758234,
+        "half_width_pct_iqr": 45.03962336963187,
+        "median_ape_mean": 35.93059374350655
+      }
+    }
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.933811111111111,
+        "coverage_sd": 0.046462994242428064,
+        "coverage_min": 0.846,
+        "half_width_pct_mean": 213.15791725709343,
+        "half_width_pct_sd": 195.4946059180469,
+        "half_width_pct_iqr": 130.7191643812112,
+        "median_ape_mean": 35.16248221527474
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9107666666666666,
+        "coverage_sd": 0.02589607138949771,
+        "coverage_min": 0.8596666666666667,
+        "half_width_pct_mean": 122.08615263061422,
+        "half_width_pct_sd": 24.33294285021758,
+        "half_width_pct_iqr": 24.222073002089715,
+        "median_ape_mean": 34.14033670256251
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.921088888888889,
+        "coverage_sd": 0.02111307512541924,
+        "coverage_min": 0.8783333333333333,
+        "half_width_pct_mean": 122.64655815256017,
+        "half_width_pct_sd": 23.783515360415024,
+        "half_width_pct_iqr": 21.87023232980006,
+        "median_ape_mean": 33.79147901677147
+      }
+    }
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.913611111111111,
+        "coverage_sd": 0.03750086418757327,
+        "coverage_min": 0.8326666666666667,
+        "half_width_pct_mean": 118.42777700886678,
+        "half_width_pct_sd": 43.97385519619672,
+        "half_width_pct_iqr": 38.29372533781243,
+        "median_ape_mean": 31.118397704430038
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9062888888888889,
+        "coverage_sd": 0.020240268146977655,
+        "coverage_min": 0.8466666666666667,
+        "half_width_pct_mean": 100.50359750495794,
+        "half_width_pct_sd": 11.982065581911153,
+        "half_width_pct_iqr": 13.863463221815934,
+        "median_ape_mean": 30.459341976052936
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9139444444444446,
+        "coverage_sd": 0.019253319031845337,
+        "coverage_min": 0.8486666666666667,
+        "half_width_pct_mean": 101.77371070408759,
+        "half_width_pct_sd": 11.960974832838387,
+        "half_width_pct_iqr": 13.309706237431612,
+        "median_ape_mean": 30.427871594032563
+      }
+    }
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9477,
+        "coverage_sd": 0.05889586563168714,
+        "coverage_min": 0.7506666666666667,
+        "half_width_pct_mean": 542.9632532868192,
+        "half_width_pct_sd": 698.9283915154904,
+        "half_width_pct_iqr": 490.2392682745706,
+        "median_ape_mean": 38.58980964779265
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9395333333333334,
+        "coverage_sd": 0.0268930904541714,
+        "coverage_min": 0.8906666666666667,
+        "half_width_pct_mean": 189.39193945835103,
+        "half_width_pct_sd": 64.13024932261986,
+        "half_width_pct_iqr": 75.212155536643,
+        "median_ape_mean": 35.705681718696745
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9579444444444446,
+        "coverage_sd": 0.017081746959331498,
+        "coverage_min": 0.9196666666666666,
+        "half_width_pct_mean": 182.2505175608397,
+        "half_width_pct_sd": 59.09397440742295,
+        "half_width_pct_iqr": 59.12788723701888,
+        "median_ape_mean": 32.88149551852044
+      }
+    }
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.9313333333333332,
+        "coverage_sd": 0.048818610231968346,
+        "coverage_min": 0.8066666666666666,
+        "half_width_pct_mean": 224.01259223071602,
+        "half_width_pct_sd": 243.66417615021228,
+        "half_width_pct_iqr": 104.13185638224485,
+        "median_ape_mean": 33.87860469734398
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9147777777777779,
+        "coverage_sd": 0.02914783738136018,
+        "coverage_min": 0.849,
+        "half_width_pct_mean": 133.11635982118278,
+        "half_width_pct_sd": 32.530869830966004,
+        "half_width_pct_iqr": 31.577528574476105,
+        "median_ape_mean": 32.141926838733156
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9455888888888888,
+        "coverage_sd": 0.017319553172484223,
+        "coverage_min": 0.895,
+        "half_width_pct_mean": 133.15480947367743,
+        "half_width_pct_sd": 25.344412656225913,
+        "half_width_pct_iqr": 29.016665562766576,
+        "median_ape_mean": 29.160084278105145
+      }
+    }
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.9225333333333334,
+        "coverage_sd": 0.0299266792389032,
+        "coverage_min": 0.8693333333333333,
+        "half_width_pct_mean": 136.49478439427537,
+        "half_width_pct_sd": 53.43048186403052,
+        "half_width_pct_iqr": 36.9230057229306,
+        "median_ape_mean": 30.490396650684982
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9097777777777778,
+        "coverage_sd": 0.017904457659668045,
+        "coverage_min": 0.879,
+        "half_width_pct_mean": 108.77464045976606,
+        "half_width_pct_sd": 11.751188680515176,
+        "half_width_pct_iqr": 10.335892167932087,
+        "median_ape_mean": 29.17281174245581
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9442666666666667,
+        "coverage_sd": 0.012014167881507965,
+        "coverage_min": 0.9116666666666666,
+        "half_width_pct_mean": 114.64061473419704,
+        "half_width_pct_sd": 11.584262632924307,
+        "half_width_pct_iqr": 8.325541534155832,
+        "median_ape_mean": 26.294176575082144
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9300222222222222,
+        "coverage_sd": 0.06992650401843425,
+        "coverage_min": 0.7316666666666667,
+        "half_width_pct_mean": 111.01197414920017,
+        "half_width_pct_sd": 35.020104820187754,
+        "half_width_pct_iqr": 49.80461172827522,
+        "median_ape_mean": 28.93412931701645
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9168888888888888,
+        "coverage_sd": 0.03148134925973286,
+        "coverage_min": 0.8643333333333333,
+        "half_width_pct_mean": 88.57306488247778,
+        "half_width_pct_sd": 11.771739413782852,
+        "half_width_pct_iqr": 14.154404538131473,
+        "median_ape_mean": 28.162141226567567
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9083222222222223,
+        "coverage_sd": 0.030557963680794078,
+        "coverage_min": 0.865,
+        "half_width_pct_mean": 84.6157994109224,
+        "half_width_pct_sd": 9.439783687590358,
+        "half_width_pct_iqr": 11.9929271435428,
+        "median_ape_mean": 28.22890860554642
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.9280777777777779,
+        "coverage_sd": 0.04124654248445674,
+        "coverage_min": 0.85,
+        "half_width_pct_mean": 88.04394427826541,
+        "half_width_pct_sd": 19.7429193474455,
+        "half_width_pct_iqr": 25.104375662517924,
+        "median_ape_mean": 26.05544271933028
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9101777777777778,
+        "coverage_sd": 0.025637576190020498,
+        "coverage_min": 0.8726666666666667,
+        "half_width_pct_mean": 75.4221322917006,
+        "half_width_pct_sd": 7.7484975042234225,
+        "half_width_pct_iqr": 12.459818876416875,
+        "median_ape_mean": 25.49255825730091
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9092999999999999,
+        "coverage_sd": 0.02392218387242381,
+        "coverage_min": 0.8733333333333333,
+        "half_width_pct_mean": 74.45024419774082,
+        "half_width_pct_sd": 6.95735295278883,
+        "half_width_pct_iqr": 11.019271626132351,
+        "median_ape_mean": 25.479706815386432
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "ridge",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.927588888888889,
+        "coverage_sd": 0.03415983204232192,
+        "coverage_min": 0.8566666666666667,
+        "half_width_pct_mean": 79.4385446041802,
+        "half_width_pct_sd": 13.194644308453592,
+        "half_width_pct_iqr": 15.292455717326732,
+        "median_ape_mean": 24.29885194366697
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9027555555555555,
+        "coverage_sd": 0.023575741369007676,
+        "coverage_min": 0.8613333333333333,
+        "half_width_pct_mean": 68.34691497015197,
+        "half_width_pct_sd": 5.227027481912305,
+        "half_width_pct_iqr": 8.452233865422386,
+        "median_ape_mean": 23.99061150107701
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9029222222222223,
+        "coverage_sd": 0.020773856863641377,
+        "coverage_min": 0.8673333333333333,
+        "half_width_pct_mean": 67.95164087659776,
+        "half_width_pct_sd": 4.739778655341909,
+        "half_width_pct_iqr": 7.456057665441961,
+        "median_ape_mean": 24.00365306331911
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9393888888888888,
+        "coverage_sd": 0.05023287404417735,
+        "coverage_min": 0.8296666666666667,
+        "half_width_pct_mean": 156.15570132232236,
+        "half_width_pct_sd": 58.55579568226126,
+        "half_width_pct_iqr": 70.72566014992262,
+        "median_ape_mean": 35.16052406069644
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9180111111111112,
+        "coverage_sd": 0.03860155867392138,
+        "coverage_min": 0.8423333333333334,
+        "half_width_pct_mean": 116.39972875283588,
+        "half_width_pct_sd": 19.09395930903683,
+        "half_width_pct_iqr": 19.168738302381314,
+        "median_ape_mean": 33.11453728485759
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9460555555555554,
+        "coverage_sd": 0.026936861515429084,
+        "coverage_min": 0.881,
+        "half_width_pct_mean": 117.43347628104897,
+        "half_width_pct_sd": 17.733954628996578,
+        "half_width_pct_iqr": 18.78704387883657,
+        "median_ape_mean": 31.22565512255905
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.932,
+        "coverage_sd": 0.03767261676124777,
+        "coverage_min": 0.8366666666666667,
+        "half_width_pct_mean": 110.60029924752071,
+        "half_width_pct_sd": 27.60087720913466,
+        "half_width_pct_iqr": 31.726699025650632,
+        "median_ape_mean": 29.63642779722996
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9172333333333335,
+        "coverage_sd": 0.030289174627527546,
+        "coverage_min": 0.852,
+        "half_width_pct_mean": 94.2813007929717,
+        "half_width_pct_sd": 12.428341961707302,
+        "half_width_pct_iqr": 23.01330436587017,
+        "median_ape_mean": 28.16255994914536
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9462888888888888,
+        "coverage_sd": 0.021674664011825936,
+        "coverage_min": 0.8846666666666667,
+        "half_width_pct_mean": 97.95291996361689,
+        "half_width_pct_sd": 11.46479728605874,
+        "half_width_pct_iqr": 18.02260681167523,
+        "median_ape_mean": 26.604190971739968
+      }
+    }
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.9276666666666668,
+        "coverage_sd": 0.03552086430207299,
+        "coverage_min": 0.8533333333333334,
+        "half_width_pct_mean": 95.32778304829493,
+        "half_width_pct_sd": 20.502991316391842,
+        "half_width_pct_iqr": 29.38507100457437,
+        "median_ape_mean": 26.49837407186254
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9093222222222221,
+        "coverage_sd": 0.025684421882894184,
+        "coverage_min": 0.8493333333333334,
+        "half_width_pct_mean": 80.77382498707654,
+        "half_width_pct_sd": 8.16424955181731,
+        "half_width_pct_iqr": 10.285108087785247,
+        "median_ape_mean": 25.518299779427554
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9470777777777777,
+        "coverage_sd": 0.015768362362541775,
+        "coverage_min": 0.9093333333333333,
+        "half_width_pct_mean": 85.96720113744335,
+        "half_width_pct_sd": 7.40410858535153,
+        "half_width_pct_iqr": 10.721138891447382,
+        "median_ape_mean": 23.83831842102341
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "ridge",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9384429365344003,
+        "coverage_sd": 0.05252202716271843,
+        "coverage_min": 0.82,
+        "half_width_pct_mean": 3.693491257494894e+117,
+        "half_width_pct_sd": 2.023008477678076e+118,
+        "half_width_pct_iqr": 15032.666451810615,
+        "median_ape_mean": 91.08468027504836
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9164547367641066,
+        "coverage_sd": 0.035452877606537744,
+        "coverage_min": 0.836,
+        "half_width_pct_mean": 2348.8974136882875,
+        "half_width_pct_sd": 1593.4527278123687,
+        "half_width_pct_iqr": 1046.975016549093,
+        "median_ape_mean": 90.53716137553448
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9182770219702864,
+        "coverage_sd": 0.03406251693273879,
+        "coverage_min": 0.84,
+        "half_width_pct_mean": 1983.0757645523643,
+        "half_width_pct_sd": 1029.1751807200885,
+        "half_width_pct_iqr": 935.70977423962,
+        "median_ape_mean": 90.3218617040953
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "ridge",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.9325992664221409,
+        "coverage_sd": 0.04793818855515112,
+        "coverage_min": 0.768,
+        "half_width_pct_mean": 8443.80882569816,
+        "half_width_pct_sd": 26582.806956193705,
+        "half_width_pct_iqr": 2252.705355271173,
+        "median_ape_mean": 90.20660313598701
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9070101922863176,
+        "coverage_sd": 0.02593772764735326,
+        "coverage_min": 0.849,
+        "half_width_pct_mean": 1508.7656445302252,
+        "half_width_pct_sd": 409.0035304039436,
+        "half_width_pct_iqr": 446.02483411673506,
+        "median_ape_mean": 89.93249957290199
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9115333333333332,
+        "coverage_sd": 0.022834000325856748,
+        "coverage_min": 0.8543333333333333,
+        "half_width_pct_mean": 1453.9826749686288,
+        "half_width_pct_sd": 353.0090664497365,
+        "half_width_pct_iqr": 383.19815833877533,
+        "median_ape_mean": 89.83383792499131
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "ridge",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.9166764439998519,
+        "coverage_sd": 0.046141104479751185,
+        "coverage_min": 0.7996666666666666,
+        "half_width_pct_mean": 1980.8674777377068,
+        "half_width_pct_sd": 1416.984794145001,
+        "half_width_pct_iqr": 1265.8599545141026,
+        "median_ape_mean": 89.31245955436596
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9076999999999998,
+        "coverage_sd": 0.021634786448549242,
+        "coverage_min": 0.8703333333333333,
+        "half_width_pct_mean": 1340.72564837407,
+        "half_width_pct_sd": 281.50599888141795,
+        "half_width_pct_iqr": 388.33824101977166,
+        "median_ape_mean": 89.6047754753573
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9094333333333331,
+        "coverage_sd": 0.0208459318228574,
+        "coverage_min": 0.8703333333333333,
+        "half_width_pct_mean": 1299.750895716798,
+        "half_width_pct_sd": 262.0690227644295,
+        "half_width_pct_iqr": 312.3867426605484,
+        "median_ape_mean": 89.50662585528407
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 75,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 15,
+        "coverage_mean": 0.9521666666666668,
+        "coverage_sd": 0.042981039212666376,
+        "coverage_min": 0.8483333333333334,
+        "half_width_pct_mean": 11791.5654762944,
+        "half_width_pct_sd": 20337.883498359963,
+        "half_width_pct_iqr": 6693.389243855105,
+        "median_ape_mean": 94.27541507164786
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.937811111111111,
+        "coverage_sd": 0.02882550001006298,
+        "coverage_min": 0.8573333333333333,
+        "half_width_pct_mean": 3251.8696651205223,
+        "half_width_pct_sd": 1991.0789219154403,
+        "half_width_pct_iqr": 2161.2743122131,
+        "median_ape_mean": 91.99311433203607
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 75,
+        "coverage_mean": 0.9564777777777778,
+        "coverage_sd": 0.02099455929034134,
+        "coverage_min": 0.893,
+        "half_width_pct_mean": 2929.7571833957463,
+        "half_width_pct_sd": 1129.7922706860918,
+        "half_width_pct_iqr": 1861.6159121456103,
+        "median_ape_mean": 89.3595196593859
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 150,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 30,
+        "coverage_mean": 0.9418888888888888,
+        "coverage_sd": 0.038678489406699476,
+        "coverage_min": 0.844,
+        "half_width_pct_mean": 3672.4001121722267,
+        "half_width_pct_sd": 3170.390031821175,
+        "half_width_pct_iqr": 2593.459674247593,
+        "median_ape_mean": 89.80234413962019
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.9084888888888888,
+        "coverage_sd": 0.024705736894585235,
+        "coverage_min": 0.857,
+        "half_width_pct_mean": 1641.4926634675837,
+        "half_width_pct_sd": 501.9198368120441,
+        "half_width_pct_iqr": 636.1624777687648,
+        "median_ape_mean": 89.55955539453001
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 150,
+        "coverage_mean": 0.941811111111111,
+        "coverage_sd": 0.01736374064377595,
+        "coverage_min": 0.906,
+        "half_width_pct_mean": 1855.9772506860556,
+        "half_width_pct_sd": 510.01582297643387,
+        "half_width_pct_iqr": 695.0827969207414,
+        "median_ape_mean": 87.76887001903351
+      }
+    }
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "xgboost",
+    "catalog_n": 300,
+    "coverage_target": 0.9,
+    "k_folds": 10,
+    "trials": 30,
+    "methods": {
+      "split": {
+        "trials": 30,
+        "n_calibration": 60,
+        "coverage_mean": 0.9138222222222222,
+        "coverage_sd": 0.043678969341177626,
+        "coverage_min": 0.8106666666666666,
+        "half_width_pct_mean": 1966.4556329388759,
+        "half_width_pct_sd": 1150.2488802048065,
+        "half_width_pct_iqr": 1215.4592347981738,
+        "median_ape_mean": 89.44604940935224
+      },
+      "cv_cross": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9095666666666666,
+        "coverage_sd": 0.020286293808261188,
+        "coverage_min": 0.876,
+        "half_width_pct_mean": 1441.0769784608117,
+        "half_width_pct_sd": 280.96252243068204,
+        "half_width_pct_iqr": 419.08030643979464,
+        "median_ape_mean": 88.7734455649373
+      },
+      "cv_plus": {
+        "trials": 30,
+        "n_calibration": 300,
+        "coverage_mean": 0.9403666666666666,
+        "coverage_sd": 0.014146564507198261,
+        "coverage_min": 0.912,
+        "half_width_pct_mean": 1622.348633180411,
+        "half_width_pct_sd": 302.27531292652236,
+        "half_width_pct_iqr": 508.21024679385255,
+        "median_ape_mean": 86.84594669742972
+      }
+    }
+  }
+]
