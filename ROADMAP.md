@@ -151,5 +151,5 @@ Nothing in the predict path noticed a part outside the data the model was built 
 These are things P2Predict deliberately is *not* trying to be, so contributions in these directions will be politely declined:
 
 - A replacement for bottom-up should-cost tooling (aPriori, Siemens Teamcenter PCM). P2Predict is the *parametric* counterpart, not a replacement.
-- A general-purpose AutoML library. The training pipeline is tuned for procurement-shaped data (tens of features, hundreds to low thousands of rows, mixed numerical and high-cardinality categorical).
+- A general-purpose AutoML library. The training pipeline is tuned for procurement-*shaped* data: tens of features, mixed numerical and high-cardinality categorical, a positive multiplicative target. That is a statement about the shape of the problem, **not about how much data you have** — the typical category is a few hundred parts, but a dataset of hundreds of thousands of rows is a first-class case and the pipeline is expected to handle it as well. (Where it currently doesn't, see `research/large_data_scalability.md`.)
 - A black-box "trust us" model. Every answer is auditable — explanation, interval, what-if decomposition — by design.
