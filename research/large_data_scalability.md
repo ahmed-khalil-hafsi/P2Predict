@@ -1,6 +1,21 @@
 # Does P2Predict work at 100k+ rows?
 
-**Status:** findings, no core changes made. 2026-09-15.
+**Status:** decided 2026-09-15 — **item 1 only; items 2–6 declined.**
+
+Ahmed's call, and the right one: every item here except the first is a no-op
+for the 50–300 part catalogue that is the typical case, so they buy nothing
+until a real user arrives with a large category. Item 1 survives not because
+it is a scale problem but because it is an **inconsistency** — the CLI's batch
+path already writes results to a file and the MCP tool of the same name does
+not. Scheduled as ROADMAP item 8.
+
+Items 2–6 stay documented here rather than being deleted: the measurements are
+captured, so picking them up later is a decision, not a re-investigation. The
+band-count finding (item 6) is the one worth revisiting first if a large
+catalogue ever shows up — it is the only one that would hand an existing user a
+better answer.
+
+This document otherwise records the original audit unchanged.
 
 ## Why this was asked
 
@@ -248,18 +263,36 @@ Docstrings in `quality.py` and `preprocessing.py` also describe the 100–300
 part case. Those are accurate and load-bearing (they justify specific threshold
 choices) and should stay — but they should say "typical", not imply "maximum".
 
-## Recommended order of work
+## What was decided
 
-1. **Cap the agent-facing payloads** (items 1 and 2). This is the only thing
-   that is outright broken, and it is on the primary interface.
-2. **Subsample feature ranking** (item 4). Low risk, order-of-magnitude saving,
-   no design trade-off.
-3. **Fix the positioning** (item 10).
-4. **Cap what the artifact stores** (item 3) — needs a coverage check.
-5. **Scale the band count** (item 6) — needs measurement across the case
-   studies. The real capability win, and the one that deserves its own PR.
-6. **Bound random_forest at large n** (item 5) — only if the case studies show
-   the accuracy cost is nil.
+**Scheduled — ROADMAP item 8:** make `predict_from_csv` write results to a file
+and return a bounded summary, matching what the CLI's batch path has always
+done (`features_df.to_csv(predict_file)` in `cli/predict.py`). The case for it
+is consistency between the two surfaces, not scale: the large case-study CSVs
+live in this repo and the MCP registries are where someone first hands the
+server a file they already have.
 
-Items 1–3 have no trade-off worth debating. Items 4–6 change numbers users
-already see and should be decided deliberately.
+**Done in this PR:** the ROADMAP anti-goal no longer states a row-count
+ceiling, and the SKILL.md outlier rule no longer reads as a global claim about
+dataset size. (`.claude/` is gitignored, so the SKILL.md wording fix is local
+to the working copy.)
+
+**Declined for now (items 2–6).** In rough order of what would be worth picking
+up first if that changes:
+
+1. **Scale the band count** (item 6) — the only one that would give an existing
+   user a better answer, and only above ~12k rows. Would change every interval
+   width on those models and needs measurement across all four case studies, so
+   it wants its own PR.
+2. **Subsample feature ranking** (item 4) — no design trade-off and an
+   order-of-magnitude saving, but the saving is invisible below 25k rows.
+3. **Cap the artifact** (item 3) — needs a coverage check; interacts with 6.
+4. **Cap `include_holdout`** (item 2) — same shape as item 1 but a far rarer
+   call.
+5. **Bound random_forest at large n** (item 5) — only if the case studies show
+   the accuracy cost is nil. Trees winning at scale is the point of the
+   heavy-equipment study, so this is the riskiest of the set.
+
+The reasoning behind the decline is simply that none of these is reachable for
+a 50–300 part catalogue, which is ~90% of real use. They are insurance against
+a user who has not turned up yet.
