@@ -1,0 +1,776 @@
+[
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "ridge",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 37.10784745037769,
+        "median_ape_sd": 7.038442191779498,
+        "half_width_pct_mean": 154.22881519547968,
+        "half_width_pct_sd": 72.6079951750215
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 34.52920334900196,
+        "median_ape_sd": 5.28121636485548,
+        "half_width_pct_mean": 142.8058159107962,
+        "half_width_pct_sd": 57.77152056429685
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 33.29080478729898,
+        "median_ape_sd": 4.109799766452136,
+        "half_width_pct_mean": 113.72631373666665,
+        "half_width_pct_sd": 28.93286128204586
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 32.2707765120431,
+        "median_ape_sd": 2.774443344045276,
+        "half_width_pct_mean": 106.53370270696969,
+        "half_width_pct_sd": 14.515139638104376
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 31.425035745065465,
+        "median_ape_sd": 2.7753825416432742,
+        "half_width_pct_mean": 112.0446410560124,
+        "half_width_pct_sd": 22.7390710030554
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 30.000822821628997,
+        "median_ape_sd": 2.0459763871581362,
+        "half_width_pct_mean": 111.24161589171031,
+        "half_width_pct_sd": 14.228398165546281
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 28.146781924355857,
+        "median_ape_sd": 1.4413257261616677,
+        "half_width_pct_mean": 95.32647353771391,
+        "half_width_pct_sd": 9.019036530926751
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 27.100118912129364,
+        "median_ape_sd": 1.2465801532973821,
+        "half_width_pct_mean": 87.64961618745238,
+        "half_width_pct_sd": 7.540969005755986
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 25.592819256294003,
+        "median_ape_sd": 0.8961077293542337,
+        "half_width_pct_mean": 83.16463504917519,
+        "half_width_pct_sd": 5.836771077560752
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 10,
+        "fit_failures": 5,
+        "pct_fit_failed": 33.33333333333333,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 31.044949501002083,
+          "actual_mape": 30.000822821628997,
+          "level_error_pp": 1.0441266793730861,
+          "predicted_gain_pp": 0.8487728468853731,
+          "actual_gain_pp": 2.269953690414102,
+          "gain_error_pp": -1.4211808435287288,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 30.624953171448396,
+          "actual_mape": 28.146781924355857,
+          "level_error_pp": 2.47817124709254,
+          "predicted_gain_pp": 1.268769176439062,
+          "actual_gain_pp": 4.123994587687243,
+          "gain_error_pp": -2.8552254112481803,
+          "pct_gain_within_3pp": 40.0,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 13,
+        "fit_failures": 2,
+        "pct_fit_failed": 13.333333333333334,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 29.72936176822594,
+          "actual_mape": 27.100118912129364,
+          "level_error_pp": 2.6292428560965746,
+          "predicted_gain_pp": 1.5381514330758368,
+          "actual_gain_pp": 2.900703909499633,
+          "gain_error_pp": -1.3625524764237962,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 28.98326201128075,
+          "actual_mape": 25.592819256294003,
+          "level_error_pp": 3.390442754986747,
+          "predicted_gain_pp": 2.284251190021032,
+          "actual_gain_pp": 4.408003565334994,
+          "gain_error_pp": -2.1237523753139618,
+          "pct_gain_within_3pp": 46.15384615384615,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  },
+  {
+    "dataset": "used cars",
+    "data_file": "case-studies/used-cars/data/vehicles_training.csv",
+    "algorithm": "xgboost",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 38.80064968748381,
+        "median_ape_sd": 3.506530608358237,
+        "half_width_pct_mean": 268.1824412635907,
+        "half_width_pct_sd": 301.18246187616217
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 34.750432035335635,
+        "median_ape_sd": 2.702719827108932,
+        "half_width_pct_mean": 197.60735982433226,
+        "half_width_pct_sd": 229.66127969530126
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 34.84664712553827,
+        "median_ape_sd": 2.712519283013879,
+        "half_width_pct_mean": 132.7898282551327,
+        "half_width_pct_sd": 34.929299247369364
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 31.95921171028681,
+        "median_ape_sd": 2.0153860573778495,
+        "half_width_pct_mean": 119.74958928723213,
+        "half_width_pct_sd": 24.07220292714675
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 31.296664933882067,
+        "median_ape_sd": 2.0638616152736904,
+        "half_width_pct_mean": 119.26698917308356,
+        "half_width_pct_sd": 19.903090948472418
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 29.857078063193494,
+        "median_ape_sd": 1.533703484957389,
+        "half_width_pct_mean": 111.93076561852858,
+        "half_width_pct_sd": 11.609020334775751
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 28.161088779712305,
+        "median_ape_sd": 1.0007511758173346,
+        "half_width_pct_mean": 102.88741535065985,
+        "half_width_pct_sd": 10.234259857740856
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 27.054706090440014,
+        "median_ape_sd": 0.9843759760684552,
+        "half_width_pct_mean": 96.42334768032973,
+        "half_width_pct_sd": 7.257911606141491
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 26.583382986738304,
+        "median_ape_sd": 0.8572907537417184,
+        "half_width_pct_mean": 91.53826435553817,
+        "half_width_pct_sd": 6.228033692888424
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 15,
+        "fit_failures": 0,
+        "pct_fit_failed": 0.0,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 30.876576673876766,
+          "actual_mape": 29.857078063193494,
+          "level_error_pp": 1.0194986106832715,
+          "predicted_gain_pp": 2.6188741803673112,
+          "actual_gain_pp": 2.1021336470933143,
+          "gain_error_pp": 0.5167405332739969,
+          "pct_gain_within_3pp": 93.33333333333333,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 29.56182395049021,
+          "actual_mape": 28.161088779712305,
+          "level_error_pp": 1.4007351707779065,
+          "predicted_gain_pp": 3.933626903753871,
+          "actual_gain_pp": 3.798122930574504,
+          "gain_error_pp": 0.13550397317936724,
+          "pct_gain_within_3pp": 86.66666666666667,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 14,
+        "fit_failures": 1,
+        "pct_fit_failed": 6.666666666666667,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 27.636117368500322,
+          "actual_mape": 27.054706090440014,
+          "level_error_pp": 0.5814112780603082,
+          "predicted_gain_pp": 1.975113965297944,
+          "actual_gain_pp": 2.8023719727534804,
+          "gain_error_pp": -0.8272580074555365,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 26.694317837622595,
+          "actual_mape": 26.583382986738304,
+          "level_error_pp": 0.11093485088429134,
+          "predicted_gain_pp": 2.9169134961756766,
+          "actual_gain_pp": 3.2736950764551906,
+          "gain_error_pp": -0.356781580279514,
+          "pct_gain_within_3pp": 92.85714285714286,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "ridge",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 29.872881267174698,
+        "median_ape_sd": 1.928200696718526,
+        "half_width_pct_mean": 105.90985283864356,
+        "half_width_pct_sd": 18.222210539344964
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 28.11180814940555,
+        "median_ape_sd": 1.222985737349934,
+        "half_width_pct_mean": 87.78916020887627,
+        "half_width_pct_sd": 12.686303190520462
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 26.610690640291523,
+        "median_ape_sd": 1.1321558366408486,
+        "half_width_pct_mean": 81.23396261394157,
+        "half_width_pct_sd": 12.807329081675869
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 25.203083554006003,
+        "median_ape_sd": 0.9486572563736523,
+        "half_width_pct_mean": 76.69844081584617,
+        "half_width_pct_sd": 8.911212847987597
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 24.547855718763024,
+        "median_ape_sd": 1.0531704780744224,
+        "half_width_pct_mean": 73.4597608729224,
+        "half_width_pct_sd": 5.530693230994601
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 24.211352080201667,
+        "median_ape_sd": 0.515175922037883,
+        "half_width_pct_mean": 70.36773344743504,
+        "half_width_pct_sd": 5.65827423781658
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 23.296118053441766,
+        "median_ape_sd": 0.6274233893895839,
+        "half_width_pct_mean": 67.60421349646859,
+        "half_width_pct_sd": 4.377220916758989
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 23.187574943405796,
+        "median_ape_sd": 0.5913253459490023,
+        "half_width_pct_mean": 66.03644499728952,
+        "half_width_pct_sd": 2.6474009667770715
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 22.935997031183685,
+        "median_ape_sd": 0.5728717159135849,
+        "half_width_pct_mean": 65.27219658126806,
+        "half_width_pct_sd": 2.5112052786621932
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 14,
+        "fit_failures": 1,
+        "pct_fit_failed": 6.666666666666667,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 25.41410057470995,
+          "actual_mape": 24.211352080201667,
+          "level_error_pp": 1.2027484945082811,
+          "predicted_gain_pp": 1.3742359457718798,
+          "actual_gain_pp": 0.9917314738043359,
+          "gain_error_pp": 0.3825044719675439,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 24.80030918747286,
+          "actual_mape": 23.296118053441766,
+          "level_error_pp": 1.5041911340310925,
+          "predicted_gain_pp": 1.9880273330089686,
+          "actual_gain_pp": 1.9069655005642367,
+          "gain_error_pp": 0.08106183244473186,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 14,
+        "fit_failures": 1,
+        "pct_fit_failed": 6.666666666666667,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 23.802234287520253,
+          "actual_mape": 23.187574943405796,
+          "level_error_pp": 0.6146593441144574,
+          "predicted_gain_pp": 1.0142111531778433,
+          "actual_gain_pp": 1.0237771367958715,
+          "gain_error_pp": -0.009565983618028184,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 23.307995409039332,
+          "actual_mape": 22.935997031183685,
+          "level_error_pp": 0.3719983778556468,
+          "predicted_gain_pp": 1.508450031658762,
+          "actual_gain_pp": 1.275355049017982,
+          "gain_error_pp": 0.23309498264078,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  },
+  {
+    "dataset": "heavy equipment",
+    "data_file": "case-studies/heavy-equipment-sales/data/bulldozers_training.csv",
+    "algorithm": "xgboost",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 35.8629315179757,
+        "median_ape_sd": 3.294626943993338,
+        "half_width_pct_mean": 134.93438936889453,
+        "half_width_pct_sd": 23.712255575064734
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 32.86946071388179,
+        "median_ape_sd": 3.140537903162231,
+        "half_width_pct_mean": 112.31000989111355,
+        "half_width_pct_sd": 24.05811344096737
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 30.31756008781565,
+        "median_ape_sd": 2.360950659338561,
+        "half_width_pct_mean": 111.15177692904447,
+        "half_width_pct_sd": 20.506581954773946
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 28.18891749839566,
+        "median_ape_sd": 1.5688453797328357,
+        "half_width_pct_mean": 90.92675997361582,
+        "half_width_pct_sd": 9.509163876197084
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 27.237388152392526,
+        "median_ape_sd": 1.2203507364427613,
+        "half_width_pct_mean": 89.44012410656816,
+        "half_width_pct_sd": 9.625728489390243
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 25.702107839526086,
+        "median_ape_sd": 1.148285055793365,
+        "half_width_pct_mean": 82.06666460905952,
+        "half_width_pct_sd": 8.599401047328149
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 25.16122075785516,
+        "median_ape_sd": 0.8118373919371308,
+        "half_width_pct_mean": 78.51838578544087,
+        "half_width_pct_sd": 6.465251513234482
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 24.123738360920797,
+        "median_ape_sd": 1.2370409431911187,
+        "half_width_pct_mean": 72.01410331515187,
+        "half_width_pct_sd": 4.398374292560498
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 23.776002193421327,
+        "median_ape_sd": 2.7924924286441684,
+        "half_width_pct_mean": 70.51152434021908,
+        "half_width_pct_sd": 3.2536117341125372
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 15,
+        "fit_failures": 0,
+        "pct_fit_failed": 0.0,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 28.97356208367241,
+          "actual_mape": 25.702107839526086,
+          "level_error_pp": 3.271454244146323,
+          "predicted_gain_pp": 1.6199251260859748,
+          "actual_gain_pp": 2.486809658869575,
+          "gain_error_pp": -0.8668845327836001,
+          "pct_gain_within_3pp": 93.33333333333333,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 28.443182831700813,
+          "actual_mape": 25.16122075785516,
+          "level_error_pp": 3.281962073845655,
+          "predicted_gain_pp": 2.1503043780575717,
+          "actual_gain_pp": 3.0276967405405024,
+          "gain_error_pp": -0.8773923624829307,
+          "pct_gain_within_3pp": 93.33333333333333,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 15,
+        "fit_failures": 0,
+        "pct_fit_failed": 0.0,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 24.83631732818826,
+          "actual_mape": 24.123738360920797,
+          "level_error_pp": 0.712578967267465,
+          "predicted_gain_pp": 2.091123461016356,
+          "actual_gain_pp": 1.578369478605289,
+          "gain_error_pp": 0.5127539824110667,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 23.86007422120841,
+          "actual_mape": 23.776002193421327,
+          "level_error_pp": 0.08407202778708367,
+          "predicted_gain_pp": 3.0673665679962028,
+          "actual_gain_pp": 1.9261056461047588,
+          "gain_error_pp": 1.141260921891444,
+          "pct_gain_within_3pp": 73.33333333333333,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "ridge",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 93.02752279367661,
+        "median_ape_sd": 11.290993279155286,
+        "half_width_pct_mean": 3598.772016804459,
+        "half_width_pct_sd": 4083.2647190877965
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 90.28270208809958,
+        "median_ape_sd": 2.1232244155788456,
+        "half_width_pct_mean": 2804.586355383935,
+        "half_width_pct_sd": 1510.8507540928765
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 90.28416559873293,
+        "median_ape_sd": 3.505955860998799,
+        "half_width_pct_mean": 2200.6634821414773,
+        "half_width_pct_sd": 982.5950735717247
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 89.55303701775799,
+        "median_ape_sd": 1.6239784707268778,
+        "half_width_pct_mean": 1786.9547164991163,
+        "half_width_pct_sd": 605.8304803150826
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 89.07317734655705,
+        "median_ape_sd": 1.14657693280639,
+        "half_width_pct_mean": 1302.293336716366,
+        "half_width_pct_sd": 363.35172276841797
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 88.90420509741053,
+        "median_ape_sd": 2.0433507287996524,
+        "half_width_pct_mean": 1242.6208154464478,
+        "half_width_pct_sd": 108.76705360741134
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 88.54410915103486,
+        "median_ape_sd": 1.6364483473797886,
+        "half_width_pct_mean": 1184.6964951424827,
+        "half_width_pct_sd": 210.040384590265
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 88.40975240651647,
+        "median_ape_sd": 1.4033189381824855,
+        "half_width_pct_mean": 1123.2439976652804,
+        "half_width_pct_sd": 166.91263438377618
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 88.30168755264698,
+        "median_ape_sd": 1.1394404143173449,
+        "half_width_pct_mean": 1100.0266223878089,
+        "half_width_pct_sd": 115.58969030520392
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 12,
+        "fit_failures": 3,
+        "pct_fit_failed": 20.0,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 84.19959758056231,
+          "actual_mape": 88.90420509741053,
+          "level_error_pp": -4.704607516848213,
+          "predicted_gain_pp": 1.42789261013613,
+          "actual_gain_pp": 0.6488319203474617,
+          "gain_error_pp": 0.7790606897886683,
+          "pct_gain_within_3pp": 91.66666666666666,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 83.49431513395491,
+          "actual_mape": 88.54410915103486,
+          "level_error_pp": -5.049794017079947,
+          "predicted_gain_pp": 2.1331750567435406,
+          "actual_gain_pp": 1.008927866723127,
+          "gain_error_pp": 1.1242471900204136,
+          "pct_gain_within_3pp": 83.33333333333334,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 10,
+        "fit_failures": 5,
+        "pct_fit_failed": 33.33333333333333,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 87.32800171793986,
+          "actual_mape": 88.40975240651647,
+          "level_error_pp": -1.0817506885766193,
+          "predicted_gain_pp": 0.964182470828628,
+          "actual_gain_pp": 0.4944526908940503,
+          "gain_error_pp": 0.46972977993457765,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 86.84788213855822,
+          "actual_mape": 88.30168755264698,
+          "level_error_pp": -1.4538054140887624,
+          "predicted_gain_pp": 1.4443020502102626,
+          "actual_gain_pp": 0.6025175447635434,
+          "gain_error_pp": 0.8417845054467192,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  },
+  {
+    "dataset": "aerospace fasteners",
+    "data_file": "case-studies/aerospace-fasteners/data/bolts_clean.csv",
+    "algorithm": "xgboost",
+    "coverage_target": 0.9,
+    "curve": [
+      {
+        "n": 50,
+        "median_ape_mean": 95.10433289672336,
+        "median_ape_sd": 15.869002217927285,
+        "half_width_pct_mean": 3218.893460958014,
+        "half_width_pct_sd": 1574.9675384537609
+      },
+      {
+        "n": 75,
+        "median_ape_mean": 91.27288710939226,
+        "median_ape_sd": 2.9546677651376276,
+        "half_width_pct_mean": 2726.651959934348,
+        "half_width_pct_sd": 1182.5565922828587
+      },
+      {
+        "n": 100,
+        "median_ape_mean": 94.20784394936436,
+        "median_ape_sd": 16.588648368585396,
+        "half_width_pct_mean": 2174.494040537728,
+        "half_width_pct_sd": 870.7511950990547
+      },
+      {
+        "n": 150,
+        "median_ape_mean": 89.39966029578542,
+        "median_ape_sd": 2.322252784358364,
+        "half_width_pct_mean": 1775.1511965518694,
+        "half_width_pct_sd": 576.2117442504832
+      },
+      {
+        "n": 200,
+        "median_ape_mean": 89.76353868886314,
+        "median_ape_sd": 2.436074718586768,
+        "half_width_pct_mean": 1432.4123554414487,
+        "half_width_pct_sd": 541.5502235740238
+      },
+      {
+        "n": 300,
+        "median_ape_mean": 88.6445461131147,
+        "median_ape_sd": 1.9674331703241856,
+        "half_width_pct_mean": 1387.672790672898,
+        "half_width_pct_sd": 229.15238495242352
+      },
+      {
+        "n": 450,
+        "median_ape_mean": 88.38515217837077,
+        "median_ape_sd": 1.911096051964586,
+        "half_width_pct_mean": 1245.9790803261612,
+        "half_width_pct_sd": 208.5452394500261
+      },
+      {
+        "n": 600,
+        "median_ape_mean": 88.18591829348257,
+        "median_ape_sd": 1.9861649268982104,
+        "half_width_pct_mean": 1172.2818727048063,
+        "half_width_pct_sd": 127.67549479311194
+      },
+      {
+        "n": 900,
+        "median_ape_mean": 87.62131782122266,
+        "median_ape_sd": 1.6009608862842846,
+        "half_width_pct_mean": 1164.078681931836,
+        "half_width_pct_sd": 125.82641973987648
+      }
+    ],
+    "extrapolation": [
+      {
+        "anchor_n": 150,
+        "trials": 9,
+        "fit_failures": 6,
+        "pct_fit_failed": 40.0,
+        "x2": {
+          "target_n": 300,
+          "predicted_mape_mean": 85.20190463510147,
+          "actual_mape": 88.6445461131147,
+          "level_error_pp": -3.442641478013229,
+          "predicted_gain_pp": 2.5046409417838174,
+          "actual_gain_pp": 0.7551141826707237,
+          "gain_error_pp": 1.7495267591130936,
+          "pct_gain_within_3pp": 77.77777777777779,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 450,
+          "predicted_mape_mean": 84.01407199847296,
+          "actual_mape": 88.38515217837077,
+          "level_error_pp": -4.371080179897817,
+          "predicted_gain_pp": 3.6924735784123235,
+          "actual_gain_pp": 1.0145081174146497,
+          "gain_error_pp": 2.6779654609976737,
+          "pct_gain_within_3pp": 77.77777777777779,
+          "pct_gain_right_sign": 100.0
+        }
+      },
+      {
+        "anchor_n": 300,
+        "trials": 10,
+        "fit_failures": 5,
+        "pct_fit_failed": 33.33333333333333,
+        "x2": {
+          "target_n": 600,
+          "predicted_mape_mean": 87.83396424567857,
+          "actual_mape": 88.18591829348257,
+          "level_error_pp": -0.35195404780399997,
+          "predicted_gain_pp": 1.1240928894324669,
+          "actual_gain_pp": 0.4586278196321274,
+          "gain_error_pp": 0.6654650698003395,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        },
+        "x3": {
+          "target_n": 900,
+          "predicted_mape_mean": 87.25728803810577,
+          "actual_mape": 87.62131782122266,
+          "level_error_pp": -0.3640297831168908,
+          "predicted_gain_pp": 1.7007690970052536,
+          "actual_gain_pp": 1.023228291892039,
+          "gain_error_pp": 0.6775408051132146,
+          "pct_gain_within_3pp": 100.0,
+          "pct_gain_right_sign": 100.0
+        }
+      }
+    ]
+  }
+]
