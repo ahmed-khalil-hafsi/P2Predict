@@ -796,6 +796,7 @@ async def propose_training_plan(
             find_no_variation_features,
             get_most_predictable_features,
         )
+        from p2predict.outliers import describe_feature_outliers
         from p2predict.trained_model_io import load_csv_file
         from p2predict.training import resolve_log_target
 
@@ -850,6 +851,15 @@ async def propose_training_plan(
         cap = max(2, min(len(candidate_specs), max_features))
         selected = candidate_specs[:cap]
 
+        # Feature-magnitude check on the specs we would actually train on. The
+        # CLI reports this; before v1.2 the agent path did not, so an agent had
+        # no way to know a column needed handling and never set
+        # feature_outlier_policy. See research/feature_outlier_visibility.md.
+        numeric_specs = [
+            c for c in selected if pd.api.types.is_numeric_dtype(data[c])
+        ]
+        outlier_report = describe_feature_outliers(data, numeric_specs)
+
         # Log-target recommendation.
         _, auto_decision = resolve_log_target(y, mode="auto")
         positive = bool((y > 0).all()) and len(y) > 0
@@ -870,6 +880,8 @@ async def propose_training_plan(
                 "I'll model this on a percentage scale (log-target) so the "
                 "likely-range never goes negative on cheap parts. Sound good?"
             )
+        for flagged in outlier_report["extreme_magnitude"]:
+            questions.append(flagged["say_to_user"])
 
         plain_summary = (
             f"I found {rows_loaded} rows. I can build a model that estimates "
@@ -892,6 +904,7 @@ async def propose_training_plan(
             "recommended_log_target": recommend_log_target,
             "log_target_auto_decision": auto_decision,
             "rows_available": rows_loaded,
+            "feature_data_quality": outlier_report,
             "questions_for_the_user": questions,
             "to_proceed": (
                 "After the user confirms, call train(csv_path, target, "
@@ -961,6 +974,7 @@ async def train(
         from p2predict.outliers import (
             apply_feature_outlier_policy,
             apply_outlier_policy,
+            describe_feature_outliers,
         )
         from p2predict.prepare_data import prepare_data
         from p2predict.trained_model_io import load_csv_file
@@ -991,15 +1005,28 @@ async def train(
         num_candidates = [
             c for c in data.columns if c != target and pd.api.types.is_numeric_dtype(data[c])
         ]
-        data, _ = apply_feature_outlier_policy(
+        # Inspect BEFORE applying the policy, so the report describes the data
+        # the user actually handed us rather than the treated copy.
+        feature_quality = describe_feature_outliers(data, num_candidates)
+        data, feature_outlier_summary = apply_feature_outlier_policy(
             data, num_candidates, policy=feature_outlier_policy
         )
+        feature_quality["policy_applied"] = feature_outlier_summary["applied"]
 
         low_vars = find_no_variation_features(data)
         if low_vars:
             data = data.drop(low_vars, axis=1)
 
         warnings: list[str] = []
+        for flagged in feature_quality["extreme_magnitude"]:
+            warnings.append(
+                f"'{flagged['column']}' contains a value far outside the rest of "
+                f"that column (largest {flagged['max_abs']:.3g}, about "
+                f"{flagged['magnitude_ratio']:.3g}x a typical one). Left untreated "
+                "this can push model selection away from the better model. "
+                "Re-run with feature_outlier_policy='winsorize' or 'drop' to "
+                "handle it."
+            )
         leaky = find_leaky_features(data, target)
         leaky_names = {d["feature"] for d in leaky}
 
@@ -1144,6 +1171,7 @@ async def train(
             "rows_used": len(data),
             "calibration_size": calibration.get("n_calibration"),
             "excluded_leaky_features": leaky,
+            "feature_data_quality": feature_quality,
             "warnings": warnings,
         }
 

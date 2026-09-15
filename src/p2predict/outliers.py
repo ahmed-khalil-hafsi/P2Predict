@@ -232,3 +232,107 @@ def apply_feature_outlier_policy(
 
     # keep / warn: don't change the data.
     return data, summary
+
+
+# A column whose largest magnitude exceeds a typical magnitude by this factor
+# median will destabilise the *linear* model path badly enough to remove Ridge
+# from `auto_train`'s selection entirely.
+#
+# The linear preprocessor scales correctly, but `StandardScaler` fits on the
+# training fold: a validation-fold row carrying a value orders of magnitude
+# larger gets an astronomical z-score, the linear model extrapolates from it,
+# and the resulting cross-validated R² is unrecoverable. Selection is by CV R²,
+# so Ridge then loses on every such dataset no matter how well it fits the rest.
+#
+# The threshold is set from measurement, not taste, and deliberately far above
+# anything ordinary data produces. Across the checked-in case-study samples the
+# highest observed ratio is 168 (`threads_per_inch`, which contains a genuine
+# 4040 where the bulk is 10-32, and which does *not* destabilise selection).
+# The RDKit `Ipc` descriptor that surfaced this reaches ~7e29. A threshold of
+# 1e6 sits four orders of magnitude above any real column measured and well
+# inside the range where the collapse is certain rather than borderline.
+# See research/feature_outlier_visibility.md.
+EXTREME_MAGNITUDE_RATIO = 1e6
+
+
+def _magnitude_ratio(series: pd.Series) -> float | None:
+    """How many times larger the biggest magnitude is than a typical one.
+
+    Deliberately a ratio of magnitudes rather than an IQR-based z-score. An
+    IQR statistic reports infinity for a near-constant column (zero IQR, one
+    different value), which is a low-variance column and not the failure this
+    is looking for -- `op_temp_min_C` in the battery-IC sample is exactly that
+    shape and must not be flagged.
+
+    Returns None when the column is too small or wholly zero to judge.
+    """
+    values = pd.to_numeric(series, errors="coerce").dropna().abs().to_numpy(dtype=float)
+    if values.size < 4:
+        return None
+    nonzero = values[values > 0]
+    if nonzero.size == 0:
+        return None
+    typical = float(np.median(nonzero))
+    if typical <= 0:
+        return None
+    return float(np.max(values) / typical)
+
+
+def describe_feature_outliers(data, feature_columns, multiplier=IQR_MULTIPLIER):
+    """Inspect feature columns and report, changing nothing.
+
+    `apply_feature_outlier_policy` already returns this information, but only
+    as a side effect of applying a policy. Callers that want to *tell someone*
+    before deciding anything need it without the mutation, which is what this
+    provides.
+
+    Returns::
+
+        {
+            "n_total": int,
+            "n_outliers_total": int,
+            "per_column": {col: {"n_outliers": int, "lower": float, "upper": float}},
+            "extreme_magnitude": [
+                {"column": str, "max_abs": float, "magnitude_ratio": float,
+                 "say_to_user": str},
+                ...
+            ],
+        }
+
+    `per_column` is ordinary Tukey IQR flagging. On small datasets it routinely
+    touches 20-25% of rows, so treat it as context rather than as an alarm.
+    `extreme_magnitude` is the narrow, high-confidence subset: columns that will
+    actually break model selection. It is empty for ordinary data.
+    """
+    _, summary = apply_feature_outlier_policy(
+        data, feature_columns, policy="keep", multiplier=multiplier
+    )
+
+    extreme = []
+    for column in feature_columns:
+        if column not in data.columns or not _is_numeric_series(data[column]):
+            continue
+        ratio = _magnitude_ratio(data[column])
+        if ratio is None or ratio < EXTREME_MAGNITUDE_RATIO:
+            continue
+        values = pd.to_numeric(data[column], errors="coerce").dropna()
+        max_abs = float(values.abs().max())
+        extreme.append({
+            "column": column,
+            "max_abs": max_abs,
+            "magnitude_ratio": ratio,
+            "say_to_user": (
+                f"The '{column}' column contains at least one value far outside "
+                f"everything else in it (largest is {max_abs:.3g}). That is "
+                "usually a unit mix-up or a typo, and left alone it will quietly "
+                "push the model toward a worse fit. I can cap those values or "
+                "drop those rows before training. Which would you prefer?"
+            ),
+        })
+
+    return {
+        "n_total": summary["n_total"],
+        "n_outliers_total": summary["n_outliers_total"],
+        "per_column": summary["per_column"],
+        "extreme_magnitude": extreme,
+    }
