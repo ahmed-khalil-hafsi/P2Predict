@@ -4,6 +4,11 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.1.1] — 2026-09
+
+### Fixed
+- **Training could lose the finished model on a fresh install.** `p2predict-train`'s default save path is `models/{algorithm}_{target}_{timestamp}.model`, but nothing created that directory — a clean checkout or a first run with no `models/` folder yet hit an uncaught `FileNotFoundError` from `joblib.dump` right after training completed, discarding the in-memory model with no way to recover it short of retraining. Under `--json` this also broke the JSON-only stdout contract agent/MCP callers rely on. `SaveModel` now creates the target's parent directory first.
+
 ### Added
 - **The agent is now told when a feature column will quietly cost you the better model.** `p2predict-train` has always printed the feature-outlier summary. The agent path never showed it: `propose_training_plan` did not inspect feature magnitude at all, and `train` computed the summary and bound it to `_`. Since the MCP server is the primary interface and the CLI is a developer surface, that warning reached almost nobody — which is the answer to why agents driving P2Predict never set `feature_outlier_policy` and leaned entirely on `auto_train`. They were not ignoring the control; they had no evidence it was needed.
   - **What it hides.** One absurd cell in one numeric column — a unit mix-up, a weight typed with three extra digits — sends Ridge's cross-validated R² to **−4.6e53** and removes it from `auto_train`'s selection entirely. On data where price is *generated* as a linear function of the specs, so Ridge is the correct answer, the delivered alternative is **2.4× worse** on holdout (MAE 1.49 → 3.64) and nothing anywhere says why. This is not a defect in the preprocessing: the linear path imputes and scales correctly. `StandardScaler` fits on the training fold, a validation-fold row carrying a value orders of magnitude larger earns an astronomical z-score, the linear model extrapolates from it, and selection-by-CV-R² then disqualifies Ridge permanently on the strength of one unrecoverable fold.
