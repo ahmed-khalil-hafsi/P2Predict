@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 
 import joblib
 import sklearn
@@ -12,6 +13,12 @@ P2PREDICT_VERSION = "v1.1.0"
 
 
 def SaveModel(model_metadata, model_name):
+    # joblib.dump doesn't create missing parent directories (e.g. a fresh
+    # install's default "models/" folder), and would otherwise crash after
+    # training already finished, losing the in-memory model.
+    parent = Path(model_name).parent
+    if str(parent) not in ("", "."):
+        parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model_metadata, model_name)
 
 

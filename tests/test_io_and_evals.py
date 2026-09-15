@@ -45,6 +45,17 @@ def test_save_load_round_trip(tmp_path, synthetic_parts):
     assert preds.shape == y_test.shape
 
 
+def test_save_model_creates_missing_parent_directory(tmp_path):
+    # Regression test: a fresh install has no "models/" directory yet, and
+    # joblib.dump doesn't create missing parents on its own -- it used to
+    # crash here, losing the just-trained model.
+    path = tmp_path / "models" / "fresh_install.model"
+    assert not path.parent.exists()
+    SaveModel({"a": 1}, str(path))
+    assert path.exists()
+    assert LoadModel(str(path)) == {"a": 1}
+
+
 def test_evaluate_model_returns_four_values(synthetic_parts):
     X_train, X_test, y_train, y_test, num, cat = prepare_data(
         synthetic_parts, ["Weight", "Region", "Supplier", "Size"], "Price"
