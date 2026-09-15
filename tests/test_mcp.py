@@ -750,3 +750,66 @@ async def test_batch_caps_only_the_offending_row(registry, model_id):
     assert "capped_by" not in good["interval"]
     assert bad["interval"]["reliability"] == "quote"
     assert bad["interval"]["capped_by"] == "in_domain"
+
+
+# ---------------------------------------------------------------------------
+# feature-magnitude visibility on the agent path
+#
+# The CLI has always reported the feature-outlier summary; the MCP path
+# discarded it, so an agent had no way to learn a column needed handling and
+# never set feature_outlier_policy. See research/feature_outlier_visibility.md.
+# ---------------------------------------------------------------------------
+
+
+def _extreme_magnitude_csv(tmp_path, synthetic_parts):
+    """Synthetic data with one absurd cell, the shape a unit mix-up produces."""
+    df = synthetic_parts.copy()
+    spec = np.random.default_rng(0).uniform(1, 100, len(df))
+    spec[7] = 3.6e31
+    df["Wide_Range_Spec"] = spec
+    csv = tmp_path / "extreme.csv"
+    df.to_csv(csv, index=False)
+    return csv
+
+
+@pytest.mark.asyncio
+async def test_plan_surfaces_extreme_magnitude_column(
+    registry, tmp_path, synthetic_parts
+):
+    csv = _extreme_magnitude_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    quality = result["feature_data_quality"]
+    flagged = [e["column"] for e in quality["extreme_magnitude"]]
+    assert "Wide_Range_Spec" in flagged
+
+    # The agent must be asked about it, not merely handed a field it may ignore.
+    assert any("Wide_Range_Spec" in q for q in result["questions_for_the_user"])
+
+
+@pytest.mark.asyncio
+async def test_plan_stays_silent_on_ordinary_data(
+    registry, tmp_path, synthetic_parts
+):
+    """The flag must not fire on ordinary spend. Plain Tukey IQR touches 20-25%
+    of rows on small datasets, which is why the alarm is reserved for magnitude
+    rather than driven by the outlier count."""
+    csv = tmp_path / "ordinary.csv"
+    synthetic_parts.to_csv(csv, index=False)
+    result = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    assert result["feature_data_quality"]["extreme_magnitude"] == []
+
+
+@pytest.mark.asyncio
+async def test_train_reports_extreme_magnitude(registry, tmp_path, synthetic_parts):
+    csv = _extreme_magnitude_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", budget="fast",
+    ))
+    quality = result["feature_data_quality"]
+    assert [e["column"] for e in quality["extreme_magnitude"]] == ["Wide_Range_Spec"]
+    assert quality["policy_applied"] == "none"          # default policy is warn
+    assert any("Wide_Range_Spec" in w for w in result["warnings"])

@@ -1,6 +1,8 @@
 # Finding: the agent never learns a feature has outliers, so it never fixes one
 
-**Status: open.** **No core code changed.** The capability that fixes this
+**Status: fix implemented, open for review.** The measurements below changed
+the fix twice, so read the *What to change* section as the record of what the
+evidence actually supports, not as the original pitch. The capability that fixes this
 already exists and already works; the gap is that its trigger signal is
 computed and then discarded before the agent can see it. Nothing here proposes
 a new algorithm, a new dependency or a new policy.
@@ -56,17 +58,19 @@ src/p2predict/cli/train.py:292   data, feature_outlier_summary = apply_feature_o
 src/p2predict/cli/train.py:295   if feature_outlier_summary["n_outliers_total"] > 0 and not json_mode:
 ```
 
-The MCP path does not:
+The MCP path did not. **Correction to an earlier draft of this document,
+which cited a line number in `propose_training_plan`: that tool never called
+`apply_feature_outlier_policy` at all.** It checks leakage, ID-like columns and
+the log-target rule, and was silent on feature magnitude by omission. The only
+MCP call site was in `train`:
 
 ```
-src/p2predict/mcp/server.py:224  data, _ = apply_feature_outlier_policy(...)   # propose_training_plan
 src/p2predict/mcp/server.py:994  data, _ = apply_feature_outlier_policy(...)   # train
 ```
 
-Both MCP tools accept `feature_outlier_policy` and both default it to `warn`,
-which changes nothing. So on the agent path the detection runs, produces
-`n_outliers_total=1, Wide_Range_Spec n_outliers=1`, and that result is bound to
-`_`.
+So on the agent path the detection either never ran (`propose_training_plan`)
+or ran and had its result bound to `_` (`train`). Either way nothing reached
+the agent.
 
 This matters more than a CLI-vs-MCP asymmetry normally would, because the MCP
 server is the primary interface: end users reach P2Predict through an agent,
@@ -81,31 +85,83 @@ first, precisely so the human can decide the data questions — is silent on it.
 
 ## What to change
 
-Preference order, cheapest first. All are plumbing, none touches the estimator.
+The first two versions of this proposal did not survive measurement. Recorded
+in order, because the dead ends are the useful part.
 
-1. **Return the summary from `propose_training_plan`.** It already builds a
-   `warnings` list for exactly this kind of thing. Adding the per-column
-   outlier counts puts the decision in front of the agent at the one moment it
-   is required to consult the user, with the existing policy names as the
-   options. This alone likely closes the gap.
-2. **Return it from `train` too**, so a caller that skipped the plan still gets
-   told what the run saw.
-3. **Only then consider defaults.** Changing the default from `warn` to
-   `winsorize` would fix the measured case silently, but it also mutates a
-   user's data without asking, which cuts against the tool's stance of
-   explaining rather than deciding. Not proposed here. Surfacing first is
-   reversible; a changed default is a behaviour change on every existing
-   workflow.
+**Rejected: surface the raw IQR summary.** Measured on the checked-in
+case-study samples, with the target correctly excluded from the feature list:
+
+| dataset | rows | rows flagged by Tukey IQR |
+|---|---:|---:|
+| `bolts_sample.csv` | 60 | 25.0% |
+| `bmics_sample.csv` | 30 | 20.0% |
+| `bulldozers_sample.csv` | 5000 | 4.0% |
+| `vehicles_sample.csv` | 5000 | 2.2% |
+
+On the 50-300 row datasets P2Predict is built for, plain IQR touches a fifth to
+a quarter of all rows. Surfacing that as an alarm produces an alarm nobody
+reads, which is exactly the kill criterion this document set for itself.
+
+**Rejected: an IQR-based magnitude threshold.** A robust z-score,
+`(max|x| - median) / IQR`, separated the synthetic cases cleanly, with collapse
+between z=97 (Ridge still selected) and z=195 (Ridge disqualified). It does not
+transfer. `threads_per_inch` in the aerospace-fasteners sample sits at z=502,
+well past the synthetic boundary, and is *fine*: rerunning that study with
+`winsorize` moves Ridge's CV from -0.0866 to -0.0784 and changes neither the
+selected model nor the error. One real column past a synthetic threshold and
+unaffected is enough to disqualify the threshold. The statistic also reports
+infinity for any near-constant column (zero IQR), which false-fired on
+`op_temp_min_C` in the battery-IC sample.
+
+**Implemented: a magnitude ratio, with the threshold set from data.**
+`max|x| / median(|x|)` over non-zero values, which is immune to the zero-IQR
+case. Measured:
+
+| column | magnitude ratio |
+|---|---:|
+| `threads_per_inch` (bolts, genuine 4040 among 10-32) | 168 |
+| `max_cells_supported` (bmics) | 16 |
+| `age_at_sale` (bulldozers) | 6.1 |
+| `odometer` (vehicles) | 4.9 |
+| `Weight` (examples) | 2.3 |
+| **the RDKit `Ipc`-shaped column that started this** | **6.4e29** |
+
+`EXTREME_MAGNITUDE_RATIO = 1e6`, roughly 5,900x above the highest ratio in any
+real column measured and far inside the range where the collapse is certain
+rather than borderline. It is silent on all five case-study samples.
+
+Wired into both agent-facing tools:
+
+* **`propose_training_plan`** now inspects the specs it would actually train on
+  and, when a column trips the threshold, appends a plain-language question to
+  `questions_for_the_user`. That is the call the agent is already required to
+  make before training, so the decision lands in front of the user at the one
+  moment it is supposed to.
+* **`train`** captures the summary instead of discarding it, returns it as
+  `feature_data_quality`, and adds a line to `warnings` naming the column and
+  the policy that fixes it.
+
+Both also return the ordinary per-column IQR counts as structured data, which
+is context an agent can reason over without it being shouted.
+
+**Not changed: the default.** `feature_outlier_policy` stays `warn`. Switching
+it to `winsorize` would silently mutate a user's data without asking, which
+contradicts the tool's stance of explaining rather than deciding. Surfacing is
+reversible; a changed default is a behaviour change on every existing workflow.
 
 ## What would kill this
 
-* If the per-column summary turns out to be noisy on real procurement data
-  (Tukey IQR flags a large fraction of rows on ordinary skewed spend), then
-  surfacing it becomes an alarm nobody reads and the finding is a no-op. This
-  is the first thing to measure, on the case-study datasets, before any change.
-* If agents given the summary still do nothing with it, the problem is the
+* ~~If the per-column summary turns out to be noisy on real procurement
+  data...~~ **This fired.** It is why the raw summary is returned as structured
+  context rather than as the alarm, and why the alarm keys on magnitude.
+* If agents given the flag still do nothing with it, the problem is the
   guidance rather than the plumbing, and the fix belongs in the MCP tool
-  descriptions instead.
+  descriptions instead. Not yet observed either way.
+* If a real customer dataset legitimately carries a ratio above 1e6 (a column
+  genuinely spanning six orders of magnitude, with no error in it), the
+  threshold is wrong rather than the idea. Nothing in the case studies comes
+  within three orders of magnitude of it, but the case studies are five
+  datasets.
 
 ## Scope note
 
