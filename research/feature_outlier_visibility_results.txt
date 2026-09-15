@@ -1,0 +1,9 @@
+Baseline: no pathological cell (Ridge is the correct model)
+  clean                        selected=ridge          ridge_cv=      0.997  holdout_mae=  1.49  holdout_r2=0.9973
+
+One pathological cell, each feature-outlier policy:
+  warn (current default)       selected=xgboost        ridge_cv=   -4.6e+53  holdout_mae=  3.64  holdout_r2=0.9787
+  drop                         selected=ridge          ridge_cv=      0.997  holdout_mae=  1.49  holdout_r2=0.9973
+     summary computed and currently discarded by the MCP path: n_outliers_total=1, Wide_Range_Spec n_outliers=1
+  winsorize                    selected=ridge          ridge_cv=      0.997  holdout_mae=  1.48  holdout_r2=0.9973
+     summary computed and currently discarded by the MCP path: n_outliers_total=1, Wide_Range_Spec n_outliers=1
