@@ -1008,6 +1008,10 @@ async def train(
         # Inspect BEFORE applying the policy, so the report describes the data
         # the user actually handed us rather than the treated copy.
         feature_quality = describe_feature_outliers(data, num_candidates)
+        # Under winsorize the model learns and applies the caps itself, so
+        # training runs on the uncapped rows; see FeatureClipper.
+        winsorize_features = feature_outlier_policy == "winsorize"
+        uncapped_data = data
         data, feature_outlier_summary = apply_feature_outlier_policy(
             data, num_candidates, policy=feature_outlier_policy
         )
@@ -1068,8 +1072,11 @@ async def train(
                     + "; ".join(d["reason"] for d in leaky)
                 )
 
+        training_data = (
+            uncapped_data.loc[data.index, data.columns] if winsorize_features else data
+        )
         X_train, X_test, y_train, y_test, num_cols, cat_cols = prepare_data(
-            data, selected, target
+            training_data, selected, target
         )
 
         log_target_override, log_target_decision = resolve_log_target(
@@ -1097,12 +1104,14 @@ async def train(
             model, algo, scores, log_t = auto_train(
                 X_train, y_train, num_cols, cat_cols,
                 budget=budget, log_target=log_target_override,
+                winsorize_features=winsorize_features,
             )
         else:
             model, _, log_t = start_training(
                 X_train, y_train, num_cols, cat_cols, algorithm,
                 budget=budget, tune=(budget == "thorough"),
                 log_target=log_target_override,
+                winsorize_features=winsorize_features,
             )
             algo = algorithm
 

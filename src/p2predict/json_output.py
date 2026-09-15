@@ -135,7 +135,8 @@ Train (``p2predict-train ... --json``)
         "quality_label": "Excellent" | "Good" | "Needs Improvement"
       },
       "model_path": str | null,    # null if not saved (interactive declined)
-      "report_path": str | null    # null unless --report PATH was passed
+      "report_path": str | null,   # null unless --report PATH was passed
+      "warnings": [str, ...]       # e.g. interval caveat when --time-column is set
     }
 
 Errors (any command, when --json is set)

@@ -152,7 +152,7 @@ import pandas as pd
 from p2predict import (
     auto_train,           # CV-based model selection (Ridge/RF/XGBoost)
     explain,              # exact SHAP attribution per prediction
-    predict_interval,     # conformal "likely range" with guaranteed coverage
+    predict_interval,     # conformal "likely range" (coverage holds for exchangeable data)
     what_if,              # base vs counterfactual comparison
     load_model, save_model,
 )
@@ -266,7 +266,7 @@ Train CLI JSON shape (`cv_scores`, `evaluation`, `feature_importances`, `model_p
 
 ### Benchmarking / prediction
 - Point predictions for single parts or entire CSVs
-- **Likely-range intervals** — conformal, calibrated on holdout. On larger datasets, **banded by predicted price** (Mondrian conformal): widths track where the model is good, and the 90% guarantee holds within each band, not just on average
+- **Likely-range intervals** — conformal, calibrated on holdout. On larger datasets, **banded by predicted price** (Mondrian conformal): widths track where the model is good, and the 90% coverage holds within each band, not just overall. The guarantee assumes future rows resemble the holdout; time-ordered data usually does not, and coverage can fall short
 - **Per-prediction explanations** — exact SHAP (TreeExplainer / LinearExplainer). Additive decomposition `baseline + Σ contributions = prediction`, or multiplicative factors for log-target models
 - **What-if analysis** — base vs counterfactual with dollar/percent delta and per-feature SHAP decomposition. Composes with intervals
 - Robust to unseen categorical values at prediction time

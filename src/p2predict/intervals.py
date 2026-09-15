@@ -2,16 +2,23 @@
 
 What this module computes
 -------------------------
-For each prediction, a "likely range" [low, high] that is mathematically
-guaranteed to contain the true value with probability >= 1 - alpha (the
-target coverage rate), under the assumption that future inputs come from
-the same distribution as the training data.
+For each prediction, a "likely range" [low, high] that contains the true
+value with probability >= 1 - alpha (the target coverage rate) *on average
+over future rows*, provided future rows are exchangeable with the holdout.
 
-This guarantee is what split conformal prediction provides — the interval
-isn't just a heuristic ±2σ, it has a finite-sample coverage proof. The
-proof rests on exchangeability of (X_test, y_test) with (X_future,
-y_future): a much weaker assumption than the parametric normality
-assumptions that classical prediction intervals rely on.
+That is what split conformal prediction provides — the interval isn't just
+a heuristic ±2σ, it has a finite-sample coverage proof. The proof rests on
+exchangeability of (X_test, y_test) with (X_future, y_future): weaker than
+the normality assumptions classical prediction intervals rely on, but not
+free. Two consequences callers should not paper over:
+
+  * The guarantee is marginal. It says nothing about coverage on a subset
+    picked by outcome (e.g. "the 10% most expensive parts"), where it will
+    usually be lower.
+  * Time-ordered data generally breaks exchangeability: consecutive rows are
+    correlated and conditions drift, so a period unlike the holdout can see
+    coverage well below the nominal level. The CLI warns when
+    ``--time-column`` is set.
 
 Algorithm: split conformal with the test set as calibration set
 ---------------------------------------------------------------

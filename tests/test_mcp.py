@@ -5,7 +5,9 @@ import json
 import os
 from pathlib import Path
 
+import joblib
 import numpy as np
+import pandas as pd
 import pytest
 
 pytest.importorskip("mcp", reason="MCP SDK not installed (pip install p2predict[mcp])")
@@ -813,3 +815,19 @@ async def test_train_reports_extreme_magnitude(registry, tmp_path, synthetic_par
     assert [e["column"] for e in quality["extreme_magnitude"]] == ["Wide_Range_Spec"]
     assert quality["policy_applied"] == "none"          # default policy is warn
     assert any("Wide_Range_Spec" in w for w in result["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_train_winsorize_caps_apply_when_predicting(registry, tmp_path, synthetic_parts):
+    csv = _extreme_magnitude_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge",
+        features=["Weight", "Wide_Range_Spec"], log_target="off",
+        feature_outlier_policy="winsorize",
+    ))
+    assert result["feature_data_quality"]["policy_applied"] == "winsorize"
+
+    model = joblib.load(result["model_path"])["model"]
+    rows = pd.DataFrame({"Weight": [15.0, 15.0], "Wide_Range_Spec": [1e3, 3.6e31]})
+    low, absurd = model.predict(rows)
+    assert low == absurd

@@ -413,3 +413,65 @@ def test_train_auto_mode_handles_feature_nas_across_all_algorithms(
     assert result.exit_code == 0, result.output
     doc = _parse_json(result.output)
     assert set(doc["cv_scores"].keys()) == {"ridge", "random_forest", "xgboost"}
+
+
+def _heavy_tailed_parts(n=200, seed=0):
+    rng = np.random.default_rng(seed)
+    weight = rng.uniform(1, 10, n)
+    weight[: n // 10] = rng.uniform(200, 2000, n // 10)
+    region = rng.choice(["EU", "CN"], n)
+    price = 5 + 2 * np.minimum(weight, 10) + rng.normal(0, 0.2, n)
+    return pd.DataFrame({"Weight": weight, "Region": region, "Price": price})
+
+
+def test_feature_winsorize_caps_are_applied_at_prediction(tmp_path, monkeypatch):
+    # Training capped Weight but the saved model used to predict on raw values,
+    # so a linear model extrapolated without limit past the training caps.
+    monkeypatch.chdir(tmp_path)
+    csv = tmp_path / "heavy.csv"
+    _heavy_tailed_parts().to_csv(csv, index=False)
+    result = CliRunner().invoke(train_cli, [
+        "-i", str(csv), "-t", "Price", "-x", "-a", "ridge", "-tf", "Weight,Region",
+        "--feature-outliers", "winsorize", "--log-target", "off", "--json",
+    ])
+    assert result.exit_code == 0, result.output
+
+    model = joblib.load(_saved_model(tmp_path, "ridge"))["model"]
+    far = pd.DataFrame({"Weight": [5_000.0, 500_000.0], "Region": ["EU", "EU"]})
+    preds = model.predict(far)
+    assert preds[0] == preds[1], "prediction kept moving past the training cap"
+    assert preds[1] < 100, f"linear model extrapolated past the cap: {preds[1]}"
+
+
+def test_feature_winsorize_caps_come_from_training_rows_only():
+    from p2predict.preprocessing import FeatureClipper
+
+    train = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0, 5.0, np.nan]})
+    clipper = FeatureClipper().fit(train)
+    out = clipper.transform(pd.DataFrame({"x": [-100.0, 3.0, 100.0, np.nan]}))
+    assert out[0, 0] == clipper.lower_[0] and out[2, 0] == clipper.upper_[0]
+    assert out[1, 0] == 3.0 and np.isnan(out[3, 0])
+    assert list(clipper.get_feature_names_out(["x"])) == ["x"]
+
+
+def test_time_column_train_warns_about_interval_coverage(
+    tmp_path, monkeypatch, synthetic_parts_with_date, csv_path_clean
+):
+    monkeypatch.chdir(tmp_path)
+    csv = tmp_path / "timed.csv"
+    synthetic_parts_with_date.to_csv(csv, index=False)
+    timed = CliRunner().invoke(
+        train_cli, _train_args(csv, extra=["--time-column", "Date", "--json"])
+    )
+    assert timed.exit_code == 0, timed.output
+    assert any("Time-ordered" in w for w in json.loads(timed.stdout)["warnings"])
+
+    plain = CliRunner().invoke(train_cli, _train_args(csv_path_clean, extra=["--json"]))
+    assert plain.exit_code == 0, plain.output
+    assert json.loads(plain.stdout)["warnings"] == []
+
+
+def test_predict_cli_points_train_subcommand_to_p2predict_train():
+    result = CliRunner().invoke(predict_cli, ["train", "-i", "missing.csv"])
+    assert result.exit_code == 2
+    assert "p2predict-train" in result.output

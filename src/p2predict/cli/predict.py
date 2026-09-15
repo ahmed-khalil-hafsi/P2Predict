@@ -411,7 +411,19 @@ def _print_whatif(console, result: WhatIfResult, target_name: str) -> None:
         )
 
 
-@click.command()
+class _PredictCommand(click.Command):
+    # `p2predict train` is the natural guess, but training is its own binary.
+    def parse_args(self, ctx, args):
+        if args and args[0] == "train":
+            raise click.UsageError(
+                "`p2predict` only predicts. Did you mean `p2predict-train`? "
+                "Run `p2predict-train --help` for its options.",
+                ctx=ctx,
+            )
+        return super().parse_args(ctx, args)
+
+
+@click.command(cls=_PredictCommand)
 @click.version_option(package_name="p2predict", message="%(prog)s %(version)s")
 @click.option("-m", "--model", type=click.Path(exists=True),
               help="Path to the trained model file (.model)")

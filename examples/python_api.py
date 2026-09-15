@@ -72,8 +72,8 @@ def main() -> None:
     point_estimate = float(trained.predict(new_part)[0])
     print(f"Predicted price: {point_estimate:.2f}")
 
-    # 6. Likely range. Coverage is mathematically guaranteed under
-    #    exchangeability — see modules/intervals.py for the proof sketch.
+    # 6. Likely range. Coverage holds on average when new parts are
+    #    exchangeable with the holdout — see p2predict/intervals.py.
     [interval] = predict_interval(trained, new_part, loaded["calibration"], coverage=0.90)
     print(f"Likely range (90%): {interval.low:.2f} – {interval.high:.2f}")
     print("→ Quotes outside this range are unusual and worth questioning.\n")

@@ -1,7 +1,11 @@
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, TargetEncoder
+
+from p2predict.outliers import IQR_MULTIPLIER, detect_outliers
 
 TREE_FAMILY = {"random_forest", "xgboost"}
 LINEAR_FAMILY = {"ridge", "lasso"}
@@ -17,6 +21,44 @@ _NAN_NATIVE = {"xgboost"}
 # fixes in v0.9.x restored elsewhere.
 _TARGET_ENCODER_FOLDS = 5
 _TARGET_ENCODER_SEED = 0
+
+
+class FeatureClipper(TransformerMixin, BaseEstimator):
+    """Winsorize numeric columns at Tukey IQR bounds learned during ``fit``.
+
+    Living inside the saved pipeline means the caps are learned from the
+    training rows only (per fold during CV) and applied on every predict call.
+    Capping the CSV before training left the model predicting on raw values,
+    so a linear model extrapolated without limit past the caps.
+    """
+
+    def __init__(self, multiplier=IQR_MULTIPLIER):
+        self.multiplier = multiplier
+
+    def fit(self, X, y=None):
+        arr = np.asarray(X, dtype=float)
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.asarray(X.columns, dtype=object)
+        self.n_features_in_ = arr.shape[1]
+        lower, upper = [], []
+        for j in range(arr.shape[1]):
+            _, lo, hi = detect_outliers(arr[:, j], multiplier=self.multiplier)
+            lower.append(-np.inf if np.isnan(lo) else lo)
+            upper.append(np.inf if np.isnan(hi) else hi)
+        self.lower_ = np.asarray(lower, dtype=float)
+        self.upper_ = np.asarray(upper, dtype=float)
+        return self
+
+    def transform(self, X):
+        return np.clip(np.asarray(X, dtype=float), self.lower_, self.upper_)
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is None:
+            input_features = getattr(
+                self, "feature_names_in_",
+                [f"x{i}" for i in range(self.n_features_in_)],
+            )
+        return np.asarray(input_features, dtype=object)
 
 
 class _AdaptiveTargetEncoder(TargetEncoder):
@@ -78,7 +120,8 @@ def _target_encoder():
     )
 
 
-def build_preprocessor(numerical_cols, categorical_cols, model_family="tree"):
+def build_preprocessor(numerical_cols, categorical_cols, model_family="tree",
+                       winsorize_features=False):
     # Trees get target-encoded categoricals (one price-ordered numeric column
     # per feature); linear models get scaled numerics and one-hot categoricals.
     #
@@ -113,6 +156,16 @@ def build_preprocessor(numerical_cols, categorical_cols, model_family="tree"):
         )
     else:
         raise ValueError(f"Unknown model family: {model_family}")
+
+    if winsorize_features:
+        if numerical_transformer == "passthrough":
+            numerical_transformer = FeatureClipper()
+        elif isinstance(numerical_transformer, Pipeline):
+            numerical_transformer.steps.insert(0, ("clip", FeatureClipper()))
+        else:
+            numerical_transformer = Pipeline(
+                steps=[("clip", FeatureClipper()), ("impute", numerical_transformer)]
+            )
 
     return ColumnTransformer(
         transformers=[
