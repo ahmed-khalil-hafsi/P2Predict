@@ -1,0 +1,110 @@
+{
+  "benchmark": "ppbr_az",
+  "p2predict_version": "1.1.0",
+  "run_date": "2026-09-15",
+  "budget": "thorough",
+  "feature_cap": null,
+  "official_tdc_metric": {
+    "ppbr_az": [
+      7.948,
+      0.108
+    ]
+  },
+  "per_seed": [
+    {
+      "seed": 1,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.2771,
+        "random_forest": 0.3815,
+        "xgboost": 0.4125
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=-2.00",
+      "n_features": 207,
+      "n_train": 1952,
+      "test_mae": 8.0327,
+      "test_rmse": 11.9952,
+      "test_r2": 0.3733,
+      "interval_90_coverage": 0.9571,
+      "mean_interval_width": 48.8651,
+      "train_seconds": 458.9
+    },
+    {
+      "seed": 2,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": -69.5002,
+        "random_forest": 0.3845,
+        "xgboost": 0.3924
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=-1.96",
+      "n_features": 205,
+      "n_train": 1952,
+      "test_mae": 8.0556,
+      "test_rmse": 11.9412,
+      "test_r2": 0.3789,
+      "interval_90_coverage": 0.9284,
+      "mean_interval_width": 45.7777,
+      "train_seconds": 400.8
+    },
+    {
+      "seed": 3,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": -0.5654,
+        "random_forest": 0.3743,
+        "xgboost": 0.4068
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=-1.98",
+      "n_features": 206,
+      "n_train": 1952,
+      "test_mae": 7.9534,
+      "test_rmse": 11.5405,
+      "test_r2": 0.4199,
+      "interval_90_coverage": 0.9123,
+      "mean_interval_width": 33.2822,
+      "train_seconds": 392.2
+    },
+    {
+      "seed": 4,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": -0.1598,
+        "random_forest": 0.345,
+        "xgboost": 0.3744
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=-1.94",
+      "n_features": 207,
+      "n_train": 1952,
+      "test_mae": 7.7499,
+      "test_rmse": 11.4346,
+      "test_r2": 0.4305,
+      "interval_90_coverage": 0.9445,
+      "mean_interval_width": 40.1335,
+      "train_seconds": 265.3
+    },
+    {
+      "seed": 5,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": -16829.7512,
+        "random_forest": 0.3717,
+        "xgboost": 0.4044
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=-2.01",
+      "n_features": 205,
+      "n_train": 1952,
+      "test_mae": 7.9486,
+      "test_rmse": 11.5597,
+      "test_r2": 0.418,
+      "interval_90_coverage": 0.9374,
+      "mean_interval_width": 41.5962,
+      "train_seconds": 586.6
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "benchmark": "caco2_wang",
+  "p2predict_version": "1.1.0",
+  "run_date": "2026-09-15",
+  "budget": "fast",
+  "feature_cap": null,
+  "official_tdc_metric": {
+    "caco2_wang": [
+      0.289,
+      0.004
+    ]
+  },
+  "per_seed": [
+    {
+      "seed": 1,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.5951,
+        "random_forest": 0.5879,
+        "xgboost": 0.6267
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=nan",
+      "n_features": 210,
+      "n_train": 637,
+      "test_mae": 0.2923,
+      "test_rmse": 0.3568,
+      "test_r2": 0.7297,
+      "interval_90_coverage": 0.978,
+      "mean_interval_width": 1.5018,
+      "train_seconds": 48.7
+    },
+    {
+      "seed": 2,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.5412,
+        "random_forest": 0.5279,
+        "xgboost": 0.5984
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=nan",
+      "n_features": 210,
+      "n_train": 637,
+      "test_mae": 0.281,
+      "test_rmse": 0.3513,
+      "test_r2": 0.738,
+      "interval_90_coverage": 0.9451,
+      "mean_interval_width": 1.3524,
+      "train_seconds": 26.4
+    },
+    {
+      "seed": 3,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.5285,
+        "random_forest": 0.5635,
+        "xgboost": 0.5953
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=nan",
+      "n_features": 207,
+      "n_train": 637,
+      "test_mae": 0.2899,
+      "test_rmse": 0.3506,
+      "test_r2": 0.739,
+      "interval_90_coverage": 0.9725,
+      "mean_interval_width": 1.4636,
+      "train_seconds": 30.0
+    },
+    {
+      "seed": 4,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.5778,
+        "random_forest": 0.6055,
+        "xgboost": 0.6331
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=nan",
+      "n_features": 210,
+      "n_train": 637,
+      "test_mae": 0.2939,
+      "test_rmse": 0.367,
+      "test_r2": 0.7141,
+      "interval_90_coverage": 1.0,
+      "mean_interval_width": 2.283,
+      "train_seconds": 28.9
+    },
+    {
+      "seed": 5,
+      "algorithm": "xgboost",
+      "cv_scores": {
+        "ridge": 0.5998,
+        "random_forest": 0.5783,
+        "xgboost": 0.6195
+      },
+      "log_target": false,
+      "log_target_decision": "auto:skew=nan",
+      "n_features": 208,
+      "n_train": 637,
+      "test_mae": 0.2881,
+      "test_rmse": 0.3571,
+      "test_r2": 0.7293,
+      "interval_90_coverage": 0.989,
+      "mean_interval_width": 1.6029,
+      "train_seconds": 27.5
+    }
+  ]
+}

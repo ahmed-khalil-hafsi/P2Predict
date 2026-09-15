@@ -1,0 +1,42 @@
+# Eval-only dependencies. NOT product dependencies.
+#
+# Nothing in this file belongs in the root requirements.txt or in
+# pyproject.toml: PyTDC and RDKit are external benchmark tooling, needed only
+# to score P2Predict against a third-party leaderboard. They are never
+# imported by anything under src/.
+#
+# Install into a SEPARATE virtualenv (evals/.venv), never into the project
+# environment, and install in the order below -- `pip install -r` in one shot
+# will not work, because PyTDC has to be installed with --no-deps.
+#
+#   python3.13 -m venv .venv
+#   ./.venv/bin/pip install rdkit "scikit-learn>=1.5" pandas numpy
+#   ./.venv/bin/pip install PyTDC --no-deps
+#   ./.venv/bin/pip install requests tqdm fuzzywuzzy seaborn huggingface_hub "pandas<3"
+#   ./.venv/bin/pip install "setuptools<81"
+#   ./.venv/bin/pip install /path/to/P2Predict
+#
+# Why the order matters:
+#   * Python 3.13, not 3.14 -- wheel availability for this stack.
+#   * PyTDC 1.1.15 pins stale numpy/pandas/rdkit and will drag in a
+#     scikit-learn with no cp313 wheel, which then tries to compile from
+#     source and fails. Installing the modern packages first and PyTDC with
+#     --no-deps avoids that; its pin warnings cover optional featurizers this
+#     harness does not use and are safe to ignore.
+#   * setuptools<81 because PyTDC still imports pkg_resources, removed in 81+.
+#     It must go in AFTER PyTDC's own dependency chain, or something pulls a
+#     newer setuptools back in.
+#   * P2Predict itself is installed LAST, from the local checkout, so the
+#     harness scores the working tree rather than whatever is on PyPI.
+
+rdkit
+scikit-learn>=1.5
+pandas<3
+numpy
+PyTDC==1.1.15          # install with --no-deps (see above)
+requests
+tqdm
+fuzzywuzzy
+seaborn
+huggingface_hub
+setuptools<81          # PyTDC needs pkg_resources
