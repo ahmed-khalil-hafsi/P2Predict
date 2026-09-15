@@ -17,10 +17,19 @@ reviewed and discussed *before* any core code is touched.
 Keeping this folder lean is deliberate: a findings folder that accumulates
 shipped or stale analysis stops being useful and starts being noise.
 
+**Not here:** external benchmark runs. Those live in
+[`../evals/`](../evals/) — a permanent, re-runnable record that proposes
+nothing and is never pruned, with its own isolated dependencies (PyTDC, RDKit)
+that must never become product dependencies. The two proposals below came out
+of the run written up in
+[`../evals/tdc_admet_validation.md`](../evals/tdc_admet_validation.md).
+
 ## Current contents
 
 | File | Status |
 |---|---|
+| `algorithm_shelf.md` | **Open — scoped down after reconciliation.** The TDC run crowned XGBoost in 29 of 30 model selections and Ridge never, which suggested three changes to `auto_train`: add CatBoost/LightGBM, blend the runners-up, cross-fit the conformal calibration. Two do not clear bars already set — the ROADMAP's standing LightGBM/CatBoost decline (this run measured neither, and Ridge's losses are partly an `Ipc`-magnitude artifact; Ridge, RF and XGBoost each win one of our own case studies), and blending, where the runner-up is 0.015–0.059 CV R² behind in every sweep and the artifact contract assumes a single pipeline. Both re-filed as harness experiments with a pre-registered adoption gate. Cross-fitting survives: Finding 3 measured intervals going conservative and noisy at 91 calibration rows, and the typical catalogue calibrates on 10–60. Evidence in `../evals/`; nothing in core changed. |
+| `agent_as_featurizer.md` | **Open — blocked on validation data, which is the first task.** Fingerprints beat descriptors because aggregate scalars miss *compositional* signal; a part is the same, and that signal sits unused in the free-text description column of most ERP exports (`M8x40 HEX BOLT ZINC PLATED GRADE 8.8`). Extraction is a language task, so the agent does it at `propose_training_plan` — but must emit a *deterministic, frozen extractor* replayed at inference like the feature list and calibration already are, and 5–10 judged flags rather than a 2048-bit fingerprint. No dataset yet proves it: aerospace-fasteners is already structured by its prep script, and the three partial candidates (BMIC descriptions, dropped heavy-equipment `fiProductClassDesc`, Craigslist text) each fail a different part of the test. Sequence and kill criteria in the doc. |
 | `large_data_scalability.{md,py,txt}` | **Decided (2026-09-15) — one item scheduled, five declined.** P2Predict is documented and sized around the typical 50–300 part category, but should work equally well at hundreds of thousands of rows. The maths already does; the agent-facing plumbing does not (a 100k-row `predict_from_csv` returns ~37 MB of JSON where the CLI has always written results to a file). That inconsistency is ROADMAP item 8. The other five findings — uncapped `include_holdout`, full-data feature ranking, artifact bloat, band count pinned at 3, random_forest dominating `auto_train` — are declined as no-ops for the typical catalogue. Kept, not pruned: the measurements mean picking one up later is a decision, not a re-investigation. |
 | `log_retransformation_bias.{md,py,json}` | **Open** — log-target models are flagged "unreliable" for a mean-vs-median gap; proposes fixing the verdict logic + an opt-in mean correction. |
 | `bias_gate_materiality.{md,py,json}` + `bias_gate_equivalence.{py,json}` | **Shipped (#39).** The `unreliable` verdict tracked holdout size, not bias magnitude. Replaced by an equivalence test on the median relative residual against a ±5% band, in a four-state form (certified / likely / likely-not / certified-not) because at the 20–60 part holdout most users have, three states hand every model the same `unknown`. Measured: false-flag 37.3%→0.3%, miss 42.0%→5.7%, inversion 0.99→0.36. Retained only because the CHANGELOG cites it as rationale. |
