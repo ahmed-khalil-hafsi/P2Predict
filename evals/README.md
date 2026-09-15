@@ -91,9 +91,9 @@ harness rather than filing a one-off report:
 * **On each release**, re-run the sweep and diff the MAE against the previous
   version's directory. A regression on a third-party-scored board is worth more
   than any self-scored case study.
-* **When a core change lands** — the algorithm shelf in
-  [`../research/algorithm_shelf.md`](../research/algorithm_shelf.md) is the
-  live example — the before/after delta here *is* the evidence for whether it
+* **When a core change lands** — cross-fitting the conformal calibration, in
+  [`../research/algorithm_shelf.md`](../research/algorithm_shelf.md), is the
+  live candidate — the before/after delta here *is* the evidence for whether it
   helped. Run the baseline first, change core, run again, compare like for
   like: same endpoints, same 5 seeds, same budget.
 * **Quote the version with the number.** "Rank 7 of 24" is a claim about

@@ -14,8 +14,9 @@ It did generate two proposals. Those live in `research/`, where proposals
 belong:
 
 * [`../research/algorithm_shelf.md`](../research/algorithm_shelf.md) — what the
-  29-of-30 XGBoost result does and does not say about `auto_train`, and the one
-  item in it that survives contact with prior decisions.
+  29-of-30 XGBoost result does and does not say about `auto_train`. Decided
+  2026-09-15: CatBoost/LightGBM and blending declined, cross-fitting the
+  conformal calibration carried forward.
 * [`../research/agent_as_featurizer.md`](../research/agent_as_featurizer.md) —
   the transferable idea: extracting compositional features from the free-text
   description column that ERP exports already carry.

@@ -1,9 +1,18 @@
 # Finding: what the benchmark does — and does not — say about the algorithm shelf
 
-**Status: open, and deliberately scoped down.** Two of the three changes this
-started as do **not** clear the bar that prior decisions already set, and are
-re-filed as *measurements to run before proposing anything*. One survives:
-cross-fitting the conformal calibration. **No core code changed.**
+**Status: decided (2026-09-15) — two declined, one carried forward.** Of the
+three changes this started as, two do **not** clear the bar that prior
+decisions already set and are declined: adding CatBoost/LightGBM (the
+`ROADMAP.md` decline stands, and this run measured neither library) and
+blending the runners-up. Both remain re-filed below as *measurements to run
+before either is proposed again*, with a pre-registered adoption gate, so
+picking one up later is a decision rather than a re-investigation. One item is
+carried forward as the live proposal: **cross-fitting the conformal
+calibration**, which survives on product evidence rather than benchmark rank.
+**No core code changed.**
+
+Kept rather than pruned: the declines are only meaningful alongside the
+measurements and the gate that produced them.
 
 Evidence: the TDC ADMET validation in
 [`../evals/tdc_admet_validation.md`](../evals/tdc_admet_validation.md), raw
