@@ -53,6 +53,14 @@ if spinner is not None:
     spinner.stop()
 
 
+TIME_SERIES_INTERVAL_WARNING = (
+    "Likely ranges assume new rows resemble the holdout rows. Time-ordered data "
+    "is usually correlated and drifts, so a period unlike the holdout can see "
+    "coverage well below the stated level. Check coverage on a later period "
+    "before relying on the ranges."
+)
+
+
 def _abort(json_mode: bool, console, code: str, message: str) -> None:
     """Same shape as predict.py — emit JSON error or red Rich abort."""
     if json_mode:
@@ -168,6 +176,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         "schema_version": JSON_SCHEMA_VERSION,
         "command": "train",
     }
+    warnings: list[str] = []
 
     if not json_mode:
         print("")
@@ -240,12 +249,14 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         except Exception as exc:
             _abort(json_mode, console, "bad_time_column",
                    f"could not parse --time-column '{time_column}': {exc}")
+        warnings.append(TIME_SERIES_INTERVAL_WARNING)
         if not json_mode:
             console.print(
                 f"Time-aware mode: train/test split and CV will be chronological on "
                 f"'{time_column}'.",
                 style="bold blue",
             )
+            console.print(TIME_SERIES_INTERVAL_WARNING, style="italic yellow")
 
     if target not in data.columns:
         _abort(json_mode, console, "unknown_target",
@@ -289,6 +300,11 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     feature_outlier_candidates = [
         c for c in data.columns if c != target and c != time_column
     ]
+    # Under winsorize the model learns and applies the caps itself (from the
+    # training split only), so training runs on the uncapped rows. The capped
+    # copy still drives the diagnostics and feature ranking below.
+    winsorize_features = feature_outliers == "winsorize"
+    uncapped_data = data
     data, feature_outlier_summary = apply_feature_outlier_policy(
         data, feature_outlier_candidates, policy=feature_outliers
     )
@@ -301,7 +317,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             "keep": "kept as-is",
             "warn": "kept as-is — pass --feature-outliers drop or winsorize to mitigate",
             "drop": "rows dropped",
-            "winsorize": "values winsorized per column",
+            "winsorize": "capped per column; the model applies the same caps when predicting",
         }[feature_outliers]
         affected = {
             col: stats for col, stats in feature_outlier_summary["per_column"].items()
@@ -384,8 +400,11 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     if time_column is not None and time_column in selected_columns:
         selected_columns = [c for c in selected_columns if c != time_column]
 
+    training_data = (
+        uncapped_data.loc[data.index, data.columns] if winsorize_features else data
+    )
     X_train, X_test, y_train, y_test, numerical_cols, categorical_cols = prepare_data(
-        data, selected_columns, target_column, time_column=time_column
+        training_data, selected_columns, target_column, time_column=time_column
     )
     time_aware = time_column is not None
 
@@ -437,7 +456,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         model, feature_weights, log_target = start_training(
             X_train, y_train, numerical_cols, categorical_cols, algorithm,
             budget=budget, tune=tune, time_aware=time_aware,
-            log_target=log_target_override,
+            log_target=log_target_override, winsorize_features=winsorize_features,
         )
         if inner_spinner is not None:
             inner_spinner.stop()
@@ -460,7 +479,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         model, algorithm, scores, log_target = auto_train(
             X_train, y_train, numerical_cols, categorical_cols,
             budget=budget, time_aware=time_aware,
-            log_target=log_target_override,
+            log_target=log_target_override, winsorize_features=winsorize_features,
         )
         if inner_spinner is not None:
             inner_spinner.stop()
@@ -556,6 +575,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
                 budget=budget,
                 time_aware=time_aware,
                 log_target=log_target_override,
+                winsorize_features=winsorize_features,
             )
             tune_spinner.stop()
             mae_t, r2_t, _, rmse_t = evaluate_model(X_test, y_test, tuned_model)
@@ -675,6 +695,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         },
         "model_path": saved_model_path,
         "report_path": report_path,
+        "warnings": warnings,
     })
     emit(response)
 

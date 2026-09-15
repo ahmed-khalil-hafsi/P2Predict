@@ -7,13 +7,14 @@ console = Console()
 
 def hyper_parameter_tuning(
     X_train, y_train, numerical_cols, categorical_cols, algorithm,
-    budget="fast", time_aware=False, log_target=None,
+    budget="fast", time_aware=False, log_target=None, winsorize_features=False,
 ):
     """Tune the given algorithm and return the refitted best pipeline."""
     if log_target is None:
         log_target = should_log_target(y_train)
     pipeline = build_pipeline(
-        algorithm, numerical_cols, categorical_cols, log_target=log_target
+        algorithm, numerical_cols, categorical_cols, log_target=log_target,
+        winsorize_features=winsorize_features,
     )
     best_model, best_score = _tune(
         pipeline, X_train, y_train, algorithm, budget, log_target,

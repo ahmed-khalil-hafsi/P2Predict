@@ -155,7 +155,10 @@ def apply_feature_outlier_policy(
         One of POLICIES. ``drop`` removes rows that have an outlier in
         *any* numeric feature column; ``winsorize`` caps each column at
         its own IQR bounds independently; ``keep`` / ``warn`` change
-        nothing (warn surfaces a message at the caller).
+        nothing (warn surfaces a message at the caller). ``winsorize``
+        here caps only the frame passed in; a model trained on it still
+        sees raw values at predict time. To cap inside the model, train
+        with ``winsorize_features=True`` instead.
     multiplier : float
         Tukey IQR multiplier. 1.5 is the textbook default.
 

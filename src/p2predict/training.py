@@ -137,9 +137,11 @@ def resolve_log_target(y, mode="auto"):
     return sk > LOG_TARGET_SKEW_THRESHOLD, f"auto:skew={sk:.2f}"
 
 
-def build_pipeline(algorithm, numerical_cols, categorical_cols, log_target=False):
+def build_pipeline(algorithm, numerical_cols, categorical_cols, log_target=False,
+                   winsorize_features=False):
     preprocessor = build_preprocessor(
-        numerical_cols, categorical_cols, model_family_for(algorithm)
+        numerical_cols, categorical_cols, model_family_for(algorithm),
+        winsorize_features=winsorize_features,
     )
     pipeline = Pipeline(
         steps=[("preprocessor", preprocessor), ("model", _make_estimator(algorithm))]
@@ -184,7 +186,7 @@ def _tune(pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=
 
 def auto_train(
     X_train, y_train, numerical_cols, categorical_cols, budget="fast",
-    time_aware=False, log_target=None,
+    time_aware=False, log_target=None, winsorize_features=False,
 ):
     if log_target is None:
         log_target = should_log_target(y_train)
@@ -194,7 +196,8 @@ def auto_train(
     scores = {}
     for algorithm in ALGORITHMS:
         pipeline = build_pipeline(
-            algorithm, numerical_cols, categorical_cols, log_target=log_target
+            algorithm, numerical_cols, categorical_cols, log_target=log_target,
+            winsorize_features=winsorize_features,
         )
         model, score = _tune(
             pipeline, X_train, y_train, algorithm, budget, log_target, time_aware=time_aware
@@ -217,11 +220,13 @@ def start_training(
     tune=False,
     time_aware=False,
     log_target=None,
+    winsorize_features=False,
 ):
     if log_target is None:
         log_target = should_log_target(y_train)
     pipeline = build_pipeline(
-        algorithm, numerical_cols, categorical_cols, log_target=log_target
+        algorithm, numerical_cols, categorical_cols, log_target=log_target,
+        winsorize_features=winsorize_features,
     )
 
     if tune:
