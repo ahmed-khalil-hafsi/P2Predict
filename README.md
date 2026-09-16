@@ -215,6 +215,10 @@ P2Predict comes out of that work: the tools a procurement team actually needs to
 - **Set it up with your agent:** see **[INSTALL.md](INSTALL.md)** to install, connect your AI assistant, and point it at your data.
 - **How it works under the hood:** the models, the math, the full reference live in **[TECHNICAL.md](TECHNICAL.md)**.
 
+## Related
+
+**[P2CLPFD](https://github.com/ahmed-khalil-hafsi/P2CLPFD)** — the companion tool for the decision that comes next. P2Predict tells you what a part *should* cost; P2CLPFD decides *who gets the volume*: the lowest-TCO award across your suppliers under capacity, MOQ, share caps, dual-sourcing, and volume-discount rules, with the reasoning you can show in the room. Open source under the GPLv3. More at **[ahmedhafsi.com/p2clpfd](https://ahmedhafsi.com/p2clpfd/)**.
+
 ## Licensing
 
 Source-available under the [PolyForm Noncommercial License 1.0.0, with an additional grant of permission for internal company use](LICENSE).
