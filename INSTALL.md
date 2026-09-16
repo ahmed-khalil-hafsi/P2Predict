@@ -40,6 +40,8 @@ If you don't have an admin password on your Mac, ask IT to install **Python 3.12
 5. Click **Install Now** (not "Customize"). This installs into your own user folder and does **not** need an admin password.
 6. If it offers **"Disable path length limit"** at the end, click it. Then click **Close**.
 
+> **Is python.org blocked on your company network?** There are other ways in — see [python.org is blocked on my company network](#pythonorg-is-blocked-on-my-company-network).
+
 ## Step 2 — Open PowerShell
 
 Press the **Windows key**, type `PowerShell`, press **Enter**. Use the normal one — you do *not* need "Run as administrator".
@@ -99,6 +101,8 @@ If it prints `p2predict 1.0.0` (or a higher number), you're done installing. Now
 3. Open the downloaded `.pkg` file and click **Continue → Continue → Agree → Install**.
 4. Enter your Mac password when asked.
 5. When it finishes, a Finder window may pop open. You can close it.
+
+> **Is python.org blocked on your company network?** There are other ways in — see [python.org is blocked on my company network](#pythonorg-is-blocked-on-my-company-network).
 
 ## Step 2 — Open Terminal
 
@@ -336,7 +340,7 @@ You missed the **"Add python.exe to PATH"** tickbox during install. Easiest fix:
 
 ### Typing `python` opens the Microsoft Store (Windows)
 
-That's a Windows placeholder, not real Python. Install Python from [python.org](https://www.python.org/downloads/) with the PATH box ticked. If it still happens: **Settings → Apps → Advanced app settings → App execution aliases**, and turn off both `python.exe` and `python3.exe`.
+That's a Windows placeholder, not real Python. Install Python from [python.org](https://www.python.org/downloads/) with the PATH box ticked. (This placeholder is *not* the same thing as the real **Python 3.12** app published by the Python Software Foundation in the Store — that one is a genuine Python, and is a good option if python.org is blocked for you.) If it still happens: **Settings → Apps → Advanced app settings → App execution aliases**, and turn off both `python.exe` and `python3.exe`.
 
 ### `requires a different Python` / `Could not find a version that satisfies the requirement p2predict` — or `Failed building wheel for shap` / `Microsoft Visual C++ 14.0 or greater is required`
 
@@ -365,6 +369,42 @@ You installed too **new** a version of Python — the big yellow button on pytho
    ```
 
 Check what you have with `python --version` (Mac: `python3 --version`). Anything from 3.10 to 3.14 works; newer does not yet.
+
+### python.org is blocked on my company network
+
+Some corporate networks block the python.org website by category, so **Step 1** fails before you've started. Python is still installable — it just has to come from somewhere else.
+
+**First, find out how much is blocked.** Open PowerShell (Windows) or Terminal (Mac) and paste:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" https://pypi.org/simple/p2predict/
+```
+
+If it prints `200`, only the website is blocked and one of the routes below will get you a working Python. Anything else — a timeout, a `403`, or a `407` — means the package repository is blocked too, and a different Python won't help on its own: go to [`SSLError`, `Could not fetch URL`...](#sslerror-could-not-fetch-url-retrying-or-connection-timed-out-during-install-usually-a-work-computer) below and get your company's mirror address from IT.
+
+**Windows — try these in order:**
+
+1. **The Microsoft Store.** Open the Store, search for **Python 3.12**, and install the one published by the *Python Software Foundation*. It downloads from Microsoft's servers, never touches python.org, and needs no admin password. Then carry on from [Step 2](#step-2--open-powershell) — the rest of this guide works unchanged.
+2. **Your company software portal** — Company Portal, Software Center, or whatever your firm calls it. Many large companies already publish an approved Python build there. Pre-approved means no conversation with IT at all.
+3. **`winget install Python.Python.3.12`** in PowerShell. Worth thirty seconds, but be warned: winget usually fetches the installer *from python.org*, so if the block is at the firewall rather than in the browser, this fails too.
+
+**Mac — try these in order:**
+
+1. **Homebrew.** You need Homebrew for [Step 5](#step-5--install-the-xgboost-helper-mac-only) anyway, so this does both jobs with one tool. Install Homebrew (the command is in Step 5), then:
+
+   ```bash
+   brew install python@3.12
+   ```
+
+   Homebrew downloads from GitHub's servers, not python.org. It still asks for your Mac password once, exactly like the python.org installer — so this gets you round a blocked *website*, not round missing admin rights.
+2. **Self Service** (Jamf), if your Mac is company-managed. Check there for Python before asking anyone.
+3. **Miniforge** — installs a Python into your home folder with no admin password at all: [github.com/conda-forge/miniforge](https://github.com/conda-forge/miniforge). Choose Miniforge, *not* Anaconda: Anaconda's default package channel requires a paid licence at companies over 200 employees, and your IT department will care about that. Note that [Step 5](#step-5--install-the-xgboost-helper-mac-only) still needs Homebrew for libomp, and Homebrew asks for your Mac password once — so Miniforge saves you the admin prompt for Python, not for the whole install.
+
+`pyenv` is not a way round this — it downloads Python's source code from python.org too.
+
+**If none of those work, ask IT — and ask for the software catalogue, not the website.** Copy them this:
+
+> *"I need Python 3.12 to run a local analysis tool. Could you either allow `www.python.org` and `pypi.org`, or publish Python 3.12 in the software portal? The python.org installer is code-signed by the Python Software Foundation — it's the same package most large companies already deploy."*
 
 ### `SSLError`, `Could not fetch URL`, `Retrying...`, or `Connection timed out` during install (usually a work computer)
 
