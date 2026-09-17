@@ -12,6 +12,7 @@ from rich.pretty import Pretty
 from rich.table import Table
 
 from p2predict.cmdline_io import print_logo
+from p2predict.domain import check_part, training_domain
 from p2predict.explain import Explanation, explain_batch, explain_row, top_drivers
 from p2predict.intervals import coverage_health, predict_interval
 from p2predict.json_output import JSON_SCHEMA_VERSION, emit, emit_error
@@ -165,6 +166,24 @@ def _whatif_to_dict(result: WhatIfResult) -> dict:
 # Rich rendering helpers. Unchanged from prior versions — they only run
 # when --json is absent.
 # ---------------------------------------------------------------------------
+
+
+def _out_of_domain_note(checks) -> Optional[str]:
+    """Batch-level count, so one bad line in a 200-line BOM isn't invisible."""
+    flagged = sum(c["status"] == "out_of_domain" for c in checks)
+    if not flagged:
+        return None
+    return (f"{flagged} of {len(checks)} part(s) fall outside what the model "
+            "has seen — don't benchmark off those numbers.")
+
+
+def _print_domain(console, check: dict) -> None:
+    # In-domain parts stay quiet; the warning only earns space when it matters.
+    if check["status"] == "out_of_domain":
+        console.print(Panel(check["say_to_user"], title="Outside the training data",
+                            border_style="bold yellow"))
+    elif check["status"] == "unknown":
+        console.print(f"Note: {check['say_to_user']}", style="italic yellow")
 
 
 def _print_explanation(console, explanation: Explanation, target_name: str) -> None:
@@ -511,6 +530,7 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
 
     background = loaded.get("background_sample")
     target_name = loaded["target_feature"]
+    domain = training_domain(loaded)
     calibration = loaded.get("calibration")
 
     # Decide whether the model can support a likely-range interval at all,
@@ -551,8 +571,11 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
         if not json_mode:
             console.print(Panel(Pretty(features_df), title="Prediction"))
 
+        check = check_part(features_dict, domain)
+        if not json_mode:
+            _print_domain(console, check)
         response["predictions"] = [
-            {"input": features_dict, "prediction": float(y[0])}
+            {"input": features_dict, "prediction": float(y[0]), "in_domain": check}
         ]
 
         if interval_coverage is not None:
@@ -607,12 +630,19 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
         y = trained.predict(features_df)
         features_df[target_name] = y
 
+        inputs = features_df[loaded["features"]].to_dict("records")
+        checks = [check_part(row, domain) for row in inputs]
+        features_df["in_domain"] = [c["status"] for c in checks]
         per_row = [
-            {"input": features_df[loaded["features"]].iloc[i].to_dict(),
-             "prediction": float(y[i])}
+            {"input": inputs[i], "prediction": float(y[i]), "in_domain": checks[i]}
             for i in range(len(features_df))
         ]
         response["predictions"] = per_row
+        note = _out_of_domain_note(checks)
+        if note:
+            response["out_of_domain_rows"] = sum(
+                c["status"] == "out_of_domain" for c in checks)
+            response["out_of_domain_note"] = note
 
         if interval_coverage is not None:
             intervals = predict_interval(
@@ -658,6 +688,9 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
         }
         if not json_mode:
             console.print(Panel(Pretty(features_df), title="Prediction"))
+            if note:
+                console.print(f"{note} See the 'in_domain' column.",
+                              style="bold yellow")
 
     else:
         # Interactive mode is incompatible with --json.
@@ -694,6 +727,12 @@ def main(model, predict_using, predict_file, explain_flag, interval_coverage,
             f"\n[bold]Predicted {loaded['target_feature']}:[/bold] "
             f"[yellow]{prediction_value:.2f}[/yellow]"
         )
+        check = check_part(features_dict, domain)
+        _print_domain(console, check)
+        response["predictions"] = [
+            {"input": features_dict, "prediction": float(prediction_value),
+             "in_domain": check}
+        ]
         if interval_coverage is not None:
             print("")
             [interval_result] = predict_interval(

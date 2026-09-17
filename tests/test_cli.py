@@ -475,3 +475,80 @@ def test_predict_cli_points_train_subcommand_to_p2predict_train():
     result = CliRunner().invoke(predict_cli, ["train", "-i", "missing.csv"])
     assert result.exit_code == 2
     assert "p2predict-train" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Out-of-domain check on the CLI predict path. MCP had it; the CLI didn't, so
+# `p2predict -p` priced a part far outside the data with no warning at all.
+# ---------------------------------------------------------------------------
+
+
+def _trained_ridge(tmp_path, monkeypatch, csv_path_clean):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").mkdir()
+    result = CliRunner().invoke(train_cli, _train_args(csv_path_clean))
+    assert result.exit_code == 0, result.output
+    return _saved_model(tmp_path, "ridge_Price")
+
+
+def test_predict_inline_json_reports_in_domain(tmp_path, monkeypatch, csv_path_clean):
+    model_path = _trained_ridge(tmp_path, monkeypatch, csv_path_clean)
+    result = CliRunner().invoke(
+        predict_cli,
+        ["-m", str(model_path), "-p", "Weight:15,Region:EU,Supplier:A,Size:Standard",
+         "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    check = _parse_json(result.output)["predictions"][0]["in_domain"]
+    assert check["status"] == "in_domain"
+    assert check["numeric_source"] == "stored"
+
+
+def test_predict_inline_flags_an_extrapolated_part(tmp_path, monkeypatch, csv_path_clean):
+    model_path = _trained_ridge(tmp_path, monkeypatch, csv_path_clean)
+    args = ["-m", str(model_path), "-p", "Weight:9000,Region:EU,Supplier:Z,Size:Standard"]
+
+    doc = _parse_json(CliRunner().invoke(predict_cli, args + ["--json"]).output)
+    check = doc["predictions"][0]["in_domain"]
+    assert check["status"] == "out_of_domain"
+    assert {i["feature"] for i in check["issues"]} == {"Weight", "Supplier"}
+
+    human = CliRunner().invoke(predict_cli, args)
+    assert human.exit_code == 0, human.output
+    assert "Outside the training data" in human.output
+
+
+def test_predict_batch_marks_out_of_domain_rows(
+    tmp_path, monkeypatch, csv_path_clean, synthetic_parts
+):
+    model_path = _trained_ridge(tmp_path, monkeypatch, csv_path_clean)
+    batch = synthetic_parts.head(4).drop(columns=["Price"]).reset_index(drop=True)
+    batch.loc[2, "Weight"] = 9000
+    batch_path = tmp_path / "batch.csv"
+    batch.to_csv(batch_path, index=False)
+
+    result = CliRunner().invoke(
+        predict_cli, ["-m", str(model_path), "-i", str(batch_path), "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    statuses = [r["in_domain"]["status"] for r in doc["predictions"]]
+    assert statuses == ["in_domain", "in_domain", "out_of_domain", "in_domain"]
+    assert doc["out_of_domain_rows"] == 1
+    assert "1 of 4" in doc["out_of_domain_note"]
+
+    written = pd.read_csv(batch_path)
+    assert list(written["in_domain"]) == statuses
+
+
+def test_predict_batch_omits_the_count_when_nothing_is_flagged(
+    tmp_path, monkeypatch, csv_path_clean, synthetic_parts
+):
+    model_path = _trained_ridge(tmp_path, monkeypatch, csv_path_clean)
+    batch_path = tmp_path / "batch.csv"
+    synthetic_parts.head(3).drop(columns=["Price"]).to_csv(batch_path, index=False)
+
+    doc = _parse_json(CliRunner().invoke(
+        predict_cli, ["-m", str(model_path), "-i", str(batch_path), "--json"]
+    ).output)
+    assert "out_of_domain_rows" not in doc
