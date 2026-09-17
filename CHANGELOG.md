@@ -4,6 +4,13 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- **`p2predict` (CLI) now warns when a part is outside the training data.** The out-of-domain check shipped for the MCP server only, so `p2predict -p` / `-i` priced a part with a spec 180× past anything in the data, or a supplier the model never saw, with no warning at all. All three predict modes now run the same check:
+  - Inline and interactive runs print an "Outside the training data" panel naming each offending spec. Parts inside the data stay quiet.
+  - Batch runs (`-i`) add an `in_domain` column (`in_domain` / `out_of_domain` / `unknown`) to the written CSV and print how many rows were flagged.
+  - `--json` gains an additive `in_domain` block on every `predictions[]` entry, plus `out_of_domain_rows` / `out_of_domain_note` in batch mode when any row is flagged. Schema version stays 1.0.
+  - Older models without stored ranges fall back to the SHAP background sample (`numeric_source: "approximate"`), same as MCP. The prediction and exit code are unchanged.
+
 ## [v1.1.1] — 2026-09
 
 ### Fixed

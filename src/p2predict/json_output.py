@@ -34,10 +34,18 @@ Predict (``p2predict ... --json``)
       "predictions": [             # one entry per input row
         {
           "input": {feature: value, ...},
-          "prediction": float
+          "prediction": float,
+          "in_domain": {           # was this part inside the training data?
+            "status": "in_domain" | "out_of_domain" | "unknown",
+            "issues": [{"feature": str, "kind": str, "detail": str}, ...],
+            "numeric_source": "stored" | "approximate" | "unknown",
+            "say_to_user": str
+          }
         },
         ...
       ],
+      "out_of_domain_rows": int,   # batch only, present when any row is flagged
+      "out_of_domain_note": str,   # batch only, alongside out_of_domain_rows
       "interval": {                # present when --interval N was passed
         "coverage": float,         # e.g. 0.90
         "per_row": [
