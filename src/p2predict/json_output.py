@@ -119,6 +119,12 @@ Train (``p2predict-train ... --json``)
         "high_variation": [str, ...]
       },
       "features_selected": [str, ...],
+      "excluded_features": [             # auto-mode only; empty with -tf/expert
+        {"column": str,
+         "kind": "leakage" | "id_like" | "constant",
+         "reason": str},
+        ...
+      ],
       "algorithm_selected": str,
       "log_target": bool,
       "log_target_decision": str,        # "auto:skew=<value>" | "manual:on" | "manual:off"
