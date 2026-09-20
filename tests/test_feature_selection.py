@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 from p2predict.feature_selection import (
+    find_auto_exclusions,
     find_high_variation_features,
     find_no_variation_features,
     get_most_predictable_features,
@@ -41,3 +42,23 @@ def test_get_most_predictable_features_headers_only(synthetic_parts):
     )
     assert "Weight" in ranked.tolist()
     assert "Price" not in ranked.tolist()
+
+
+def test_find_auto_exclusions_classifies_id_constant_and_leakage(synthetic_parts):
+    df = synthetic_parts.copy()
+    df["CPN"] = [f"CP{i}-{i * 7919}" for i in range(len(df))]
+    df["Plant"] = "SG01"
+    df["Price_at_1k"] = df["Price"] * 0.5
+    kinds = {e["column"]: e["kind"] for e in find_auto_exclusions(df, "Price")}
+    assert kinds == {"Price_at_1k": "leakage", "CPN": "id_like", "Plant": "constant"}
+
+
+def test_find_auto_exclusions_keeps_wide_ranging_numeric_specs():
+    # A numeric spec spanning orders of magnitude is flagged as high-variation
+    # but is a real spec, not an ID — it must stay selectable.
+    df = pd.DataFrame({
+        "Capacitance_uF": [0.1, 1, 10, 100, 1000, 0.47, 4.7, 47, 470, 2200],
+        "Price": [0.02, 0.03, 0.05, 0.4, 0.9, 0.02, 0.04, 0.2, 1.1, 1.7],
+    })
+    assert "Capacitance_uF" in find_high_variation_features(df)
+    assert find_auto_exclusions(df, "Price") == []

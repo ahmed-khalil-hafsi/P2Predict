@@ -71,10 +71,11 @@ mcp = FastMCP(
         "BUILD A MODEL: do NOT call `train` directly on a user's CSV first. "
         "Call `propose_training_plan` first, relay its plain_summary and "
         "questions_for_the_user to the user, and only call `train` after they "
-        "confirm. If you do call `train` directly, it applies safe defaults "
-        "(it screens out target-leakage columns and recommends a log-target "
-        "for price/cost targets) and reports them in `warnings` — surface "
-        "those warnings to the user.\n"
+        "confirm. If you do call `train` directly, it applies the same safe "
+        "defaults as the plan (it screens out target-leakage, ID-like and "
+        "single-value columns and recommends a log-target for price/cost "
+        "targets) and reports them in `warnings` — surface those warnings to "
+        "the user.\n"
         "\n"
         "INTERPRETING OUTPUT (this is where the value is — apply every time):\n"
         "1. log-target: prices/costs are multiplicative; a log-target keeps "
@@ -767,11 +768,64 @@ async def predict_from_csv(
     return _ok(result)
 
 
+def _prepare_training_data(
+    csv_path: str, target: str, outlier_policy: str, feature_outlier_policy: str,
+) -> dict:
+    """Load a training CSV and apply the outlier policies, exactly as `train`
+    does. `propose_training_plan` runs the same steps so the specs it proposes
+    are the ones `train` will pick for the same arguments."""
+    import pandas as pd
+
+    from p2predict.outliers import (
+        apply_feature_outlier_policy,
+        apply_outlier_policy,
+        describe_feature_outliers,
+    )
+    from p2predict.trained_model_io import load_csv_file
+
+    path = Path(csv_path)
+    if not path.exists():
+        raise FileNotFoundError(f"CSV not found: {csv_path}")
+
+    data = load_csv_file(csv_path)
+    rows_loaded = len(data)
+    if target not in data.columns:
+        raise ValueError(
+            f"Target '{target}' not in CSV columns: {list(data.columns)}"
+        )
+
+    data = data[data[target].notna()]
+    if data.empty:
+        raise ValueError(f"All rows have missing values in target '{target}'.")
+
+    data, _ = apply_outlier_policy(data, target, policy=outlier_policy)
+
+    num_candidates = [
+        c for c in data.columns if c != target and pd.api.types.is_numeric_dtype(data[c])
+    ]
+    # Inspect BEFORE applying the policy, so the report describes the data
+    # the user actually handed us rather than the treated copy.
+    uncapped_data = data
+    feature_quality = describe_feature_outliers(data, num_candidates)
+    data, feature_outlier_summary = apply_feature_outlier_policy(
+        data, num_candidates, policy=feature_outlier_policy
+    )
+    feature_quality["policy_applied"] = feature_outlier_summary["applied"]
+    return {
+        "data": data,
+        "uncapped_data": uncapped_data,
+        "rows_loaded": rows_loaded,
+        "feature_quality": feature_quality,
+    }
+
+
 @mcp.tool()
 async def propose_training_plan(
     csv_path: str,
     target: str,
     max_features: int = 6,
+    outlier_policy: str = "warn",
+    feature_outlier_policy: str = "warn",
 ) -> str:
     """Inspect a training CSV and return a plain-language plan BEFORE training.
 
@@ -784,72 +838,33 @@ async def propose_training_plan(
     Relay `plain_summary` and `questions_for_the_user` to the user in their
     own language, get confirmation, then call `train` (passing the agreed
     `features` and `log_target`).
+
+    outlier_policy / feature_outlier_policy: pass the same values you intend
+    to give `train`. The plan prepares the data the same way, so its specs
+    match what `train` would pick.
     """
     registry = _get_registry()  # noqa: F841 — validates server is initialised
 
     def _do_plan() -> dict:
         import pandas as pd
 
-        from p2predict.feature_selection import (
-            find_high_variation_features,
-            find_leaky_features,
-            find_no_variation_features,
-            get_most_predictable_features,
-        )
+        from p2predict.feature_selection import choose_training_features
         from p2predict.outliers import describe_feature_outliers
-        from p2predict.trained_model_io import load_csv_file
         from p2predict.training import resolve_log_target
 
-        path = Path(csv_path)
-        if not path.exists():
-            raise FileNotFoundError(f"CSV not found: {csv_path}")
-
-        data = load_csv_file(csv_path)
-        rows_loaded = len(data)
-        if target not in data.columns:
-            raise ValueError(
-                f"Target '{target}' not in CSV columns: {list(data.columns)}"
-            )
-
-        data = data[data[target].notna()]
-        if data.empty:
-            raise ValueError(f"All rows have missing values in target '{target}'.")
-
+        prepared = _prepare_training_data(
+            csv_path, target, outlier_policy, feature_outlier_policy
+        )
+        data = prepared["data"]
+        rows_loaded = prepared["rows_loaded"]
         y = pd.to_numeric(data[target], errors="coerce").dropna()
 
-        # Columns to leave out, with reasons the user can understand.
-        leaky = find_leaky_features(data, target)
-        leaky_names = {d["feature"] for d in leaky}
-
-        no_var = [c for c in find_no_variation_features(data) if c != target]
-        high_var = find_high_variation_features(data)
-        id_like = [
-            c for c in high_var
-            if c != target
-            and c not in leaky_names
-            and not pd.api.types.is_numeric_dtype(data[c])
-        ]
-
-        excluded = []
-        for d in leaky:
-            excluded.append({"column": d["feature"], "reason": d["reason"]})
-        for c in id_like:
-            excluded.append({
-                "column": c,
-                "reason": "Looks like an ID / free-text column (almost every "
-                          "row is unique), not a spec the model can learn from.",
-            })
-        for c in no_var:
-            excluded.append({
-                "column": c,
-                "reason": "Same value in every row — carries no information.",
-            })
-
-        drop_all = leaky_names | set(id_like) | set(no_var)
-        ranked = get_most_predictable_features(data, target, output_only_headers=True)
-        candidate_specs = [c for c in ranked.tolist() if c not in drop_all]
-        cap = max(2, min(len(candidate_specs), max_features))
-        selected = candidate_specs[:cap]
+        # Same chooser as `train` and the CLI, on the same prepared data, so
+        # the plan's specs are exactly what training will use.
+        choice = choose_training_features(data, target, max_features=max_features)
+        selected = choice.selected
+        excluded = choice.excluded
+        leaky = [e for e in excluded if e["kind"] == "leakage"]
 
         # Feature-magnitude check on the specs we would actually train on. The
         # CLI reports this; before v1.2 the agent path did not, so an agent had
@@ -858,7 +873,9 @@ async def propose_training_plan(
         numeric_specs = [
             c for c in selected if pd.api.types.is_numeric_dtype(data[c])
         ]
-        outlier_report = describe_feature_outliers(data, numeric_specs)
+        outlier_report = describe_feature_outliers(
+            prepared["uncapped_data"], numeric_specs
+        )
 
         # Log-target recommendation.
         _, auto_decision = resolve_log_target(y, mode="auto")
@@ -870,7 +887,7 @@ async def propose_training_plan(
             "per part? If not, tell me which column is.",
         ]
         if leaky:
-            cols = ", ".join(f"'{d['feature']}'" for d in leaky)
+            cols = ", ".join(f"'{e['column']}'" for e in leaky)
             questions.append(
                 f"I'm leaving out {cols} because it's almost the same number as "
                 f"'{target}' — it would make the model 'cheat'. OK to exclude?"
@@ -909,7 +926,8 @@ async def propose_training_plan(
             "to_proceed": (
                 "After the user confirms, call train(csv_path, target, "
                 "features=i_will_use_these_specs, "
-                "log_target=recommended_log_target)."
+                "log_target=recommended_log_target), with the same "
+                "outlier_policy and feature_outlier_policy used for this plan."
             ),
         }
 
@@ -918,7 +936,8 @@ async def propose_training_plan(
     except FileNotFoundError as e:
         return _error("file_not_found", str(e))
     except ValueError as e:
-        return _error("plan_error", str(e))
+        # FeatureChoiceError carries a specific code (e.g. no_usable_features).
+        return _error(getattr(e, "code", "plan_error"), str(e))
     except Exception as e:
         return _error("internal_error", str(e))
 
@@ -947,8 +966,12 @@ async def train(
 
     Safe defaults (always surfaced in the returned `warnings` list):
       - When features are auto-selected (features=None), columns that look
-        like target leakage — a near-duplicate of the price being predicted —
-        are excluded automatically.
+        like target leakage (a near-duplicate of the price being predicted),
+        ID-like text columns (part numbers, descriptions) and single-value
+        columns are excluded automatically. Same rules as
+        `propose_training_plan` and the CLI.
+      - Requested features with the same value in every row are left out
+        with a note; they can't move the price.
       - For a strictly-positive (price/cost) target where the automatic skew
         test leaves the log-target off, the result recommends log_target="on".
 
@@ -961,65 +984,30 @@ async def train(
     registry = _get_registry()
 
     def _do_train() -> dict:
-        import pandas as pd
-
         from p2predict import auto_train, Serialize_Trained_Model, save_model
         from p2predict.feature_selection import (
+            choose_training_features,
             find_leaky_features,
-            find_no_variation_features,
-            get_most_predictable_features,
         )
         from p2predict.intervals import compute_calibration_residuals
         from p2predict.model_evals import evaluate_model
-        from p2predict.outliers import (
-            apply_feature_outlier_policy,
-            apply_outlier_policy,
-            describe_feature_outliers,
-        )
         from p2predict.prepare_data import prepare_data
-        from p2predict.trained_model_io import load_csv_file
         from p2predict.training import (
             extract_feature_importances,
             resolve_log_target,
             start_training,
         )
 
-        path = Path(csv_path)
-        if not path.exists():
-            raise FileNotFoundError(f"CSV not found: {csv_path}")
-
-        data = load_csv_file(csv_path)
-        rows_loaded = len(data)
-
-        if target not in data.columns:
-            raise ValueError(
-                f"Target '{target}' not in CSV columns: {list(data.columns)}"
-            )
-
-        data = data[data[target].notna()]
-        if data.empty:
-            raise ValueError(f"All rows have missing values in target '{target}'.")
-
-        data, _ = apply_outlier_policy(data, target, policy=outlier_policy)
-
-        num_candidates = [
-            c for c in data.columns if c != target and pd.api.types.is_numeric_dtype(data[c])
-        ]
-        # Inspect BEFORE applying the policy, so the report describes the data
-        # the user actually handed us rather than the treated copy.
-        feature_quality = describe_feature_outliers(data, num_candidates)
+        prepared = _prepare_training_data(
+            csv_path, target, outlier_policy, feature_outlier_policy
+        )
+        data = prepared["data"]
+        uncapped_data = prepared["uncapped_data"]
+        rows_loaded = prepared["rows_loaded"]
+        feature_quality = prepared["feature_quality"]
         # Under winsorize the model learns and applies the caps itself, so
         # training runs on the uncapped rows; see FeatureClipper.
         winsorize_features = feature_outlier_policy == "winsorize"
-        uncapped_data = data
-        data, feature_outlier_summary = apply_feature_outlier_policy(
-            data, num_candidates, policy=feature_outlier_policy
-        )
-        feature_quality["policy_applied"] = feature_outlier_summary["applied"]
-
-        low_vars = find_no_variation_features(data)
-        if low_vars:
-            data = data.drop(low_vars, axis=1)
 
         warnings: list[str] = []
         for flagged in feature_quality["extreme_magnitude"]:
@@ -1032,45 +1020,32 @@ async def train(
                 "handle it."
             )
         leaky = find_leaky_features(data, target)
-        leaky_names = {d["feature"] for d in leaky}
 
-        if features:
-            missing = [f for f in features if f not in data.columns]
-            if missing:
-                raise ValueError(f"Requested features not in CSV: {missing}")
-
-            explicit_leaky = [d for d in leaky if d["feature"] in set(features)]
-            if explicit_leaky and not allow_leaky_features:
-                # Stop and ask rather than train a confidently-wrong model.
-                return {
-                    "status": "needs_confirmation",
-                    "reason": "target_leakage",
-                    "message": (
-                        "Some requested features look like target leakage — a "
-                        "near-duplicate of the value you're predicting, not a "
-                        "real spec. Training on them produces a model that looks "
-                        "near-perfect but is useless on real parts."
-                    ),
-                    "leaky_features": explicit_leaky,
-                    "to_proceed": (
-                        "Re-call train without these features (recommended), or "
-                        "pass allow_leaky_features=true to override deliberately."
-                    ),
-                }
-            selected = list(features)
-        else:
-            ranked = get_most_predictable_features(data, target, output_only_headers=True)
-            # Safe default: never auto-select a leakage column.
-            ranked = [c for c in ranked.tolist() if c not in leaky_names]
-            n_ranked = len(ranked)
-            cap = max(2, min(n_ranked, max_features))
-            selected = ranked[:cap]
-            if leaky_names:
-                warnings.append(
-                    "Auto-excluded likely target-leakage column(s) from feature "
-                    f"selection: {sorted(leaky_names)}. "
-                    + "; ".join(d["reason"] for d in leaky)
-                )
+        # Same chooser as the CLI and propose_training_plan: auto-selection
+        # never picks a leakage, ID-like or single-value column.
+        choice = choose_training_features(
+            data, target, features, max_features=max_features,
+            allow_leaky=allow_leaky_features,
+        )
+        if choice.leaky_requested:
+            # Stop and ask rather than train a confidently-wrong model.
+            return {
+                "status": "needs_confirmation",
+                "reason": "target_leakage",
+                "message": (
+                    "Some requested features look like target leakage — a "
+                    "near-duplicate of the value you're predicting, not a "
+                    "real spec. Training on them produces a model that looks "
+                    "near-perfect but is useless on real parts."
+                ),
+                "leaky_features": choice.leaky_requested,
+                "to_proceed": (
+                    "Re-call train without these features (recommended), or "
+                    "pass allow_leaky_features=true to override deliberately."
+                ),
+            }
+        selected = choice.selected
+        warnings.extend(choice.notes)
 
         training_data = (
             uncapped_data.loc[data.index, data.columns] if winsorize_features else data
@@ -1189,7 +1164,8 @@ async def train(
     except FileNotFoundError as e:
         return _error("file_not_found", str(e))
     except ValueError as e:
-        return _error("train_error", str(e))
+        # FeatureChoiceError carries a specific code (e.g. no_usable_features).
+        return _error(getattr(e, "code", "train_error"), str(e))
     except Exception as e:
         return _error("internal_error", str(e))
 

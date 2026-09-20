@@ -34,6 +34,9 @@ from p2predict.outliers import (
     apply_outlier_policy,
 )
 from p2predict.feature_selection import (
+    FeatureChoiceError,
+    choose_training_features,
+    find_auto_exclusions,
     find_high_variation_features,
     find_no_variation_features,
     get_most_predictable_features,
@@ -126,6 +129,10 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
                    "Default 6 preserves prior behaviour. Pass a higher number (or use -tf to pick "
                    "features explicitly) when ranking suggests more columns are predictive. "
                    "Ignored in expert mode (the user selects features interactively or via -tf).")
+@click.option("--allow-leaky-features", is_flag=True, default=False,
+              help="Train on a -tf column even though it looks like target leakage "
+                   "(a near-duplicate of the price, e.g. the price at another "
+                   "quantity break). Without this, such a column aborts training.")
 @click.option("--tune/--no-tune", default=None,
               help="Expert mode only: run HPO on the chosen algorithm and save the tuned model.")
 @click.option("--outliers", type=click.Choice(list(OUTLIER_POLICIES)), default="warn",
@@ -162,7 +169,7 @@ def _feature_outlier_summary_block(summary: dict) -> dict:
                    "Rich-formatted output. Useful for agents and scripts. "
                    "See p2predict.json_output for the schema.")
 def train(input, target, expert, algorithm, verbose, interactive, training_features,
-          budget, max_features, tune, outliers, feature_outliers, time_column,
+          budget, max_features, allow_leaky_features, tune, outliers, feature_outliers, time_column,
           log_target_mode, report, json_mode):
 
     # Redirect Rich to /dev/null under --json so any console.print that
@@ -337,6 +344,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
     feature_data = data.drop(columns=[time_column]) if time_column else data
     high_vars = find_high_variation_features(feature_data)
     low_vars = find_no_variation_features(feature_data)
+    exclusions = find_auto_exclusions(feature_data, target)
 
     if not json_mode:
         print("")
@@ -345,55 +353,87 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
         console.print(f"High variation (potentially noisy): {high_vars}")
         print("")
 
-    if interactive and (low_vars or high_vars):
-        to_remove = questionary.checkbox(
-            "Which features would you like to remove? ", choices=low_vars + high_vars
-        ).ask()
-        if to_remove:
+    # Interactive: show the same columns auto-mode would leave out, pre-ticked
+    # with the reason, plus wide-ranging numeric columns (usually real specs)
+    # unticked. The user's final choice replaces the automatic screen.
+    auto_exclude = True
+    if interactive:
+        excluded_names = {e["column"] for e in exclusions}
+        choices = [
+            questionary.Choice(f"{e['column']} — {e['reason']}", value=e["column"], checked=True)
+            for e in exclusions
+        ] + [
+            questionary.Choice(f"{c} — varies a lot, but numeric specs often do", value=c)
+            for c in high_vars
+            if c != target and c not in excluded_names
+        ]
+        if choices:
+            to_remove = questionary.checkbox(
+                "Which features would you like to remove? ", choices=choices
+            ).ask() or []
             data = data.drop(to_remove, axis=1)
-    elif low_vars:
-        data = data.drop(low_vars, axis=1)
+            auto_exclude = False
 
     feature_data = data.drop(columns=[time_column]) if time_column else data
 
-    if not training_features:
-        if expert:
-            best_features_ranked = get_most_predictable_features(feature_data, target)
-            if not json_mode:
-                console.print("Best features detected for prediction:", style="bold white")
-                print("")
-                print_dataframe(best_features_ranked)
-
-            options_list = [c for c in feature_data.columns.tolist() if c != target]
-            selected_columns = questionary.checkbox(
-                "Select the features for training: ", choices=options_list
-            ).ask()
-            if not selected_columns:
-                _abort(json_mode, console, "missing_features",
-                       "You must select training features.")
-        else:
-            ranked = get_most_predictable_features(feature_data, target, output_only_headers=True)
-            n_ranked = len(ranked)
-            cap = max(2, min(n_ranked, max_features))
-            selected_columns = ranked.head(cap).tolist()
-            if not json_mode:
-                console.print(
-                    f"Auto-selected features for training: {selected_columns}", style="bold blue"
-                )
-                if n_ranked > cap:
-                    console.print(
-                        f"Auto-selected {cap} of {n_ranked} features "
-                        f"(use --max-features to override or pass -tf).",
-                        style="italic",
-                    )
-                print("")
-    else:
+    requested = None
+    allow_leaky = allow_leaky_features
+    if training_features:
         requested = [c.strip() for c in training_features.split(",")]
-        missing = [c for c in requested if c not in data.columns]
-        if missing:
-            _abort(json_mode, console, "unknown_features",
-                   f"requested features not in CSV: {missing}")
-        selected_columns = requested
+    elif expert:
+        best_features_ranked = get_most_predictable_features(feature_data, target)
+        if not json_mode:
+            console.print("Best features detected for prediction:", style="bold white")
+            print("")
+            print_dataframe(best_features_ranked)
+
+        reasons = {e["column"]: e["reason"] for e in exclusions}
+        options = [
+            questionary.Choice(
+                f"{c} — not recommended: {reasons[c]}" if c in reasons else c, value=c
+            )
+            for c in feature_data.columns.tolist() if c != target
+        ]
+        requested = questionary.checkbox(
+            "Select the features for training: ", choices=options
+        ).ask()
+        if not requested:
+            _abort(json_mode, console, "missing_features",
+                   "You must select training features.")
+        # The list showed any leakage warning next to the column itself.
+        allow_leaky = True
+
+    # One chooser for every path (CLI auto, expert, -tf, and the MCP tools):
+    # auto-selection never picks a leakage, ID-like or single-value column.
+    try:
+        choice = choose_training_features(
+            feature_data, target, requested, max_features=max_features,
+            allow_leaky=allow_leaky, auto_exclude=auto_exclude,
+        )
+    except FeatureChoiceError as e:
+        _abort(json_mode, console, e.code, str(e))
+    if choice.leaky_requested:
+        _abort(json_mode, console, "target_leakage",
+               "; ".join(f"'{d['feature']}' {d['reason']}" for d in choice.leaky_requested)
+               + " Remove it from -tf, or pass --allow-leaky-features to train on it anyway.")
+    for note in choice.notes:
+        warnings.append(note)
+        if not json_mode:
+            console.print(note, style="yellow")
+    selected_columns = choice.selected
+
+    if requested is None and not json_mode:
+        n_candidates = feature_data.shape[1] - 1 - len(choice.excluded)
+        console.print(
+            f"Auto-selected features for training: {selected_columns}", style="bold blue"
+        )
+        if n_candidates > len(selected_columns):
+            console.print(
+                f"Auto-selected {len(selected_columns)} of {n_candidates} features "
+                f"(use --max-features to override or pass -tf).",
+                style="italic",
+            )
+        print("")
 
     target_column = target
 
@@ -681,6 +721,7 @@ def train(input, target, expert, algorithm, verbose, interactive, training_featu
             "high_variation": list(high_vars),
         },
         "features_selected": list(selected_columns),
+        "excluded_features": list(choice.excluded),
         "algorithm_selected": algorithm,
         "log_target": bool(log_target),
         "log_target_decision": log_target_decision,

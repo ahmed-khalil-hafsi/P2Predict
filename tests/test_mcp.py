@@ -498,6 +498,94 @@ async def test_propose_training_plan_flags_leakage(registry, tmp_path, synthetic
     assert result["questions_for_the_user"]
 
 
+def _id_column_csv(tmp_path, synthetic_parts):
+    df = synthetic_parts.copy()
+    df.insert(0, "CPN", [f"CP{i}-{i * 7919}" for i in range(len(df))])
+    csv = tmp_path / "with_cpn.csv"
+    df.to_csv(csv, index=False)
+    return csv
+
+
+@pytest.mark.asyncio
+async def test_train_auto_excludes_id_like_column(registry, tmp_path, synthetic_parts):
+    csv = _id_column_csv(tmp_path, synthetic_parts)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+    ))
+    assert "error" not in result
+    assert "CPN" not in result["features"]
+    assert any("CPN" in w for w in result["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_propose_training_plan_and_train_pick_the_same_specs(
+    registry, tmp_path, synthetic_parts
+):
+    csv = _id_column_csv(tmp_path, synthetic_parts)
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    trained = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+    ))
+    assert any(e["column"] == "CPN" and e["kind"] == "id_like"
+               for e in plan["i_am_leaving_out"])
+    assert sorted(plan["i_will_use_these_specs"]) == sorted(trained["features"])
+
+
+@pytest.mark.asyncio
+async def test_train_explicit_constant_feature_is_left_out_with_a_note(
+    registry, tmp_path, synthetic_parts
+):
+    """Used to fail with the false message 'Requested features not in CSV'."""
+    df = synthetic_parts.copy()
+    df["Plant"] = "SG01"
+    csv = tmp_path / "constant.csv"
+    df.to_csv(csv, index=False)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", features=["Weight", "Region", "Plant"],
+        algorithm="ridge", budget="fast",
+    ))
+    assert "error" not in result
+    assert result["features"] == ["Weight", "Region"]
+    assert any("Plant" in w and "same value" in w for w in result["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_plan_applies_the_same_outlier_policies_as_train(
+    registry, tmp_path, synthetic_parts
+):
+    """With drop, the plan must screen the same rows `train` will see."""
+    df = synthetic_parts.copy()
+    df.insert(0, "CPN", [f"CP{i}-{i * 7919}" for i in range(len(df))])
+    df.loc[:4, "Price"] = df["Price"].max() * 50  # target outliers to drop
+    csv = tmp_path / "outliers.csv"
+    df.to_csv(csv, index=False)
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price", outlier_policy="drop",
+    ))
+    trained = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+        outlier_policy="drop",
+    ))
+    assert "error" not in plan and "error" not in trained
+    assert sorted(plan["i_will_use_these_specs"]) == sorted(trained["features"])
+
+
+@pytest.mark.asyncio
+async def test_train_reports_no_usable_features_code(registry, tmp_path):
+    df = pd.DataFrame({
+        "CPN": [f"CP{i}" for i in range(30)],
+        "Price": np.linspace(1, 3, 30),
+    })
+    csv = tmp_path / "ids_only.csv"
+    df.to_csv(csv, index=False)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+    ))
+    assert result["error"]["code"] == "no_usable_features"
+
+
 @pytest.mark.asyncio
 async def test_propose_training_plan_bad_target(registry, tmp_path, synthetic_parts):
     csv = tmp_path / "clean.csv"

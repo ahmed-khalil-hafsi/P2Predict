@@ -475,3 +475,185 @@ def test_predict_cli_points_train_subcommand_to_p2predict_train():
     result = CliRunner().invoke(predict_cli, ["train", "-i", "missing.csv"])
     assert result.exit_code == 2
     assert "p2predict-train" in result.output
+
+
+def _csv_with_part_numbers(tmp_path, synthetic_parts):
+    """Mirrors examples/example.csv: a unique part-number column and a column
+    with one value in every row, next to fewer real specs than --max-features."""
+    df = synthetic_parts.copy()
+    df.insert(0, "CPN", [f"CP{i}-{i * 7919}" for i in range(len(df))])
+    df["Supplier"] = "supplier A"
+    p = tmp_path / "with_cpn.csv"
+    df.to_csv(p, index=False)
+    return str(p)
+
+
+def test_auto_mode_headless_never_selects_id_like_column(
+    tmp_path, monkeypatch, synthetic_parts
+):
+    """Regression: headless auto-mode used to train on the part number because
+    only constant columns were dropped and the feature cap never bit. The saved
+    model then demanded a CPN at predict time and crashed."""
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli, ["-i", csv_path, "-t", "Price", "-b", "fast", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert "CPN" not in doc["features_selected"]
+    assert "Supplier" not in doc["features_selected"]
+    assert any("CPN" in w for w in doc["warnings"])
+
+    predict_result = runner.invoke(
+        predict_cli,
+        ["-m", doc["model_path"], "-p", "Weight:25,Region:EU,Size:Standard", "--json"],
+    )
+    assert predict_result.exit_code == 0, predict_result.output
+
+
+def test_explicit_features_keep_id_like_column(tmp_path, monkeypatch, synthetic_parts):
+    """-tf is the user's decision: an ID-like column they name is used."""
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast",
+         "-tf", "Weight,Region,CPN", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "CPN" in _parse_json(result.output)["features_selected"]
+
+
+def test_explicit_constant_feature_is_left_out_with_a_note(
+    tmp_path, monkeypatch, synthetic_parts
+):
+    """A requested column with one value everywhere used to abort with the
+    false message 'not in CSV'; now it is left out and training proceeds."""
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast",
+         "-tf", "Weight,Region,Supplier,Size", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    doc = _parse_json(result.output)
+    assert doc["features_selected"] == ["Weight", "Region", "Size"]
+    assert any("Supplier" in w and "same value" in w for w in doc["warnings"])
+
+
+def _csv_with_leaky_column(tmp_path, synthetic_parts):
+    df = synthetic_parts.copy()
+    df["Price_at_1k"] = df["Price"] * 0.5 + np.random.default_rng(0).normal(0, 0.005, len(df))
+    p = tmp_path / "leaky.csv"
+    df.to_csv(p, index=False)
+    return str(p)
+
+
+def test_explicit_leaky_feature_aborts_like_mcp(tmp_path, monkeypatch, synthetic_parts):
+    """-tf with a leakage column stops, as MCP `train` does, instead of quietly
+    training a model that looks near-perfect and is useless on real parts."""
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_leaky_column(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast",
+         "-tf", "Weight,Price_at_1k", "--json"],
+    )
+    assert result.exit_code == 1
+    doc = _parse_json(result.output)
+    assert doc["error"]["code"] == "target_leakage"
+    assert "Price_at_1k" in doc["error"]["message"]
+    assert not (tmp_path / "models").exists()
+
+
+def test_allow_leaky_features_overrides_the_guard(tmp_path, monkeypatch, synthetic_parts):
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_leaky_column(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli,
+        ["-i", csv_path, "-t", "Price", "-b", "fast",
+         "-tf", "Weight,Price_at_1k", "--allow-leaky-features", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Price_at_1k" in _parse_json(result.output)["features_selected"]
+
+
+def test_auto_mode_reports_excluded_features_in_json(tmp_path, monkeypatch, synthetic_parts):
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli, ["-i", csv_path, "-t", "Price", "-b", "fast", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    kinds = {e["column"]: e["kind"] for e in _parse_json(result.output)["excluded_features"]}
+    assert kinds == {"CPN": "id_like", "Supplier": "constant"}
+
+
+class _Answer:
+    def __init__(self, value):
+        self.value = value
+
+    def ask(self):
+        return self.value
+
+
+def test_interactive_mode_pre_ticks_the_same_exclusions(
+    tmp_path, monkeypatch, synthetic_parts
+):
+    """Interactive mode offers exactly what auto-mode would leave out,
+    pre-ticked, so accepting the defaults gives the headless result."""
+    import p2predict.cli.train as train_mod
+
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    offered = {}
+
+    def fake_checkbox(message, choices):
+        offered.update({c.value: c.checked for c in choices})
+        return _Answer([c.value for c in choices if c.checked])
+
+    monkeypatch.setattr(train_mod.questionary, "checkbox", fake_checkbox)
+    monkeypatch.setattr(train_mod.questionary, "confirm", lambda *a, **k: _Answer(False))
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli, ["-i", csv_path, "-t", "Price", "-b", "fast", "-c"]
+    )
+    assert result.exit_code == 0, result.output
+    assert offered == {"CPN": True, "Supplier": True}
+    selected_line = next(
+        line for line in result.output.splitlines()
+        if line.startswith("Auto-selected features for training:")
+    )
+    assert "CPN" not in selected_line and "Supplier" not in selected_line
+
+
+def test_cli_and_mcp_auto_pick_the_same_specs(tmp_path, monkeypatch, synthetic_parts):
+    """The harmonisation contract: one CSV, same specs on every surface."""
+    import asyncio
+
+    from p2predict.mcp import server as mcp_server
+    from p2predict.mcp.registry import ModelRegistry
+
+    monkeypatch.chdir(tmp_path)
+    csv_path = _csv_with_part_numbers(tmp_path, synthetic_parts)
+    runner = CliRunner()
+    result = runner.invoke(
+        train_cli, ["-i", csv_path, "-t", "Price", "-b", "fast", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    cli_features = _parse_json(result.output)["features_selected"]
+
+    (tmp_path / "mcp_models").mkdir()
+    monkeypatch.setattr(mcp_server, "_registry", ModelRegistry(tmp_path / "mcp_models"))
+    plan = json.loads(asyncio.run(
+        mcp_server.propose_training_plan(csv_path=csv_path, target="Price")
+    ))
+    assert sorted(plan["i_will_use_these_specs"]) == sorted(cli_features)

@@ -4,6 +4,18 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Fixed
+- **Headless auto-mode no longer trains on part numbers.** `p2predict-train` flagged a text column with almost every row unique (a part number, a description) as "High variation (potentially noisy)", then used it anyway: without `--interactive`, only single-value columns were dropped. On small files the `--max-features` cap (default 6) never cut anything, so the ID went straight into the model. Following the README on `examples/example.csv` did exactly this. The saved model then required a `CPN` value at predict time, and `p2predict -p ...` crashed with a raw traceback, even under `--json`. Models trained in auto-mode on a CSV with an ID column should be retrained; models trained with explicit features are unaffected.
+- **A single-value column named in `-tf` or MCP `features` no longer fails with "not in CSV".** The column is in the CSV; it was silently dropped earlier for having one value in every row. It is now left out with a note, and training continues.
+
+### Changed
+- **Feature choice now follows one set of rules on every training path.** The CLI (auto, expert and `-tf`) and the MCP `train` and `propose_training_plan` tools all go through `choose_training_features`. Before, the same CSV could get different specs on each path: `propose_training_plan` skipped ID columns but `train` did not, and the CLI screened neither IDs nor leakage.
+  - **Auto-selection** leaves out target-leakage columns, ID-like text columns and single-value columns, and says why (`warnings`, plus a new additive `excluded_features` list in the CLI's `--json`). Numeric columns that vary a lot stay selectable, since a spec like capacitance can legitimately span orders of magnitude.
+  - **Named features** are used as given, including ID-like ones. A named column that looks like target leakage now stops CLI training (`target_leakage` error) as it already did in MCP `train`. Pass `--allow-leaky-features` (CLI) or `allow_leaky_features=true` (MCP) to train on it anyway. **This can break a script that relied on `-tf` with a leaky column.**
+  - **`propose_training_plan` takes `outlier_policy` and `feature_outlier_policy`** and prepares the data exactly as `train` does, so the plan's specs match what `train` picks with the same arguments. Before, the plan always read the raw file.
+  - **Interactive mode** offers the same columns auto-mode would leave out, pre-ticked with the reason, so accepting the defaults gives the headless result. Expert mode's feature list marks those columns as not recommended.
+  - If nothing usable is left, training stops with `no_usable_features` instead of training on nothing.
+
 ## [v1.1.1] — 2026-09
 
 ### Fixed

@@ -67,7 +67,7 @@ Both commands ship full `--help` (`p2predict-train --help`, `p2predict --help`),
 p2predict-train --input examples/example.csv --target Price
 ```
 
-Auto-mode cross-validates Ridge, Random Forest, and XGBoost, picks the best, and saves the model.
+Auto-mode cross-validates Ridge, Random Forest, and XGBoost, picks the best, and saves the model. It picks up to `--max-features` spec columns itself, never choosing target-leakage columns, ID-like text columns (part numbers, descriptions) or single-value columns, and says what it left out. The MCP `train` and `propose_training_plan` tools use the same rules, so a CSV gets the same specs on every surface. Columns you name with `-tf` are used as given, except single-value ones, which are left out with a note; a leaky `-tf` column aborts unless you pass `--allow-leaky-features`.
 
 | Flag | Description |
 |---|---|
@@ -79,6 +79,7 @@ Auto-mode cross-validates Ridge, Random Forest, and XGBoost, picks the best, and
 | `--verbose`, `-v` | Verbose progress output |
 | `--training_features`, `-tf` | Comma-separated features to use |
 | `--max-features` | Max features in auto mode (default 6) |
+| `--allow-leaky-features` | Train on a `-tf` column that looks like target leakage (otherwise aborts) |
 | `--budget`, `-b` | HPO budget: `fast` (default) or `thorough` |
 | `--tune / --no-tune` | Expert mode: run hyperparameter tuning |
 | `--outliers` | Target outlier policy: `warn`, `drop`, `winsorize`, `keep` |
@@ -127,17 +128,17 @@ Examples:
 
 ```bash
 # Point prediction
-p2predict -m models/my_model.model -p "Weight:25,Region:EU,Supplier:A,Size:Standard"
+p2predict -m models/my_model.model -p "Weight:25,Region:EU,Size:Standard"
 
 # With likely range and SHAP explanation
 p2predict -m models/my_model.model \
-  -p "Weight:25,Region:EU,Supplier:A,Size:Standard" \
+  -p "Weight:25,Region:EU,Size:Standard" \
   --interval 90 --explain
 
-# What-if: switching supplier
+# What-if: sourcing from CN instead of EU
 p2predict -m models/my_model.model \
-  -p "Weight:25,Region:EU,Supplier:A,Size:Standard" \
-  --whatif "Supplier:B" --interval 90
+  -p "Weight:25,Region:EU,Size:Standard" \
+  --whatif "Region:CN" --interval 90
 
 # Batch from CSV
 p2predict -m models/my_model.model -i rfq_lines.csv --interval 90
@@ -276,7 +277,7 @@ Train CLI JSON shape (`cv_scores`, `evaluation`, `feature_importances`, `model_p
 - **Automatic log-target transform** for skewed positive targets (overridable with `--log-target`)
 - **Outlier handling** on target and features (Tukey IQR), four policies each
 - **Time-aware CV** via `--time-column`
-- Auto-detection of predictive features (RF baseline) and low-information features
+- Auto-detection of predictive features (RF baseline) and low-information features. Auto-mode never selects target-leakage, ID-like text (>90% unique) or single-value columns; the same rule applies on the CLI and the MCP tools (`find_auto_exclusions`)
 - `TargetEncoder` for tree categoricals; `OneHotEncoder + StandardScaler` for linear
 - Expert mode with algorithm selection and HPO control
 - Model-quality PDF report (`--report`)
