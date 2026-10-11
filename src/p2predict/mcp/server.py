@@ -15,7 +15,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from p2predict.mcp.registry import ModelRegistry
+from p2predict.mcp.registry import ModelRegistry, safe_filename_part
 
 # NOTE: the "INTERPRETING OUTPUT" rules below are a condensed, self-contained
 # mirror of "The interpretation rules" in .claude/skills/p2predict/SKILL.md.
@@ -1123,7 +1123,7 @@ async def train(
             importances_block = []
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_filename = f"{algo}_{target}_{timestamp}.model"
+        model_filename = f"{algo}_{safe_filename_part(target)}_{timestamp}.model"
         model_path = registry.models_dir / model_filename
         registry.models_dir.mkdir(parents=True, exist_ok=True)
         save_model(model_metadata, str(model_path))

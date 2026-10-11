@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from p2predict.model_utils import extract_feature_info, inner_pipeline
 from p2predict.trained_model_io import LoadModel
+
+
+_PATH_UNSAFE = re.compile(r"[\\/\x00]+")
+
+
+def safe_filename_part(text: str) -> str:
+    """Make ``text`` safe to embed in a file name (no separators, no NUL).
+
+    Used for values that come from user data, e.g. a CSV column name that ends
+    up in a saved model's file name. Spaces and other ordinary characters are
+    left alone so existing model IDs stay stable.
+    """
+    return _PATH_UNSAFE.sub("_", text)
 
 
 @dataclass
@@ -105,7 +119,22 @@ class ModelRegistry:
         self._cache: dict[str, dict] = {}
 
     def _model_path(self, model_id: str) -> Path:
-        return self.models_dir / f"{model_id}.model"
+        """Resolve a model ID to its file, refusing anything outside models_dir.
+
+        ``model_id`` arrives from an MCP tool call, and ``.model`` files are
+        pickles, so an ID like ``../../elsewhere/x`` must never reach a file
+        outside the models folder. Raised as FileNotFoundError so every tool's
+        existing ``model_not_found`` handling covers it.
+        """
+        not_found = FileNotFoundError(
+            f"No model '{model_id}' found in {self.models_dir}"
+        )
+        if not model_id or _PATH_UNSAFE.search(model_id):
+            raise not_found
+        path = self.models_dir / f"{model_id}.model"
+        if path.parent.resolve() != self.models_dir.resolve():
+            raise not_found
+        return path
 
     def scan(self) -> list[ModelInfo]:
         """List all models in the directory with their metadata."""

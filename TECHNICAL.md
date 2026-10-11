@@ -53,6 +53,8 @@ Entry point: `p2predict-mcp --models-dir /path/to/models`
 
 All 12 tools are documented in [INSTALL.md](INSTALL.md#what-the-agent-can-do-mcp-tools). The server runs over stdio — no network, no data leaves disk. CPU-bound calls (predict, explain, train) run via `asyncio.to_thread()` to keep the event loop responsive.
 
+**Only load `.model` files you trust.** A `.model` file is a joblib (pickle) archive, as for every scikit-learn and XGBoost model, and loading one can run code. Load models you trained yourself or received from someone you trust, never one from an unknown source. The server only reads `.model` files inside `--models-dir`: a `model_id` containing a path separator is rejected as `model_not_found`, and the target column name is made filename-safe when a trained model is saved.
+
 Source: [`src/p2predict/mcp/server.py`](src/p2predict/mcp/server.py)
 
 ---

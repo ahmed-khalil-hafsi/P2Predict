@@ -696,6 +696,59 @@ def test_registry_model_not_found(registry):
         registry.load("nonexistent_model")
 
 
+class _Boom:
+    """Pickles to a payload that drops a marker file when loaded."""
+
+    def __init__(self, marker):
+        self.marker = marker
+
+    def __reduce__(self):
+        return (Path(self.marker).write_text, ("executed",))
+
+
+@pytest.mark.parametrize(
+    "bad_id",
+    ["../outside", "../../outside", "sub/../../outside", "..\\outside", "", "a\x00b"],
+)
+def test_registry_rejects_model_id_outside_models_dir(registry, tmp_path, bad_id):
+    # A real pickle sits next to (not inside) the models folder; loading it
+    # would run code, so the ID must be refused before any file is opened.
+    marker = tmp_path / "pwned.txt"
+    joblib.dump(_Boom(marker), tmp_path / "outside.model")
+    with pytest.raises(FileNotFoundError):
+        registry.load(bad_id)
+    assert not marker.exists()
+
+
+@pytest.mark.asyncio
+async def test_predict_rejects_traversal_model_id(registry, tmp_path):
+    joblib.dump({"model": None}, tmp_path / "outside.model")
+    result = _parse(await mcp_server.predict("../outside", SAMPLE_FEATURES))
+    assert result["error"]["code"] == "model_not_found"
+
+
+@pytest.mark.asyncio
+async def test_train_target_with_path_separators_stays_in_models_dir(
+    registry, tmp_path, synthetic_parts
+):
+    df = synthetic_parts.rename(columns={"Price": "../../Price/Unit"})
+    csv = tmp_path / "train_data.csv"
+    df.to_csv(csv, index=False)
+    result = _parse(await mcp_server.train(
+        csv_path=str(csv),
+        target="../../Price/Unit",
+        features=["Weight", "Region", "Supplier", "Size"],
+        algorithm="ridge",
+        budget="fast",
+    ))
+    assert "error" not in result
+    saved = Path(result["model_path"])
+    assert saved.parent == registry.models_dir
+    assert saved.exists()
+    assert result["model_id"] in [m.model_id for m in registry.scan()]
+    assert all(p.parent == registry.models_dir for p in tmp_path.rglob("*.model"))
+
+
 # ---------------------------------------------------------------------------
 # --print-config
 # ---------------------------------------------------------------------------
