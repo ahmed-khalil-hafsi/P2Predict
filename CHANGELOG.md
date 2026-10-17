@@ -4,11 +4,17 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.2.0] — 2026-10
+
+### Security
+- **The MCP server can no longer be pointed at a model file outside its models folder.** A `model_id` is turned into `<models-dir>/<model_id>.model`, and `.model` files are pickles, so an id such as `../../elsewhere/x` could load, and run, a file from anywhere on disk. Ids containing a path separator, or resolving outside `--models-dir`, are now refused as `model_not_found`. Training also put the CSV's target column name into the saved file name unescaped; separators in it are now replaced with `_`, so a model can never be written outside the folder. Exploiting either needed a hostile caller or a hostile CSV header, so the practical risk was low. Existing model ids are unchanged. `TECHNICAL.md` now also says to load `.model` files only from sources you trust.
+
 ### Fixed
 - **Headless auto-mode no longer trains on part numbers.** `p2predict-train` flagged a text column with almost every row unique (a part number, a description) as "High variation (potentially noisy)", then used it anyway: without `--interactive`, only single-value columns were dropped. On small files the `--max-features` cap (default 6) never cut anything, so the ID went straight into the model. Following the README on `examples/example.csv` did exactly this. The saved model then required a `CPN` value at predict time, and `p2predict -p ...` crashed with a raw traceback, even under `--json`. Models trained in auto-mode on a CSV with an ID column should be retrained; models trained with explicit features are unaffected.
 - **A single-value column named in `-tf` or MCP `features` no longer fails with "not in CSV".** The column is in the CSV; it was silently dropped earlier for having one value in every row. It is now left out with a note, and training continues.
 
 ### Changed
+- **`requirements.txt` now installs from `pyproject.toml` (`.[mcp]`).** It had drifted to v0.4-era pins (numpy 1.24, xgboost 1.7, `shap<0.50`) and one unpinned line, so it no longer matched what `pip install p2predict[mcp]` gives a customer. Packaging is unaffected.
 - **Feature choice now follows one set of rules on every training path.** The CLI (auto, expert and `-tf`) and the MCP `train` and `propose_training_plan` tools all go through `choose_training_features`. Before, the same CSV could get different specs on each path: `propose_training_plan` skipped ID columns but `train` did not, and the CLI screened neither IDs nor leakage.
   - **Auto-selection** leaves out target-leakage columns, ID-like text columns and single-value columns, and says why (`warnings`, plus a new additive `excluded_features` list in the CLI's `--json`). Numeric columns that vary a lot stay selectable, since a spec like capacitance can legitimately span orders of magnitude.
   - **Named features** are used as given, including ID-like ones. A named column that looks like target leakage now stops CLI training (`target_leakage` error) as it already did in MCP `train`. Pass `--allow-leaky-features` (CLI) or `allow_leaky_features=true` (MCP) to train on it anyway. **This can break a script that relied on `-tf` with a leaky column.**
