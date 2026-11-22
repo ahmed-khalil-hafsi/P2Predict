@@ -4,6 +4,15 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+## [v1.2.1] — 2026-11
+
+### Fixed
+- **MCP `train` and `propose_training_plan` now check only the specs the model trains on for outliers.** The feature-outlier report and `feature_outlier_policy` covered every numeric column except the price, including target-leakage, ID-like and unselected columns. A spike in a column the model never sees could be reported to the user and, under `feature_outlier_policy="drop"`, remove rows from training. Specs are now chosen first and only the chosen numeric specs are checked. Under `winsorize` or `drop`, MCP auto-selection now ranks features on the data as loaded rather than the capped copy, so the picked specs can differ slightly from v1.2.0; the CLI is unchanged.
+- **`p2predict-train` no longer floods the console with a scikit-learn `FutureWarning`.** scikit-learn 1.9 deprecated `TargetEncoder.random_state`, which P2Predict used to seed the encoder's folds, and warned on every fit (99 times in one ordinary training run). The seed now goes through the form 1.9 expects; older scikit-learn keeps the old path. Encodings and trained models are unchanged. Without this, training tree models would have failed outright once scikit-learn 1.11 removes the argument.
+
+### Added
+- **MCP `train` and `propose_training_plan` report price outliers.** A new `price_outliers` block gives the count, the bounds and the policy applied, and under the default `outlier_policy="warn"` a plain-language line in `warnings` tells the user how many prices sit far outside the rest. `propose_training_plan` gains a `warnings` list for it. Both are additive.
+
 ## [v1.2.0] — 2026-10
 
 ### Security
