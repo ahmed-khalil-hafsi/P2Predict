@@ -10,7 +10,7 @@ readme = "README.md"
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0-with-Internal-Use-Exception"
 license-files = ["LICENSE"]
 authors = [{name = "Ahmed Khalil Hafsi"}]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.15"
 keywords = [
     "procurement",
     "price-prediction",
@@ -30,7 +30,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",

@@ -19,7 +19,7 @@ I am assuming that most users are managers and analysts in large global companie
 | **Windows** | **No.** Python installs "just for you", into your own user folder. |
 | **Mac** | **Once**, to install Python itself. Everything after that is admin-free. |
 
-Why the Mac needs it: macOS ships with Python 3.9, which is too old for P2Predict (it needs 3.10 or newer), so you have to install a current version, and Apple's installer asks for an admin password.
+Why the Mac needs it: macOS ships with Python 3.9, which is too old for P2Predict (it needs 3.11 or newer), so you have to install a current version, and Apple's installer asks for an admin password.
 
 If you don't have an admin password on your Mac, ask IT to install **Python 3.12 from python.org** — this is a standard, signed installer. Then start at step 2.
 
@@ -32,7 +32,7 @@ If you don't have an admin password on your Mac, ask IT to install **Python 3.12
 ## Step 1 — Install Python
 
 1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
-2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.10 to 3.14 works, and 3.12 is the safest, best-tested choice.
+2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.11 to 3.14 works, and 3.12 is the safest, best-tested choice.
 3. Open the downloaded `.exe`.
 4. At the bottom of the first window, tick the box that says **"Add python.exe to PATH"** *before* clicking anything else.
 
@@ -54,7 +54,7 @@ Check Python arrived:
 python --version
 ```
 
-You want `Python 3.12.x` (or any number 3.10 and above). If nothing happens, or the Microsoft Store opens, see [Troubleshooting](#troubleshooting).
+You want `Python 3.12.x` (or any number 3.11 and above). If nothing happens, or the Microsoft Store opens, see [Troubleshooting](#troubleshooting).
 
 ## Step 3 — Create a home for P2Predict
 
@@ -97,7 +97,7 @@ If it prints `p2predict 1.0.0` (or a higher number), you're done installing. Now
 ## Step 1 — Install Python
 
 1. Go to **[python.org/downloads](https://www.python.org/downloads/)**.
-2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.10 to 3.14 works, and 3.12 is the safest, best-tested choice.
+2. **Do not click the big yellow button.** It installs the *newest* Python release, which P2Predict's components often don't support until a few months after it comes out. Instead, scroll down to **"Looking for a specific release?"** and download the latest **Python 3.12** — anything from 3.11 to 3.14 works, and 3.12 is the safest, best-tested choice.
 3. Open the downloaded `.pkg` file and click **Continue → Continue → Agree → Install**.
 4. Enter your Mac password when asked.
 5. When it finishes, a Finder window may pop open. You can close it.
@@ -116,7 +116,7 @@ Check Python arrived:
 python3 --version
 ```
 
-You want `Python 3.12.x` (or any number 3.10 and above). If you get an error, see [Troubleshooting](#troubleshooting).
+You want `Python 3.12.x` (or any number 3.11 and above). If you get an error, see [Troubleshooting](#troubleshooting).
 
 ## Step 3 — Create a home for P2Predict
 
@@ -344,7 +344,7 @@ That's a Windows placeholder, not real Python. Install Python from [python.org](
 
 ### `requires a different Python` / `Could not find a version that satisfies the requirement p2predict` — or `Failed building wheel for shap` / `Microsoft Visual C++ 14.0 or greater is required`
 
-You installed too **new** a version of Python — the big yellow button on python.org always installs the very newest release, and P2Predict supports **Python 3.10 to 3.14** (not newer yet). Depending on your pip version you'll see either a clean *"requires a different Python"* refusal, or — on older pip — pip trying to *build* a component from source and failing for lack of a C++ compiler. Same cause either way.
+You installed too **new** a version of Python — the big yellow button on python.org always installs the very newest release, and P2Predict supports **Python 3.11 to 3.14** (not newer yet). Depending on your pip version you'll see either a clean *"requires a different Python"* refusal, or — on older pip — pip trying to *build* a component from source and failing for lack of a C++ compiler. Same cause either way.
 
 **Don't install a compiler.** Use a supported Python (**3.12 is safest**):
 
@@ -368,7 +368,7 @@ You installed too **new** a version of Python — the big yellow button on pytho
    ~/P2Predict/venv/bin/pip install "p2predict[mcp]"
    ```
 
-Check what you have with `python --version` (Mac: `python3 --version`). Anything from 3.10 to 3.14 works; newer does not yet.
+Check what you have with `python --version` (Mac: `python3 --version`). Anything from 3.11 to 3.14 works; newer does not yet.
 
 ### python.org is blocked on my company network
 

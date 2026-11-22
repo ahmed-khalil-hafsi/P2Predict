@@ -4,6 +4,9 @@ All notable changes to P2Predict are recorded here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Changed
+- **Python 3.10 is no longer supported; the minimum is now 3.11 (`requires-python = ">=3.11,<3.15"`).** Python 3.10 stopped getting security fixes in October 2026, and Pillow (pulled in by matplotlib for charts) fixed a batch of security advisories only in 13.0.0, which needs Python 3.11 or newer, so a 3.10 install was stuck on an affected Pillow. P2Predict never opens image files itself, so the practical exposure was low. Users on 3.10 keep getting v1.2.1 from pip; upgrading Python to 3.11–3.14 picks up this release. The install smoke test and training workflow now use 3.11 as the floor, and `INSTALL.md` says 3.11 to 3.14. No API or behaviour change, and models remain interchangeable across supported Pythons.
+
 ## [v1.2.1] — 2026-11
 
 ### Fixed
