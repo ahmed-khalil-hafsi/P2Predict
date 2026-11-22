@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
@@ -21,6 +23,12 @@ _NAN_NATIVE = {"xgboost"}
 # fixes in v0.9.x restored elsewhere.
 _TARGET_ENCODER_FOLDS = 5
 _TARGET_ENCODER_SEED = 0
+# scikit-learn 1.9+ marks TargetEncoder.random_state as deprecated (its default
+# becomes the string "deprecated") and wants the seed on a CV splitter instead.
+_TARGET_ENCODER_TAKES_SPLITTER = (
+    inspect.signature(TargetEncoder.__init__).parameters["random_state"].default
+    == "deprecated"
+)
 
 
 class FeatureClipper(TransformerMixin, BaseEstimator):
@@ -75,9 +83,12 @@ class _AdaptiveTargetEncoder(TargetEncoder):
     selection. ``transform`` is unaffected — it always uses the full-data
     category means computed by ``fit``.
 
-    ``cv`` is set as a plain int (not a CV splitter): scikit-learn 1.5–1.8
-    constrain ``TargetEncoder.cv`` to an int, and the fold shuffle is seeded
-    via the encoder's own ``random_state`` for cross-version reproducibility.
+    The fold shuffle is seeded so training is reproducible. scikit-learn
+    1.5–1.8 only accept an int ``cv``, so there the seed goes through the
+    encoder's own ``random_state``. scikit-learn 1.9 deprecated that argument
+    (removed in 1.11) and warns on every fit, so there we pass the same seeded
+    ``KFold`` as ``cv`` instead. Both give identical folds: for a continuous
+    target ``TargetEncoder`` builds exactly that ``KFold`` from the int.
     """
 
     def fit_transform(self, X, y=None, **fit_params):
@@ -85,7 +96,15 @@ class _AdaptiveTargetEncoder(TargetEncoder):
         if n < 2:
             # Nothing to cross-fit; fall back to the plain fit+transform.
             return self.fit(X, y).transform(X)
-        self.cv = min(_TARGET_ENCODER_FOLDS, n)
+        n_splits = min(_TARGET_ENCODER_FOLDS, n)
+        if _TARGET_ENCODER_TAKES_SPLITTER:
+            from sklearn.model_selection import KFold
+
+            self.cv = KFold(
+                n_splits=n_splits, shuffle=True, random_state=_TARGET_ENCODER_SEED
+            )
+        else:
+            self.cv = n_splits
         return super().fit_transform(X, y, **fit_params)
 
 
@@ -115,7 +134,8 @@ def _target_encoder():
             ("impute", SimpleImputer(strategy="most_frequent")),
             ("target", _AdaptiveTargetEncoder(
                 target_type="continuous", smooth="auto",
-                random_state=_TARGET_ENCODER_SEED)),
+                **({} if _TARGET_ENCODER_TAKES_SPLITTER
+                   else {"random_state": _TARGET_ENCODER_SEED}))),
         ]
     )
 

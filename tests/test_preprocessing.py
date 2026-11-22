@@ -121,3 +121,36 @@ def test_xgboost_preprocessor_preserves_numeric_nans():
     out = pp.transform(with_nan)
     assert np.isnan(out[0, 0])  # numeric NaN preserved
     assert np.isfinite(out[0, 1])  # categorical encoded to a real value
+
+
+def test_target_encoder_fit_raises_no_deprecation_warning(synthetic_parts):
+    # scikit-learn 1.9 deprecated TargetEncoder.random_state and warns on every
+    # fit that sets it. Users of the CLI saw that warning repeated during
+    # training; the encoder must seed its folds without triggering it.
+    import warnings
+
+    pp = build_preprocessor(["Weight"], ["Region"], model_family="xgboost")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        warnings.simplefilter("error", DeprecationWarning)
+        pp.fit_transform(synthetic_parts[["Weight", "Region"]], synthetic_parts["Price"])
+
+
+def test_target_encoder_folds_match_the_seeded_int_cv(synthetic_parts):
+    # The training encoding must not change: the seeded KFold we pass on newer
+    # scikit-learn gives the same out-of-fold values as the old int cv seeded
+    # through random_state.
+    import warnings
+
+    X = synthetic_parts[["Region"]]
+    y = synthetic_parts["Price"]
+    ours = _target_encoder(
+        build_preprocessor([], ["Region"], model_family="xgboost")
+        .fit(X, y).named_transformers_["cat"]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        reference = TargetEncoder(
+            target_type="continuous", smooth="auto", cv=5, random_state=0
+        ).fit_transform(X, y)
+    assert np.allclose(ours.fit_transform(X, y), reference)
