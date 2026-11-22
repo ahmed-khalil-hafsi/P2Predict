@@ -972,3 +972,96 @@ async def test_train_winsorize_caps_apply_when_predicting(registry, tmp_path, sy
     rows = pd.DataFrame({"Weight": [15.0, 15.0], "Wide_Range_Spec": [1e3, 3.6e31]})
     low, absurd = model.predict(rows)
     assert low == absurd
+
+
+# ---------------------------------------------------------------------------
+# Outlier scans cover only what the model trains on, and price outliers are
+# reported back. A leaky, ID-like or unselected column never reaches the
+# model, so its outliers must not be reported and must not drop rows.
+# ---------------------------------------------------------------------------
+
+
+def _price_spike_frame(synthetic_parts):
+    """Synthetic data where the first five prices are far above the rest."""
+    df = synthetic_parts.copy()
+    df.loc[:4, "Price"] = df["Price"].max() * 50
+    return df
+
+
+@pytest.mark.asyncio
+async def test_leaky_column_outliers_are_not_reported_and_drop_no_rows(
+    registry, tmp_path, synthetic_parts
+):
+    clean = _price_spike_frame(synthetic_parts)
+    leaky = clean.copy()
+    # A near-copy of the price: it carries the same five spikes as outliers.
+    leaky["Price_at_1k"] = leaky["Price"] * 0.5 + np.random.default_rng(0).normal(
+        0, 0.005, len(leaky)
+    )
+    clean_csv, leaky_csv = tmp_path / "clean.csv", tmp_path / "leaky.csv"
+    clean.to_csv(clean_csv, index=False)
+    leaky.to_csv(leaky_csv, index=False)
+
+    kwargs = dict(
+        target="Price", outlier_policy="keep", feature_outlier_policy="drop",
+    )
+    trained = _parse(await mcp_server.train(
+        csv_path=str(leaky_csv), algorithm="ridge", budget="fast", **kwargs,
+    ))
+    baseline = _parse(await mcp_server.train(
+        csv_path=str(clean_csv), algorithm="ridge", budget="fast", **kwargs,
+    ))
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(leaky_csv), **kwargs,
+    ))
+    assert "error" not in trained and "error" not in baseline and "error" not in plan
+
+    assert "Price_at_1k" not in trained["features"]
+    for quality in (trained["feature_data_quality"], plan["feature_data_quality"]):
+        assert "Price_at_1k" not in quality["per_column"]
+        assert all(e["column"] != "Price_at_1k" for e in quality["extreme_magnitude"])
+    # The leaky column's spikes drop no rows: same rows as without the column.
+    assert trained["rows_used"] == baseline["rows_used"]
+
+
+@pytest.mark.asyncio
+async def test_price_outliers_are_reported_under_warn(
+    registry, tmp_path, synthetic_parts
+):
+    csv = tmp_path / "spikes.csv"
+    _price_spike_frame(synthetic_parts).to_csv(csv, index=False)
+
+    trained = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+    ))
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    assert "error" not in trained and "error" not in plan
+
+    for result in (trained, plan):
+        block = result["price_outliers"]
+        assert block["n_outliers"] >= 5
+        assert block["n_total"] == len(synthetic_parts)
+        assert block["policy"] == "warn"
+        assert block["policy_applied"] == "none"
+        assert block["upper"] < synthetic_parts["Price"].max() * 50
+        assert any(
+            f"{block['n_outliers']} of {block['n_total']} rows" in w
+            for w in result["warnings"]
+        )
+    # warn keeps the rows.
+    assert trained["rows_used"] == trained["rows_loaded"]
+
+
+@pytest.mark.asyncio
+async def test_no_price_outlier_warning_when_policy_is_not_warn(
+    registry, tmp_path, synthetic_parts
+):
+    csv = tmp_path / "spikes.csv"
+    _price_spike_frame(synthetic_parts).to_csv(csv, index=False)
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price", outlier_policy="drop",
+    ))
+    assert plan["price_outliers"]["policy_applied"] == "drop"
+    assert plan["warnings"] == []

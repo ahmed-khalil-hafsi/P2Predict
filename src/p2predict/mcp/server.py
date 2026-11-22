@@ -770,12 +770,20 @@ async def predict_from_csv(
 
 def _prepare_training_data(
     csv_path: str, target: str, outlier_policy: str, feature_outlier_policy: str,
+    features: list[str] | None = None, max_features: int = 6,
+    allow_leaky: bool = False,
 ) -> dict:
-    """Load a training CSV and apply the outlier policies, exactly as `train`
-    does. `propose_training_plan` runs the same steps so the specs it proposes
-    are the ones `train` will pick for the same arguments."""
+    """Load a training CSV, pick the specs and apply the outlier policies,
+    exactly as `train` does. `propose_training_plan` runs the same steps so the
+    specs it proposes are the ones `train` will pick for the same arguments.
+
+    The specs are chosen before the feature-outlier policy runs, and the
+    policy only looks at the chosen numeric specs. A leaky, ID-like or
+    unselected column never reaches the model, so its outliers must neither
+    be reported nor drop rows."""
     import pandas as pd
 
+    from p2predict.feature_selection import choose_training_features
     from p2predict.outliers import (
         apply_feature_outlier_policy,
         apply_outlier_policy,
@@ -798,25 +806,59 @@ def _prepare_training_data(
     if data.empty:
         raise ValueError(f"All rows have missing values in target '{target}'.")
 
-    data, _ = apply_outlier_policy(data, target, policy=outlier_policy)
+    data, price_outliers = apply_outlier_policy(data, target, policy=outlier_policy)
 
-    num_candidates = [
-        c for c in data.columns if c != target and pd.api.types.is_numeric_dtype(data[c])
+    choice = choose_training_features(
+        data, target, features, max_features=max_features, allow_leaky=allow_leaky,
+    )
+    numeric_specs = [
+        c for c in choice.selected if pd.api.types.is_numeric_dtype(data[c])
     ]
     # Inspect BEFORE applying the policy, so the report describes the data
     # the user actually handed us rather than the treated copy.
     uncapped_data = data
-    feature_quality = describe_feature_outliers(data, num_candidates)
+    feature_quality = describe_feature_outliers(data, numeric_specs)
     data, feature_outlier_summary = apply_feature_outlier_policy(
-        data, num_candidates, policy=feature_outlier_policy
+        data, numeric_specs, policy=feature_outlier_policy
     )
     feature_quality["policy_applied"] = feature_outlier_summary["applied"]
     return {
         "data": data,
         "uncapped_data": uncapped_data,
         "rows_loaded": rows_loaded,
+        "choice": choice,
         "feature_quality": feature_quality,
+        "price_outliers": _price_outlier_block(price_outliers),
     }
+
+
+def _price_outlier_block(summary: dict) -> dict:
+    """JSON-safe form of `apply_outlier_policy`'s summary. Bounds are null when
+    the price column had no finite values to compute them from."""
+    def _bound(v):
+        return None if v is None or v != v else float(v)
+
+    return {
+        "n_outliers": int(summary["n_outliers"]),
+        "n_total": int(summary["n_total"]),
+        "lower": _bound(summary["lower"]),
+        "upper": _bound(summary["upper"]),
+        "policy": summary["policy"],
+        "policy_applied": summary["applied"],
+    }
+
+
+def _price_outlier_warning(target: str, block: dict) -> str | None:
+    """Plain-language warning for target outliers left in under 'warn'."""
+    if block["policy"] != "warn" or block["n_outliers"] == 0:
+        return None
+    return (
+        f"{block['n_outliers']} of {block['n_total']} rows have a '{target}' far "
+        f"outside the rest (outside {block['lower']:.4g} to {block['upper']:.4g}) "
+        "— often rush orders, spot buys or data-entry errors. They were kept. "
+        "Re-run with outlier_policy='drop' or 'winsorize' if they shouldn't "
+        "shape the model."
+    )
 
 
 @mcp.tool()
@@ -848,20 +890,19 @@ async def propose_training_plan(
     def _do_plan() -> dict:
         import pandas as pd
 
-        from p2predict.feature_selection import choose_training_features
-        from p2predict.outliers import describe_feature_outliers
         from p2predict.training import resolve_log_target
 
+        # Same chooser as `train` and the CLI, on the same prepared data, so
+        # the plan's specs are exactly what training will use.
         prepared = _prepare_training_data(
-            csv_path, target, outlier_policy, feature_outlier_policy
+            csv_path, target, outlier_policy, feature_outlier_policy,
+            max_features=max_features,
         )
         data = prepared["data"]
         rows_loaded = prepared["rows_loaded"]
         y = pd.to_numeric(data[target], errors="coerce").dropna()
 
-        # Same chooser as `train` and the CLI, on the same prepared data, so
-        # the plan's specs are exactly what training will use.
-        choice = choose_training_features(data, target, max_features=max_features)
+        choice = prepared["choice"]
         selected = choice.selected
         excluded = choice.excluded
         leaky = [e for e in excluded if e["kind"] == "leakage"]
@@ -870,12 +911,8 @@ async def propose_training_plan(
         # CLI reports this; before v1.2 the agent path did not, so an agent had
         # no way to know a column needed handling and never set
         # feature_outlier_policy. See research/feature_outlier_visibility.md.
-        numeric_specs = [
-            c for c in selected if pd.api.types.is_numeric_dtype(data[c])
-        ]
-        outlier_report = describe_feature_outliers(
-            prepared["uncapped_data"], numeric_specs
-        )
+        outlier_report = prepared["feature_quality"]
+        price_outliers = prepared["price_outliers"]
 
         # Log-target recommendation.
         _, auto_decision = resolve_log_target(y, mode="auto")
@@ -899,6 +936,7 @@ async def propose_training_plan(
             )
         for flagged in outlier_report["extreme_magnitude"]:
             questions.append(flagged["say_to_user"])
+        price_warning = _price_outlier_warning(target, price_outliers)
 
         plain_summary = (
             f"I found {rows_loaded} rows. I can build a model that estimates "
@@ -922,6 +960,8 @@ async def propose_training_plan(
             "log_target_auto_decision": auto_decision,
             "rows_available": rows_loaded,
             "feature_data_quality": outlier_report,
+            "price_outliers": price_outliers,
+            "warnings": [price_warning] if price_warning else [],
             "questions_for_the_user": questions,
             "to_proceed": (
                 "After the user confirms, call train(csv_path, target, "
@@ -985,10 +1025,7 @@ async def train(
 
     def _do_train() -> dict:
         from p2predict import auto_train, Serialize_Trained_Model, save_model
-        from p2predict.feature_selection import (
-            choose_training_features,
-            find_leaky_features,
-        )
+        from p2predict.feature_selection import find_leaky_features
         from p2predict.intervals import compute_calibration_residuals
         from p2predict.model_evals import evaluate_model
         from p2predict.prepare_data import prepare_data
@@ -998,18 +1035,27 @@ async def train(
             start_training,
         )
 
+        # Same chooser as the CLI and propose_training_plan: auto-selection
+        # never picks a leakage, ID-like or single-value column.
         prepared = _prepare_training_data(
-            csv_path, target, outlier_policy, feature_outlier_policy
+            csv_path, target, outlier_policy, feature_outlier_policy,
+            features=features, max_features=max_features,
+            allow_leaky=allow_leaky_features,
         )
         data = prepared["data"]
         uncapped_data = prepared["uncapped_data"]
         rows_loaded = prepared["rows_loaded"]
         feature_quality = prepared["feature_quality"]
+        price_outliers = prepared["price_outliers"]
+        choice = prepared["choice"]
         # Under winsorize the model learns and applies the caps itself, so
         # training runs on the uncapped rows; see FeatureClipper.
         winsorize_features = feature_outlier_policy == "winsorize"
 
         warnings: list[str] = []
+        price_warning = _price_outlier_warning(target, price_outliers)
+        if price_warning:
+            warnings.append(price_warning)
         for flagged in feature_quality["extreme_magnitude"]:
             warnings.append(
                 f"'{flagged['column']}' contains a value far outside the rest of "
@@ -1021,12 +1067,6 @@ async def train(
             )
         leaky = find_leaky_features(data, target)
 
-        # Same chooser as the CLI and propose_training_plan: auto-selection
-        # never picks a leakage, ID-like or single-value column.
-        choice = choose_training_features(
-            data, target, features, max_features=max_features,
-            allow_leaky=allow_leaky_features,
-        )
         if choice.leaky_requested:
             # Stop and ask rather than train a confidently-wrong model.
             return {
@@ -1156,6 +1196,7 @@ async def train(
             "calibration_size": calibration.get("n_calibration"),
             "excluded_leaky_features": leaky,
             "feature_data_quality": feature_quality,
+            "price_outliers": price_outliers,
             "warnings": warnings,
         }
 
