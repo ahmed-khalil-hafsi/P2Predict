@@ -246,3 +246,22 @@ def test_build_pipeline_log_target_wrap_inverts_correctly(synthetic_parts_skewed
     preds = model.predict(X_train.head(5))
     assert (preds > 0).all()
     assert preds.max() > 1  # sanity: skewed price ** 2 means values aren't all tiny
+
+
+def test_linear_importance_is_not_inflated_by_a_many_category_noise_column(
+    synthetic_parts,
+):
+    """A near-unique category (e.g. a quote date read as text) used to get
+    most of a ridge model's importance, because |coef| was summed over its
+    hundreds of one-hot columns."""
+    df = synthetic_parts.copy()
+    df["Noise"] = [f"d{i}" for i in range(len(df))]
+    X_train, _, y_train, _, num, cat = _split(df)
+    model, _, _ = start_training(
+        X_train, y_train, num, cat, algorithm="ridge", tune=False
+    )
+    importances = dict(extract_feature_importances(model, X_train))
+    total = sum(importances.values())
+    assert importances["Noise"] / total < 0.15
+    assert importances["Weight"] > importances["Noise"]
+    assert max(importances, key=importances.get) == "Weight"

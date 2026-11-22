@@ -1055,13 +1055,64 @@ async def test_price_outliers_are_reported_under_warn(
 
 
 @pytest.mark.asyncio
-async def test_no_price_outlier_warning_when_policy_is_not_warn(
+async def test_price_outlier_warning_says_rows_were_removed_under_drop(
     registry, tmp_path, synthetic_parts
 ):
+    """`drop` used to remove rows with an empty warnings list."""
     csv = tmp_path / "spikes.csv"
     _price_spike_frame(synthetic_parts).to_csv(csv, index=False)
     plan = _parse(await mcp_server.propose_training_plan(
         csv_path=str(csv), target="Price", outlier_policy="drop",
     ))
-    assert plan["price_outliers"]["policy_applied"] == "drop"
-    assert plan["warnings"] == []
+    block = plan["price_outliers"]
+    assert block["policy_applied"] == "drop"
+    assert len(block["flagged_rows"]) == block["n_outliers"]
+    assert any("REMOVED" in w for w in plan["warnings"])
+    assert not any("They were kept" in w for w in plan["warnings"])
+
+
+def _messy_csv(tmp_path, synthetic_parts):
+    """Quote dates, a few missing weights and prices, and two 50x typos."""
+    df = synthetic_parts.copy()
+    df["Quote_Date"] = pd.date_range("2023-01-01", periods=len(df)).strftime("%Y-%m-%d")
+    df.loc[[10, 11, 12], "Weight"] = np.nan
+    df.loc[[20], "Price"] = np.nan
+    df.loc[[30, 31], "Price"] = df["Price"].max() * 50
+    csv = tmp_path / "messy.csv"
+    df.to_csv(csv, index=False)
+    return csv
+
+
+@pytest.mark.asyncio
+async def test_plan_leaves_out_dates_and_reports_missing_values(
+    registry, tmp_path, synthetic_parts
+):
+    csv = _messy_csv(tmp_path, synthetic_parts)
+    plan = _parse(await mcp_server.propose_training_plan(
+        csv_path=str(csv), target="Price",
+    ))
+    assert "error" not in plan
+    assert "Quote_Date" not in plan["i_will_use_these_specs"]
+    assert any(e["column"] == "Quote_Date" and e["kind"] == "date"
+               for e in plan["i_am_leaving_out"])
+    assert plan["missing_values"]["rows_without_price_dropped"] == 1
+    if "Weight" in plan["i_will_use_these_specs"]:
+        assert plan["missing_values"]["specs"]["Weight"] == 3
+        assert any("Weight" in w and "missing" in w for w in plan["warnings"])
+    assert any("no 'Price'" in w for w in plan["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_train_drop_says_which_rows_it_removed(registry, tmp_path, synthetic_parts):
+    csv = _messy_csv(tmp_path, synthetic_parts)
+    trained = _parse(await mcp_server.train(
+        csv_path=str(csv), target="Price", algorithm="ridge", budget="fast",
+        outlier_policy="drop",
+    ))
+    assert "error" not in trained
+    block = trained["price_outliers"]
+    assert block["policy_applied"] == "drop"
+    # Rows 30 and 31 of the data sit on CSV lines 32 and 33 (header = line 1).
+    lines = {r["csv_line"] for r in block["flagged_rows"]}
+    assert {32, 33} <= lines
+    assert any("REMOVED" in w and "line 32" in w for w in trained["warnings"])

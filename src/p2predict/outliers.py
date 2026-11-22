@@ -93,7 +93,7 @@ def apply_outlier_policy(data, target_column, policy="warn", multiplier=IQR_MULT
 
     Returns ``(df, summary)``. The summary dict is suitable for
     caller-side logging:
-        ``{n_outliers, n_total, lower, upper, policy, applied}``
+        ``{n_outliers, n_total, lower, upper, policy, applied, flagged}``
 
     ``applied`` is the action that actually changed the data (``drop``,
     ``winsorize``, or ``none``).
@@ -110,6 +110,11 @@ def apply_outlier_policy(data, target_column, policy="warn", multiplier=IQR_MULT
         "upper": upper,
         "policy": policy,
         "applied": "none",
+        # Which rows were flagged, as (row label in ``data``, value) pairs,
+        # so the caller can show them before or after acting on them.
+        "flagged": [
+            (idx, float(val)) for idx, val in data.loc[mask, target_column].items()
+        ],
     }
 
     if n_outliers == 0:

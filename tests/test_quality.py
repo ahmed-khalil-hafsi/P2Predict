@@ -413,3 +413,19 @@ def test_quality_report_uses_the_equivalence_gate():
         "immaterial", "likely_immaterial", "likely_material", "unmeasured")
     # the business-safe default must not leak the raw interval
     assert "bias_status" not in quality.build_quality_report(loaded)["metrics"]
+
+
+def test_price_bands_on_cheap_parts_have_distinct_labels():
+    rng = np.random.default_rng(0)
+    y = rng.uniform(5, 15, 80)
+    labels, _, _ = quality.error_by_price_band(y, y * 1.05)
+    for label in labels:
+        low, high = label.split("–")
+        assert low != high, label
+    assert len(set(labels)) == len(labels)
+
+
+def test_price_bands_keep_whole_numbers_when_they_are_enough():
+    y = np.linspace(100, 10_000, 100)
+    labels, _, _ = quality.error_by_price_band(y, y)
+    assert all("." not in label for label in labels)

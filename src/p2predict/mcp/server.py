@@ -805,6 +805,7 @@ def _prepare_training_data(
     data = data[data[target].notna()]
     if data.empty:
         raise ValueError(f"All rows have missing values in target '{target}'.")
+    price_missing = rows_loaded - len(data)
 
     data, price_outliers = apply_outlier_policy(data, target, policy=outlier_policy)
 
@@ -822,6 +823,10 @@ def _prepare_training_data(
         data, numeric_specs, policy=feature_outlier_policy
     )
     feature_quality["policy_applied"] = feature_outlier_summary["applied"]
+    spec_missing = {
+        c: int(n) for c in choice.selected
+        if c in data.columns and (n := data[c].isna().sum()) > 0
+    }
     return {
         "data": data,
         "uncapped_data": uncapped_data,
@@ -829,7 +834,30 @@ def _prepare_training_data(
         "choice": choice,
         "feature_quality": feature_quality,
         "price_outliers": _price_outlier_block(price_outliers),
+        "missing_values": {
+            "rows_without_price_dropped": int(price_missing),
+            "specs": spec_missing,
+        },
     }
+
+
+def _missing_values_warnings(target: str, block: dict) -> list[str]:
+    """Plain-language warnings for gaps in the price and in the chosen specs."""
+    out = []
+    n_price = block["rows_without_price_dropped"]
+    if n_price:
+        out.append(
+            f"{n_price} row(s) have no '{target}' and were left out — a model "
+            "can't learn from a part without a price."
+        )
+    if block["specs"]:
+        details = ", ".join(f"'{c}' ({n} rows)" for c, n in block["specs"].items())
+        out.append(
+            f"Some parts are missing a spec: {details}. They are kept, and the "
+            "model handles each gap automatically. A handful is fine; if "
+            "many parts lack a spec, its effect on price is harder to read."
+        )
+    return out
 
 
 def _price_outlier_block(summary: dict) -> dict:
@@ -838,6 +866,18 @@ def _price_outlier_block(summary: dict) -> dict:
     def _bound(v):
         return None if v is None or v != v else float(v)
 
+    flagged = summary.get("flagged", [])
+    rows = []
+    for idx, value in flagged[:_MAX_FLAGGED_ROWS]:
+        try:
+            # Row labels are the CSV's own 0-based data rows (nothing resets the
+            # index before this point), so +2 is the file line with the header
+            # as line 1 — the row number a spreadsheet shows.
+            line = int(idx) + 2
+        except (TypeError, ValueError):
+            line = None
+        rows.append({"csv_line": line, "price": float(value)})
+
     return {
         "n_outliers": int(summary["n_outliers"]),
         "n_total": int(summary["n_total"]),
@@ -845,19 +885,43 @@ def _price_outlier_block(summary: dict) -> dict:
         "upper": _bound(summary["upper"]),
         "policy": summary["policy"],
         "policy_applied": summary["applied"],
+        "flagged_rows": rows,
+        "flagged_rows_truncated": len(flagged) > _MAX_FLAGGED_ROWS,
     }
 
 
+_MAX_FLAGGED_ROWS = 50
+
+
 def _price_outlier_warning(target: str, block: dict) -> str | None:
-    """Plain-language warning for target outliers left in under 'warn'."""
-    if block["policy"] != "warn" or block["n_outliers"] == 0:
+    """Plain-language warning for target outliers, whatever the policy did."""
+    n = block["n_outliers"]
+    if n == 0 or block["policy"] not in ("warn", "drop", "winsorize"):
         return None
+    head = (
+        f"{n} of {block['n_total']} rows have a '{target}' far outside the rest "
+        f"(outside {block['lower']:.4g} to {block['upper']:.4g})"
+    )
+    shown = ", ".join(
+        f"line {r['csv_line']} ({r['price']:.4g})" for r in block["flagged_rows"][:10]
+    )
+    more = " and more (see price_outliers.flagged_rows)" if n > 10 else ""
+    listing = f": {shown}{more}" if shown else ""
+    if block["policy"] == "warn":
+        return (
+            f"{head}{listing} — often rush orders, spot buys or data-entry "
+            "errors. They were kept. Re-run with outlier_policy='drop' or "
+            "'winsorize' if they shouldn't shape the model."
+        )
+    action = (
+        "They were REMOVED before training"
+        if block["policy"] == "drop"
+        else "Their prices were capped to that range before training"
+    )
     return (
-        f"{block['n_outliers']} of {block['n_total']} rows have a '{target}' far "
-        f"outside the rest (outside {block['lower']:.4g} to {block['upper']:.4g}) "
-        "— often rush orders, spot buys or data-entry errors. They were kept. "
-        "Re-run with outlier_policy='drop' or 'winsorize' if they shouldn't "
-        "shape the model."
+        f"{head}{listing}. {action}. The rule only looks at how far a price is "
+        "from the rest, so genuinely expensive or cheap parts can be caught "
+        "along with typos — check the list with the user."
     )
 
 
@@ -874,8 +938,9 @@ async def propose_training_plan(
     Call this first whenever a user wants to build a should-cost / pricing
     model. It reads the CSV, decides what it would predict, which columns it
     would use as specs, which it would leave out (and why — target leakage,
-    ID-like columns), and whether the target should use a log-target. It
-    trains nothing and writes nothing.
+    dates, ID-like columns), and whether the target should use a log-target.
+    It also reports suspicious prices (`price_outliers`, with CSV lines) and
+    missing values (`missing_values`). It trains nothing and writes nothing.
 
     Relay `plain_summary` and `questions_for_the_user` to the user in their
     own language, get confirmation, then call `train` (passing the agreed
@@ -961,7 +1026,11 @@ async def propose_training_plan(
             "rows_available": rows_loaded,
             "feature_data_quality": outlier_report,
             "price_outliers": price_outliers,
-            "warnings": [price_warning] if price_warning else [],
+            "missing_values": prepared["missing_values"],
+            "warnings": (
+                ([price_warning] if price_warning else [])
+                + _missing_values_warnings(target, prepared["missing_values"])
+            ),
             "questions_for_the_user": questions,
             "to_proceed": (
                 "After the user confirms, call train(csv_path, target, "
@@ -1007,9 +1076,13 @@ async def train(
     Safe defaults (always surfaced in the returned `warnings` list):
       - When features are auto-selected (features=None), columns that look
         like target leakage (a near-duplicate of the price being predicted),
-        ID-like text columns (part numbers, descriptions) and single-value
-        columns are excluded automatically. Same rules as
-        `propose_training_plan` and the CLI.
+        date columns (e.g. a quote date), ID-like text columns (part numbers,
+        descriptions) and single-value columns are excluded automatically.
+        Same rules as `propose_training_plan` and the CLI.
+      - Price outliers are reported in `price_outliers` (with their CSV
+        lines) under every policy; with outlier_policy="drop" a warning says
+        how many rows were removed. Gaps in the price or the chosen specs
+        are reported in `missing_values`.
       - Requested features with the same value in every row are left out
         with a note; they can't move the price.
       - For a strictly-positive (price/cost) target where the automatic skew
@@ -1086,6 +1159,7 @@ async def train(
             }
         selected = choice.selected
         warnings.extend(choice.notes)
+        warnings.extend(_missing_values_warnings(target, prepared["missing_values"]))
 
         training_data = (
             uncapped_data.loc[data.index, data.columns] if winsorize_features else data
@@ -1197,6 +1271,7 @@ async def train(
             "excluded_leaky_features": leaky,
             "feature_data_quality": feature_quality,
             "price_outliers": price_outliers,
+            "missing_values": prepared["missing_values"],
             "warnings": warnings,
         }
 

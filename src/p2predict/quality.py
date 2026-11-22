@@ -492,6 +492,19 @@ def summary_metrics(y_test, y_pred):
     }
 
 
+def _band_edge_format(edges, max_decimals=4):
+    """Format spec with the fewest decimals that keep every band edge distinct.
+
+    Whole numbers suit expensive parts, but on cheap ones adjacent edges
+    (7.21 and 7.86) both rounded to "7", giving bands labelled "7–7".
+    """
+    for decimals in range(max_decimals + 1):
+        shown = {f"{e:,.{decimals}f}" for e in edges}
+        if len(shown) == len(edges):
+            return f",.{decimals}f"
+    return f",.{max_decimals}f"
+
+
 def error_by_price_band(y_test, y_pred, n_bins=10):
     """Bucket holdout points by actual-price quantile; return median APE per bucket.
 
@@ -505,6 +518,7 @@ def error_by_price_band(y_test, y_pred, n_bins=10):
     if len(edges) < 3:
         return None
     bin_idx = np.clip(np.digitize(y_test, edges[1:-1]), 0, len(edges) - 2)
+    fmt = _band_edge_format(edges)
     labels, medians, counts = [], [], []
     for b in range(len(edges) - 1):
         mask = bin_idx == b
@@ -514,7 +528,7 @@ def error_by_price_band(y_test, y_pred, n_bins=10):
         ape = abs_pct_errors(y_test[mask], y_pred[mask])
         if ape.size == 0:
             continue
-        labels.append(f"{edges[b]:,.0f}–{edges[b + 1]:,.0f}")
+        labels.append(f"{edges[b]:{fmt}}–{edges[b + 1]:{fmt}}")
         medians.append(float(np.median(ape)))
         counts.append(n)
     if not labels:

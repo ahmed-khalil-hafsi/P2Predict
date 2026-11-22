@@ -28,6 +28,40 @@ def find_high_variation_features(df):
     return high_variation
 
 
+# A text value that reads as a calendar date: ISO (2024-03-15, optionally with
+# a time), day/month/year with / . or - (15.03.2024, 3/15/24), or year/month.
+# Deliberately requires a 4-digit year or a full d/m/y triple, so spec values
+# like "1/4" (a thread size), "IP67" or "M8x1.25" never match.
+_DATE_RE = (
+    r"^\s*(?:"
+    r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?"
+    r"|\d{1,2}[-/.]\d{1,2}[-/.](?:\d{4}|\d{2})"
+    r"|\d{4}[-/]\d{1,2}"
+    r")\s*$"
+)
+DATE_MATCH_SHARE = 0.9
+
+
+def find_date_like_features(df):
+    """Text columns whose values are (almost all) calendar dates.
+
+    A date read from a CSV arrives as text, so without this check it is
+    treated as a category with one level per distinct day. That near-unique
+    category fits noise: tree-based spec ranking picks it, and a linear
+    model spreads weight over hundreds of one-day columns. A quote date is
+    not a spec of the part either way, so auto-selection leaves it out.
+    """
+    found = []
+    for col in df.select_dtypes(include=["object", "string"]).columns:
+        values = df[col].dropna().astype(str)
+        if values.nunique() < 2:
+            continue  # constant columns are reported as such
+        share = values.str.match(_DATE_RE).mean()
+        if share >= DATE_MATCH_SHARE:
+            found.append(col)
+    return found
+
+
 def find_no_variation_features(df):
     unique_counts = df.nunique(dropna=False)
     return unique_counts[unique_counts <= 1].index.tolist()
@@ -86,10 +120,12 @@ def find_auto_exclusions(data, target_column):
 
     The single source of truth for what auto-mode leaves out, shared by the
     headless CLI, the MCP ``train`` tool and ``propose_training_plan`` so the
-    same CSV yields the same specs on every path. Three kinds, in this order:
+    same CSV yields the same specs on every path. Four kinds, in this order:
 
     - ``leakage``: a numeric near-duplicate of the target (see
       :func:`find_leaky_features`).
+    - ``date``: a text column of calendar dates (see
+      :func:`find_date_like_features`).
     - ``id_like``: a text column where almost every row is unique (part
       numbers, descriptions). A model can't learn a spec from it, and a new
       part never shares its value, so it only adds noise. Numeric
@@ -107,10 +143,22 @@ def find_auto_exclusions(data, target_column):
     for d in leaky:
         excluded.append({"column": d["feature"], "kind": "leakage", "reason": d["reason"]})
 
+    date_cols = [c for c in find_date_like_features(data) if c != target_column]
+    for col in date_cols:
+        excluded.append({
+            "column": col,
+            "kind": "date",
+            "reason": "Looks like a date (e.g. when the part was quoted), not a "
+                      "spec of the part. As a spec, every day becomes its own "
+                      "category, so the model learns noise and the real price "
+                      "drivers look weaker than they are.",
+        })
+
     for col in find_high_variation_features(data):
         if (
             col == target_column
             or col in leaky_names
+            or col in date_cols
             or pd.api.types.is_numeric_dtype(data[col])
         ):
             continue
@@ -184,6 +232,13 @@ def choose_training_features(
             for c in dropped
         ]
         requested = [c for c in requested if c not in constant]
+        dates = {e["column"] for e in exclusions if e["kind"] == "date"}
+        notes.extend(
+            f"'{c}' looks like a date. It is used as you asked, but each day "
+            "becomes its own category: expect it to soak up importance without "
+            "improving accuracy. Leave it out unless you know the date matters."
+            for c in requested if c in dates
+        )
         missing = [c for c in requested if c not in data.columns]
         if missing:
             raise FeatureChoiceError(

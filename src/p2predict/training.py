@@ -248,8 +248,10 @@ def extract_feature_importances(model, X_train):
 
     if hasattr(estimator, "feature_importances_"):
         importances = np.asarray(estimator.feature_importances_, dtype=float)
+        coef = None
     elif hasattr(estimator, "coef_"):
-        importances = np.abs(np.asarray(estimator.coef_, dtype=float))
+        coef = np.asarray(estimator.coef_, dtype=float).ravel()
+        importances = np.abs(coef)
     else:
         return []
 
@@ -259,8 +261,8 @@ def extract_feature_importances(model, X_train):
         raw_names = [f"f{i}" for i in range(len(importances))]
 
     source_cols = list(X_train.columns)
-    by_source = {}
-    for name, imp in zip(raw_names, importances):
+    groups = {}  # source column -> indices of its transformed columns
+    for i, name in enumerate(raw_names):
         rest = name.split("__", 1)[1] if "__" in name else name
         # Match the longest column-name prefix so e.g. "weight_g" doesn't get
         # grouped with "weight".
@@ -270,6 +272,44 @@ def extract_feature_importances(model, X_train):
                 if match is None or len(col) > len(match):
                     match = col
         source = match if match is not None else rest
-        by_source[source] = by_source.get(source, 0.0) + float(imp)
+        groups.setdefault(source, []).append(i)
+
+    by_source = None
+    if coef is not None:
+        by_source = _linear_contribution_spread(preprocessor, X_train, coef, groups)
+    if by_source is None:
+        by_source = {
+            source: float(importances[idx].sum()) for source, idx in groups.items()
+        }
 
     return sorted(by_source.items(), key=lambda kv: kv[1], reverse=True)
+
+
+def _linear_contribution_spread(preprocessor, X, coef, groups):
+    """Importance of each source column of a linear model: the spread
+    (standard deviation) across ``X`` of that column's total contribution to
+    the prediction.
+
+    Summing |coef| over a categorical's one-hot columns made importance grow
+    with the number of categories: a quote-date column with one level per
+    day collected hundreds of small coefficients and outweighed every real
+    driver. The spread of the summed contribution doesn't: a scaled numeric
+    spec scores |coef| as before, and a category scores by how much its
+    effects actually move prices across the parts. Returns None when the
+    training rows can't be transformed, so the caller falls back.
+    """
+    try:
+        Xt = preprocessor.transform(X)
+    except Exception:
+        return None
+    if Xt.shape[1] != len(coef):
+        return None
+    if hasattr(Xt, "tocsc"):
+        Xt = Xt.tocsc()
+    else:
+        Xt = np.asarray(Xt, dtype=float)
+    spread = {}
+    for source, idx in groups.items():
+        contrib = np.asarray(Xt[:, idx] @ coef[idx], dtype=float).ravel()
+        spread[source] = float(np.std(contrib)) if contrib.size else 0.0
+    return spread

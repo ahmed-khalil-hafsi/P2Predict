@@ -6,10 +6,24 @@ import sklearn
 
 from p2predict.input_checks import check_csv_sanity
 
-# v0.9 adds `--json` to both CLIs, emitting a stable schema 1.0 response
-# instead of Rich-formatted tables when set. No persisted metadata schema
-# change; older models load unchanged.
-P2PREDICT_VERSION = "v1.1.0"
+def _package_version() -> str:
+    """The installed package version, from pyproject.toml via its metadata.
+
+    This used to be a hard-coded string that fell behind the releases (it
+    said v1.1.0 while pyproject said 1.3.0). An editable install only
+    refreshes its metadata on reinstall, so a dev checkout can still lag
+    until `pip install -e .` / `uv sync` runs again.
+    """
+    import importlib.metadata
+
+    try:
+        return "v" + importlib.metadata.version("p2predict")
+    except importlib.metadata.PackageNotFoundError:
+        return "v0.0.0+unknown"
+
+
+# Stamped into every saved model as `p2predict_version`.
+P2PREDICT_VERSION = _package_version()
 
 
 def SaveModel(model_metadata, model_name):

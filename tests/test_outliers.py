@@ -205,3 +205,9 @@ def test_feature_outliers_drop_handles_unaligned_indices():
     assert len(out) == 20
     assert summary["n_outliers_total"] == 1
     assert 10_000 not in out["Weight"].values
+
+
+def test_apply_outlier_policy_lists_the_flagged_rows():
+    df = pd.DataFrame({"price": list(range(1, 21)) + [10_000]})
+    _, summary = apply_outlier_policy(df, "price", policy="drop")
+    assert summary["flagged"] == [(20, 10_000.0)]
